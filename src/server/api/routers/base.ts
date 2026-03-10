@@ -1,38 +1,53 @@
 // src/server/api/routers/base.ts
-import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import {
+  BaseWithTablesOutput,
+  BaseOutput,
+  BaseCreateInput,
+  BaseRenameInput,
+  BaseDeleteInput,
+} from "~/types/schemas";
+import { z } from "zod";
 
 export const baseRouter = createTRPCRouter({
-  getAll: publicProcedure.query(async ({ ctx }) => {
-    return ctx.db.base.findMany({
-      include: {
-        tables: {
-          include: {
-            _count: { select: { rows: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
-  }),
-
-  getById: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return ctx.db.base.findUnique({
-        where: { id: input.id },
+  getAll: publicProcedure
+    .output(z.array(BaseWithTablesOutput))
+    .query(async ({ ctx }) => {
+      return ctx.db.base.findMany({
         include: {
           tables: {
-            include: {
-              _count: { select: { rows: true } },
-            },
+            include: { _count: { select: { rows: true } } },
           },
         },
+        orderBy: { createdAt: "asc" },
       });
     }),
 
+  getById: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .output(BaseWithTablesOutput)
+    .query(async ({ ctx, input }) => {
+      const base = await ctx.db.base.findUnique({
+        where: { id: input.id },
+        include: {
+          tables: {
+            include: { _count: { select: { rows: true } } },
+          },
+        },
+      });
+      if (!base) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Base with id "${input.id}" not found`,
+        });
+      }
+      return base;
+    }),
+
   create: publicProcedure
-    .input(z.object({ name: z.string().min(1) }))
+    .input(BaseCreateInput)
+    .output(BaseOutput)
     .mutation(async ({ ctx, input }) => {
       return ctx.db.base.create({
         data: {
@@ -50,13 +65,20 @@ export const baseRouter = createTRPCRouter({
             },
           },
         },
-        include: { tables: true },
       });
     }),
 
   rename: publicProcedure
-    .input(z.object({ id: z.string(), name: z.string().min(1) }))
+    .input(BaseRenameInput)
+    .output(BaseOutput)
     .mutation(async ({ ctx, input }) => {
+      const exists = await ctx.db.base.findUnique({ where: { id: input.id } });
+      if (!exists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Base with id "${input.id}" not found`,
+        });
+      }
       return ctx.db.base.update({
         where: { id: input.id },
         data: { name: input.name },
@@ -64,8 +86,16 @@ export const baseRouter = createTRPCRouter({
     }),
 
   delete: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(BaseDeleteInput)
+    .output(BaseOutput)
     .mutation(async ({ ctx, input }) => {
+      const exists = await ctx.db.base.findUnique({ where: { id: input.id } });
+      if (!exists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Base with id "${input.id}" not found`,
+        });
+      }
       return ctx.db.base.delete({ where: { id: input.id } });
     }),
 });

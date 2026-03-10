@@ -1,14 +1,35 @@
 // src/server/api/routers/table.ts
-import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { ColumnType } from "@prisma/client";
+import {
+  TableWithDataOutput,
+  TableOutput,
+  ColumnOutput,
+  RowOutput,
+  CellOutput,
+  TableCreateInput,
+  TableRenameInput,
+  TableDeleteInput,
+  ColumnAddInput,
+  ColumnDeleteInput,
+  ColumnRenameInput,
+  CellUpdateInput,
+  RowAddInput,
+  RowDeleteInput,
+  BulkDeleteRowsInput,
+  TableGetByIdInput,
+} from "~/types/schemas";
+import { z } from "zod";
 
 export const tableRouter = createTRPCRouter({
-  // Fetch a full table: its columns + rows with cells
+
+  // ── Queries ────────────────────────────────────────────────────────────────
+
   getById: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(TableGetByIdInput)
+    .output(TableWithDataOutput)
     .query(async ({ ctx, input }) => {
-      return ctx.db.table.findUnique({
+      const table = await ctx.db.table.findUnique({
         where: { id: input.id },
         include: {
           columns: { orderBy: { order: "asc" } },
@@ -18,12 +39,55 @@ export const tableRouter = createTRPCRouter({
           },
         },
       });
+
+      if (!table) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Table with id "${input.id}" not found`,
+        });
+      }
+
+      // Server-side filtering: keep only rows where the filter column contains the value
+      let rows = table.rows;
+
+      if (input.filterColumnId && input.filterValue) {
+        const needle = input.filterValue.toLowerCase();
+        rows = rows.filter((row) => {
+          const cell = row.cells.find((c) => c.columnId === input.filterColumnId);
+          return cell?.value?.toLowerCase().includes(needle) ?? false;
+        });
+      }
+
+      // Server-side sorting: sort rows by a specific column's cell value
+      if (input.sortByColumnId) {
+        const col = table.columns.find((c) => c.id === input.sortByColumnId);
+        rows = [...rows].sort((a, b) => {
+          const av = a.cells.find((c) => c.columnId === input.sortByColumnId)?.value ?? "";
+          const bv = b.cells.find((c) => c.columnId === input.sortByColumnId)?.value ?? "";
+          const dir = input.sortDir === "asc" ? 1 : -1;
+          if (col?.type === "NUMBER") {
+            return dir * ((parseFloat(av) || 0) - (parseFloat(bv) || 0));
+          }
+          return dir * av.localeCompare(bv);
+        });
+      }
+
+      return { ...table, rows };
     }),
 
-  // Create a new table inside a base (with default columns)
+  // ── Table mutations ────────────────────────────────────────────────────────
+
   create: publicProcedure
-    .input(z.object({ baseId: z.string(), name: z.string().min(1) }))
+    .input(TableCreateInput)
+    .output(TableOutput)
     .mutation(async ({ ctx, input }) => {
+      const base = await ctx.db.base.findUnique({ where: { id: input.baseId } });
+      if (!base) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Base with id "${input.baseId}" not found`,
+        });
+      }
       return ctx.db.table.create({
         data: {
           name: input.name,
@@ -39,33 +103,50 @@ export const tableRouter = createTRPCRouter({
       });
     }),
 
-  // Rename a table
   renameTable: publicProcedure
-    .input(z.object({ tableId: z.string(), name: z.string().min(1) }))
+    .input(TableRenameInput)
+    .output(TableOutput)
     .mutation(async ({ ctx, input }) => {
+      const exists = await ctx.db.table.findUnique({ where: { id: input.tableId } });
+      if (!exists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Table with id "${input.tableId}" not found`,
+        });
+      }
       return ctx.db.table.update({
         where: { id: input.tableId },
         data: { name: input.name },
       });
     }),
 
-  // Delete a table (cascades to columns, rows, cells via schema)
   deleteTable: publicProcedure
-    .input(z.object({ tableId: z.string() }))
+    .input(TableDeleteInput)
+    .output(TableOutput)
     .mutation(async ({ ctx, input }) => {
+      const exists = await ctx.db.table.findUnique({ where: { id: input.tableId } });
+      if (!exists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Table with id "${input.tableId}" not found`,
+        });
+      }
       return ctx.db.table.delete({ where: { id: input.tableId } });
     }),
 
-  // Add a new column to a table
+  // ── Column mutations ───────────────────────────────────────────────────────
+
   addColumn: publicProcedure
-    .input(
-      z.object({
-        tableId: z.string(),
-        name: z.string().min(1),
-        type: z.nativeEnum(ColumnType).default("TEXT"),
-      })
-    )
+    .input(ColumnAddInput)
+    .output(ColumnOutput)
     .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findUnique({ where: { id: input.tableId } });
+      if (!table) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Table with id "${input.tableId}" not found`,
+        });
+      }
       const maxOrder = await ctx.db.column.aggregate({
         where: { tableId: input.tableId },
         _max: { order: true },
@@ -78,6 +159,7 @@ export const tableRouter = createTRPCRouter({
           tableId: input.tableId,
         },
       });
+      // Backfill empty cells for all existing rows
       const rows = await ctx.db.row.findMany({
         where: { tableId: input.tableId },
         select: { id: true },
@@ -94,26 +176,42 @@ export const tableRouter = createTRPCRouter({
       return column;
     }),
 
-  // Delete a column (cascades to cells via schema)
   deleteColumn: publicProcedure
-    .input(z.object({ columnId: z.string() }))
+    .input(ColumnDeleteInput)
+    .output(ColumnOutput)
     .mutation(async ({ ctx, input }) => {
+      const exists = await ctx.db.column.findUnique({ where: { id: input.columnId } });
+      if (!exists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Column with id "${input.columnId}" not found`,
+        });
+      }
       return ctx.db.column.delete({ where: { id: input.columnId } });
     }),
 
-  // Rename a column
   renameColumn: publicProcedure
-    .input(z.object({ columnId: z.string(), name: z.string().min(1) }))
+    .input(ColumnRenameInput)
+    .output(ColumnOutput)
     .mutation(async ({ ctx, input }) => {
+      const exists = await ctx.db.column.findUnique({ where: { id: input.columnId } });
+      if (!exists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Column with id "${input.columnId}" not found`,
+        });
+      }
       return ctx.db.column.update({
         where: { id: input.columnId },
         data: { name: input.name },
       });
     }),
 
-  // Add a new row (creates empty cells for every existing column)
+  // ── Row mutations ──────────────────────────────────────────────────────────
+
   addRow: publicProcedure
-    .input(z.object({ tableId: z.string() }))
+    .input(RowAddInput)
+    .output(RowOutput)
     .mutation(async ({ ctx, input }) => {
       const [maxOrder, columns] = await Promise.all([
         ctx.db.row.aggregate({
@@ -130,6 +228,7 @@ export const tableRouter = createTRPCRouter({
           tableId: input.tableId,
           order: (maxOrder._max.order ?? -1) + 1,
         },
+        include: { cells: true },
       });
       if (columns.length > 0) {
         await ctx.db.cell.createMany({
@@ -140,39 +239,73 @@ export const tableRouter = createTRPCRouter({
           })),
         });
       }
-      return row;
+      // Re-fetch with cells populated
+      const rowWithCells = await ctx.db.row.findUnique({
+        where: { id: row.id },
+        include: { cells: true },
+      });
+      if (!rowWithCells) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      return rowWithCells;
     }),
 
-  // Delete a row (cascades to cells via schema)
   deleteRow: publicProcedure
-    .input(z.object({ rowId: z.string() }))
+    .input(RowDeleteInput)
+    .output(RowOutput)
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.row.delete({ where: { id: input.rowId } });
+      const exists = await ctx.db.row.findUnique({
+        where: { id: input.rowId },
+        include: { cells: true },
+      });
+      if (!exists) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Row with id "${input.rowId}" not found`,
+        });
+      }
+      return ctx.db.row.delete({
+        where: { id: input.rowId },
+        include: { cells: true },
+      });
     }),
 
-  // Update a single cell value
-  updateCell: publicProcedure
-    .input(
-      z.object({
-        rowId: z.string(),
-        columnId: z.string(),
-        value: z.string().nullable(),
-      })
-    )
+  // Stretch: bulk delete multiple rows at once
+  bulkDeleteRows: publicProcedure
+    .input(BulkDeleteRowsInput)
+    .output(z.object({ deletedCount: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const result = await ctx.db.row.deleteMany({
+        where: { id: { in: input.rowIds } },
+      });
+      return { deletedCount: result.count };
+    }),
+
+  // ── Cell mutations ─────────────────────────────────────────────────────────
+
+  updateCell: publicProcedure
+    .input(CellUpdateInput)
+    .output(CellOutput)
+    .mutation(async ({ ctx, input }) => {
+      // Verify the row and column both exist
+      const [row, column] = await Promise.all([
+        ctx.db.row.findUnique({ where: { id: input.rowId } }),
+        ctx.db.column.findUnique({ where: { id: input.columnId } }),
+      ]);
+      if (!row) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Row with id "${input.rowId}" not found`,
+        });
+      }
+      if (!column) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Column with id "${input.columnId}" not found`,
+        });
+      }
       return ctx.db.cell.upsert({
-        where: {
-          rowId_columnId: {
-            rowId: input.rowId,
-            columnId: input.columnId,
-          },
-        },
+        where: { rowId_columnId: { rowId: input.rowId, columnId: input.columnId } },
         update: { value: input.value },
-        create: {
-          rowId: input.rowId,
-          columnId: input.columnId,
-          value: input.value,
-        },
+        create: { rowId: input.rowId, columnId: input.columnId, value: input.value },
       });
     }),
 });
