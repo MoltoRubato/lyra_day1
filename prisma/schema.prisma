@@ -1,6 +1,4 @@
 // prisma/schema.prisma
-// Single source of truth for all types
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,39 +8,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// A "Base" in Airtable is a top-level workspace/table container
 model Base {
   id        String   @id @default(cuid())
   name      String
+  tables    Table[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Table {
+  id        String   @id @default(cuid())
+  name      String
+  base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  baseId    String
+  columns   Column[]
   rows      Row[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// Each Row is one record in the base (like an Airtable row)
+model Column {
+  id        String     @id @default(cuid())
+  name      String
+  type      ColumnType @default(TEXT)
+  order     Int        @default(0)
+  table     Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableId   String
+  cells     Cell[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
 model Row {
   id        String   @id @default(cuid())
-  name      String                         // "Name" column
-  notes     String?                        // "Notes" column (optional text)
-  status    Status   @default(TODO)        // "Status" column
-  priority  Priority @default(MEDIUM)      // "Priority" column
-  assignee  String?                        // "Assignee" column (optional)
-  order     Int      @default(0)           // stretch: for row ordering
-  base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
-  baseId    String
+  order     Int      @default(0)
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableId   String
+  cells     Cell[]
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt            // stretch: audit metadata
+  updatedAt DateTime @updatedAt
 }
 
-enum Status {
-  TODO
-  IN_PROGRESS
-  DONE
+model Cell {
+  id        String   @id @default(cuid())
+  value     String?
+  row       Row      @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  rowId     String
+  column    Column   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  columnId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rowId, columnId])
 }
 
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-  ULTRA_HIGH
+enum ColumnType {
+  TEXT
+  NUMBER
 }
