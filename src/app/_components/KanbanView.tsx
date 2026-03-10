@@ -20,12 +20,7 @@ const CARD_COLORS: Record<string, string> = {
 const headerColor = (g: string) => HEADER_COLORS[g.toLowerCase()] ?? "border-purple-500/50 text-purple-300";
 const cardColor   = (g: string) => CARD_COLORS[g.toLowerCase()]   ?? "border-purple-900/50 hover:border-purple-500/40";
 
-interface KanbanViewProps {
-  tableId: string;
-  groupByColumnId?: string | null;   // controlled from parent
-}
-
-export default function KanbanView({ tableId, groupByColumnId }: KanbanViewProps) {
+export default function KanbanView({ tableId, groupByColumnId }: { tableId: string; groupByColumnId?: string | null }) {
   const utils = api.useUtils();
   const { data: table } = api.table.getById.useQuery({ id: tableId });
 
@@ -98,7 +93,7 @@ export default function KanbanView({ tableId, groupByColumnId }: KanbanViewProps
   }
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 h-full" style={{ fontFamily: "'DM Mono', monospace" }}>
+    <div className="flex gap-4 overflow-x-auto pb-4 h-full p-6" style={{ fontFamily: "'DM Mono', monospace" }}>
       {groupValues.map((group) => {
         const groupRows = table.rows.filter(
           (r) => (getCellValue(r as RowWithCells, groupCol.id) || "No value") === group

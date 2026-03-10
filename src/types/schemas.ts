@@ -3,6 +3,7 @@
 // Routers import from this file — never define inline schemas on write paths.
 
 import { z } from "zod";
+// ColumnType is now the full enum from Prisma — imported directly
 import { ColumnType } from "@prisma/client";
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -68,6 +69,7 @@ export const ColumnOutput = z.object({
   name: z.string(),
   type: z.nativeEnum(ColumnType),
   order: z.number(),
+  width: z.number(),
   tableId: z.string(),
 });
 
@@ -133,4 +135,21 @@ export const TableGetByIdInput = z.object({
 export const TableWithDataOutput = TableOutput.extend({
   columns: z.array(ColumnOutput),
   rows: z.array(RowOutput),
+});
+
+// ─── Column type change / reorder / resize ────────────────────────────────────
+
+export const ColumnChangeTypeInput = z.object({
+  columnId: z.string(),
+  type: z.string().min(1),
+});
+
+export const ColumnReorderInput = z.object({
+  tableId: z.string(),
+  orderedIds: z.array(z.string()).min(1),
+});
+
+export const ColumnResizeInput = z.object({
+  columnId: z.string(),
+  width: z.number().int().min(80).max(1200),
 });

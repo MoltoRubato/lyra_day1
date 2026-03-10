@@ -18,6 +18,9 @@ import {
   RowDeleteInput,
   BulkDeleteRowsInput,
   TableGetByIdInput,
+  ColumnChangeTypeInput,
+  ColumnReorderInput,
+  ColumnResizeInput,
 } from "~/types/schemas";
 import { z } from "zod";
 
@@ -307,5 +310,36 @@ export const tableRouter = createTRPCRouter({
         update: { value: input.value },
         create: { rowId: input.rowId, columnId: input.columnId, value: input.value },
       });
+    }),
+
+  // Change a column's field type
+  changeColumnType: publicProcedure
+    .input(ColumnChangeTypeInput)
+    .output(ColumnOutput)
+    .mutation(async ({ ctx, input }) => {
+      const exists = await ctx.db.column.findUnique({ where: { id: input.columnId } });
+      if (!exists) throw new TRPCError({ code: "NOT_FOUND", message: `Column "${input.columnId}" not found` });
+      return ctx.db.column.update({ where: { id: input.columnId }, data: { type: input.type as any } });
+    }),
+
+  // Reorder columns — client sends the full ordered array of IDs
+  reorderColumns: publicProcedure
+    .input(ColumnReorderInput)
+    .output(z.array(ColumnOutput))
+    .mutation(async ({ ctx, input }) => {
+      await Promise.all(
+        input.orderedIds.map((id, index) =>
+          ctx.db.column.update({ where: { id }, data: { order: index } })
+        )
+      );
+      return ctx.db.column.findMany({ where: { tableId: input.tableId }, orderBy: { order: "asc" } });
+    }),
+
+  // Persist column width after user finishes dragging the resize handle
+  resizeColumn: publicProcedure
+    .input(ColumnResizeInput)
+    .output(ColumnOutput)
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.column.update({ where: { id: input.columnId }, data: { width: input.width } });
     }),
 });

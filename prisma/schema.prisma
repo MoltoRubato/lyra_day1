@@ -32,6 +32,7 @@ model Column {
   name      String
   type      ColumnType @default(TEXT)
   order     Int        @default(0)
+  width     Int        @default(180)   // px, adjustable by user
   table     Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
   tableId   String
   cells     Cell[]
@@ -65,4 +66,16 @@ model Cell {
 enum ColumnType {
   TEXT
   NUMBER
+  CHECKBOX
+  SINGLE_SELECT
+  MULTI_SELECT
+  DATE
+  PHONE
+  EMAIL
+  URL
+  CURRENCY
+  PERCENT
+  DURATION
+  RATING
+  ATTACHMENT
 }
