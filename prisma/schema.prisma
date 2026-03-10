@@ -1,21 +1,48 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// prisma/schema.prisma
+// Single source of truth for all types
 
 generator client {
-    provider = "prisma-client-js"
-    output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "sqlite"
-    url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+// A "Base" in Airtable is a top-level workspace/table container
+model Base {
+  id        String   @id @default(cuid())
+  name      String
+  rows      Row[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
-    @@index([name])
+// Each Row is one record in the base (like an Airtable row)
+model Row {
+  id        String   @id @default(cuid())
+  name      String                         // "Name" column
+  notes     String?                        // "Notes" column (optional text)
+  status    Status   @default(TODO)        // "Status" column
+  priority  Priority @default(MEDIUM)      // "Priority" column
+  assignee  String?                        // "Assignee" column (optional)
+  order     Int      @default(0)           // stretch: for row ordering
+  base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  baseId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt            // stretch: audit metadata
+}
+
+enum Status {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  ULTRA_HIGH
 }
