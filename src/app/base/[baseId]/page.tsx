@@ -11,16 +11,35 @@ type View = "grid" | "kanban";
 
 export default function BasePage({ params }: { params: Promise<{ baseId: string }> }) {
   const { baseId } = use(params);
-  const { data: base, isLoading, refetch } = api.base.getById.useQuery({ id: baseId });
-  const renameTable = api.table.renameTable.useMutation({ onSuccess: () => void refetch() });
-  const deleteTable = api.table.deleteTable.useMutation({ onSuccess: () => void refetch() });
-  const createTable = api.table.create.useMutation({ onSuccess: () => void refetch() });
+  const utils = api.useUtils();
+  const { data: base, isLoading } = api.base.getById.useQuery({ id: baseId });
+
+  const renameTable = api.table.renameTable.useMutation({
+    onSuccess: () => void utils.base.getById.invalidate({ id: baseId }),
+  });
+  const deleteTable = api.table.deleteTable.useMutation({
+    onSuccess: () => void utils.base.getById.invalidate({ id: baseId }),
+  });
+  const createTable = api.table.create.useMutation({
+    onSuccess: () => void utils.base.getById.invalidate({ id: baseId }),
+  });
 
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [view, setView] = useState<View>("grid");
+  const [kanbanGroupColId, setKanbanGroupColId] = useState<string | null>(null);
   const [renamingTable, setRenamingTable] = useState<{ id: string; value: string } | null>(null);
   const [addingTable, setAddingTable] = useState(false);
   const [newTableName, setNewTableName] = useState("");
+
+  // Read from TanStack cache (populated by KanbanView's own query). enabled:false
+  // means this never fires a request — it just reads whatever KanbanView already fetched.
+  // This must be called unconditionally (Rules of Hooks) — safe because enabled:false.
+  const currentTableId = activeTableId ?? base?.tables[0]?.id ?? null;
+  const { data: cachedTable } = api.table.getById.useQuery(
+    { id: currentTableId ?? "" },
+    { enabled: false }
+  );
+  const textColumns = cachedTable?.columns.filter((c) => c.type === "TEXT") ?? [];
 
   function commitRename() {
     if (!renamingTable?.value.trim()) { setRenamingTable(null); return; }
@@ -62,8 +81,6 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     );
   }
 
-  const currentTableId = activeTableId ?? base.tables[0]?.id ?? null;
-
   return (
     <div className="min-h-screen bg-[#0e0e10] text-white flex flex-col" style={{ fontFamily: "'DM Mono', monospace" }}>
       {/* Top nav */}
@@ -78,7 +95,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
         </div>
       </nav>
 
-      {/* Table tabs + view switcher */}
+      {/* Table tabs + toolbar */}
       <div className="border-b border-white/10 px-6 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center">
           {base.tables.map((table) => {
@@ -87,9 +104,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             return (
               <div
                 key={table.id}
-                className={`group/tab relative flex items-center border-b-2 transition-colors ${
-                  isActive ? "border-[#5b6af7]" : "border-transparent"
-                }`}
+                className={`group/tab relative flex items-center border-b-2 transition-colors ${isActive ? "border-[#5b6af7]" : "border-transparent"}`}
               >
                 {isRenaming ? (
                   <input
@@ -98,18 +113,13 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                     value={renamingTable.value}
                     onChange={(e) => setRenamingTable({ ...renamingTable, value: e.target.value })}
                     onBlur={commitRename}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitRename();
-                      if (e.key === "Escape") setRenamingTable(null);
-                    }}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingTable(null); }}
                   />
                 ) : (
                   <button
                     onClick={() => setActiveTableId(table.id)}
                     onDoubleClick={() => setRenamingTable({ id: table.id, value: table.name })}
-                    className={`px-3 py-3 text-sm transition-colors ${
-                      isActive ? "text-white" : "text-white/40 hover:text-white/70"
-                    }`}
+                    className={`px-3 py-3 text-sm transition-colors ${isActive ? "text-white" : "text-white/40 hover:text-white/70"}`}
                     title="Double-click to rename"
                   >
                     {table.name}
@@ -120,15 +130,12 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                     onClick={() => handleDelete(table.id)}
                     className="opacity-0 group-hover/tab:opacity-100 mr-1 text-white/20 hover:text-red-400 transition-all text-xs p-0.5 rounded"
                     title="Delete table"
-                  >
-                    ✕
-                  </button>
+                  >✕</button>
                 )}
               </div>
             );
           })}
 
-          {/* Add table */}
           {addingTable ? (
             <div className="flex items-center gap-1 ml-1 py-2">
               <input
@@ -138,10 +145,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                 value={newTableName}
                 onChange={(e) => setNewTableName(e.target.value)}
                 onBlur={() => { if (!newTableName.trim()) setAddingTable(false); }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddTable();
-                  if (e.key === "Escape") { setAddingTable(false); setNewTableName(""); }
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAddTable(); if (e.key === "Escape") { setAddingTable(false); setNewTableName(""); } }}
               />
               <button onClick={handleAddTable} className="px-2 py-0.5 bg-[#5b6af7] hover:bg-[#4a59e6] rounded text-xs transition-colors">Add</button>
               <button onClick={() => { setAddingTable(false); setNewTableName(""); }} className="text-white/30 hover:text-white text-xs px-1">✕</button>
@@ -151,25 +155,39 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
               onClick={() => setAddingTable(true)}
               className="ml-1 px-3 py-3 text-white/30 hover:text-[#5b6af7] transition-colors text-lg leading-none"
               title="Add table"
-            >
-              +
-            </button>
+            >+</button>
           )}
         </div>
 
-        {/* View switcher */}
-        <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
-          {(["grid", "kanban"] as View[]).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors capitalize ${
-                view === v ? "bg-[#5b6af7] text-white" : "text-white/40 hover:text-white/70"
-              }`}
-            >
-              {v === "grid" ? "⊞" : "⊟"} {v}
-            </button>
-          ))}
+        {/* Right toolbar */}
+        <div className="flex items-center gap-2">
+          {view === "kanban" && textColumns.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/30">Group by</span>
+              <select
+                value={kanbanGroupColId ?? ""}
+                onChange={(e) => setKanbanGroupColId(e.target.value || null)}
+                className="bg-[#1a1a1e] border border-white/15 rounded px-2 py-1 text-xs text-white/70 outline-none hover:border-white/30 focus:border-[#5b6af7] transition-colors cursor-pointer"
+              >
+                <option value="">Auto (Status)</option>
+                {textColumns.map((col) => (
+                  <option key={col.id} value={col.id}>{col.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+            {(["grid", "kanban"] as View[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors capitalize ${view === v ? "bg-[#5b6af7] text-white" : "text-white/40 hover:text-white/70"}`}
+              >
+                {v === "grid" ? "⊞" : "⊟"} {v}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -178,7 +196,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
         {currentTableId ? (
           view === "grid"
             ? <GridView tableId={currentTableId} />
-            : <KanbanView tableId={currentTableId} />
+            : <KanbanView tableId={currentTableId} groupByColumnId={kanbanGroupColId} />
         ) : (
           <div className="flex items-center justify-center h-full text-white/30 text-sm">
             No tables yet. Hit + to add one.

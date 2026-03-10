@@ -3,45 +3,82 @@
 // src/app/_components/GridView.tsx
 import { useState, useRef, useEffect } from "react";
 import { api } from "~/trpc/react";
-import type { Column, Row, Cell, ColumnType } from "@prisma/client";
-
-type RowWithCells = Row & { cells: Cell[] };
-type TableData = {
-  columns: Column[];
-  rows: RowWithCells[];
-};
+import type { ColumnType } from "@prisma/client";
+import { getCellValue, sortRows, type RowWithCells } from "./tableUtils";
 
 type SortState = { columnId: string; dir: "asc" | "desc" } | null;
-
-function getCellValue(row: RowWithCells, columnId: string): string {
-  return row.cells.find((c) => c.columnId === columnId)?.value ?? "";
-}
-
-function sortRows(rows: RowWithCells[], sort: SortState, columns: Column[]): RowWithCells[] {
-  if (!sort) return rows;
-  const col = columns.find((c) => c.id === sort.columnId);
-  if (!col) return rows;
-  return [...rows].sort((a, b) => {
-    const av = getCellValue(a, sort.columnId);
-    const bv = getCellValue(b, sort.columnId);
-    const dir = sort.dir === "asc" ? 1 : -1;
-    if (col.type === "NUMBER") {
-      return dir * ((parseFloat(av) || 0) - (parseFloat(bv) || 0));
-    }
-    return dir * av.localeCompare(bv);
-  });
-}
-
-interface EditingCell { rowId: string; columnId: string; value: string }
+type EditingCell = { rowId: string; columnId: string; value: string };
 
 export default function GridView({ tableId }: { tableId: string }) {
-  const { data: table, refetch } = api.table.getById.useQuery({ id: tableId });
-  const updateCell = api.table.updateCell.useMutation({ onSuccess: () => void refetch() });
-  const addRow = api.table.addRow.useMutation({ onSuccess: () => void refetch() });
-  const deleteRow = api.table.deleteRow.useMutation({ onSuccess: () => void refetch() });
-  const addColumn = api.table.addColumn.useMutation({ onSuccess: () => void refetch() });
-  const deleteColumn = api.table.deleteColumn.useMutation({ onSuccess: () => void refetch() });
-  const renameColumn = api.table.renameColumn.useMutation({ onSuccess: () => void refetch() });
+  const utils = api.useUtils();
+  const { data: table } = api.table.getById.useQuery({ id: tableId });
+
+  // ── Optimistic helper ────────────────────────────────────────────────────
+  // Updates the local cache instantly so the UI reflects changes before the
+  // server round-trip completes. onSuccess still refetches to confirm truth.
+  function optimisticCellUpdate(rowId: string, columnId: string, value: string | null) {
+    utils.table.getById.setData({ id: tableId }, (prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rows: prev.rows.map((row) =>
+          row.id !== rowId ? row : {
+            ...row,
+            cells: row.cells.map((cell) =>
+              cell.columnId !== columnId ? cell : { ...cell, value }
+            ),
+          }
+        ),
+      };
+    });
+  }
+
+  const updateCell = api.table.updateCell.useMutation({
+    onMutate: ({ rowId, columnId, value }) => optimisticCellUpdate(rowId, columnId, value),
+    onError: () => void utils.table.getById.invalidate({ id: tableId }),
+    onSettled: () => void utils.table.getById.invalidate({ id: tableId }),
+  });
+
+  const addRow = api.table.addRow.useMutation({
+    onSuccess: () => void utils.table.getById.invalidate({ id: tableId }),
+  });
+  const deleteRow = api.table.deleteRow.useMutation({
+    onMutate: ({ rowId }) => {
+      utils.table.getById.setData({ id: tableId }, (prev) =>
+        prev ? { ...prev, rows: prev.rows.filter((r) => r.id !== rowId) } : prev
+      );
+    },
+    onSettled: () => void utils.table.getById.invalidate({ id: tableId }),
+  });
+  const addColumn = api.table.addColumn.useMutation({
+    onSuccess: () => void utils.table.getById.invalidate({ id: tableId }),
+  });
+  const deleteColumn = api.table.deleteColumn.useMutation({
+    onMutate: ({ columnId }) => {
+      utils.table.getById.setData({ id: tableId }, (prev) =>
+        prev ? {
+          ...prev,
+          columns: prev.columns.filter((c) => c.id !== columnId),
+          rows: prev.rows.map((r) => ({
+            ...r,
+            cells: r.cells.filter((c) => c.columnId !== columnId),
+          })),
+        } : prev
+      );
+    },
+    onSettled: () => void utils.table.getById.invalidate({ id: tableId }),
+  });
+  const renameColumn = api.table.renameColumn.useMutation({
+    onMutate: ({ columnId, name }) => {
+      utils.table.getById.setData({ id: tableId }, (prev) =>
+        prev ? {
+          ...prev,
+          columns: prev.columns.map((c) => c.id === columnId ? { ...c, name } : c),
+        } : prev
+      );
+    },
+    onSettled: () => void utils.table.getById.invalidate({ id: tableId }),
+  });
 
   const [sort, setSort] = useState<SortState>(null);
   const [editing, setEditing] = useState<EditingCell | null>(null);
@@ -51,27 +88,22 @@ export default function GridView({ tableId }: { tableId: string }) {
   const [newColType, setNewColType] = useState<ColumnType>("TEXT");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (editing) inputRef.current?.focus();
-  }, [editing]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
 
   if (!table) return <div className="p-6 text-white/30 text-sm animate-pulse">Loading...</div>;
 
-  const sorted = sortRows(table.rows, sort, table.columns);
+  const sorted = sortRows(table.rows as RowWithCells[], sort, table.columns);
 
   function toggleSort(columnId: string) {
     setSort((prev) => {
-      if (prev?.columnId === columnId) {
-        return prev.dir === "asc" ? { columnId, dir: "desc" } : null;
-      }
+      if (prev?.columnId === columnId) return prev.dir === "asc" ? { columnId, dir: "desc" } : null;
       return { columnId, dir: "asc" };
     });
   }
 
   function startEdit(rowId: string, columnId: string) {
-    const row = table!.rows.find((r) => r.id === rowId);
-    const value = row ? getCellValue(row as RowWithCells, columnId) : "";
-    setEditing({ rowId, columnId, value });
+    const row = table!.rows.find((r) => r.id === rowId) as RowWithCells | undefined;
+    setEditing({ rowId, columnId, value: row ? getCellValue(row, columnId) : "" });
   }
 
   function commitEdit() {
@@ -81,7 +113,7 @@ export default function GridView({ tableId }: { tableId: string }) {
   }
 
   function commitRename() {
-    if (!renamingCol || !renamingCol.value.trim()) { setRenamingCol(null); return; }
+    if (!renamingCol?.value.trim()) { setRenamingCol(null); return; }
     renameColumn.mutate({ columnId: renamingCol.id, name: renamingCol.value.trim() });
     setRenamingCol(null);
   }
@@ -94,17 +126,11 @@ export default function GridView({ tableId }: { tableId: string }) {
     setAddingCol(false);
   }
 
-  const SortIcon = ({ colId }: { colId: string }) => {
-    if (sort?.columnId !== colId) return <span className="text-white/20 ml-1 text-[10px]">⇅</span>;
-    return <span className="text-[#5b6af7] ml-1 text-[10px]">{sort.dir === "asc" ? "↑" : "↓"}</span>;
-  };
-
   return (
     <div className="w-full overflow-x-auto" style={{ fontFamily: "'DM Mono', monospace" }}>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-white/10">
-            {/* Row number gutter */}
             <th className="w-10 px-3 py-3 text-left text-xs text-white/20">#</th>
 
             {table.columns.map((col) => (
@@ -128,21 +154,20 @@ export default function GridView({ tableId }: { tableId: string }) {
                     >
                       <span className="mr-1 text-white/20">{col.type === "NUMBER" ? "№" : "T"}</span>
                       {col.name}
-                      <SortIcon colId={col.id} />
+                      {sort?.columnId === col.id
+                        ? <span className="text-[#5b6af7] ml-1 text-[10px]">{sort.dir === "asc" ? "↑" : "↓"}</span>
+                        : <span className="text-white/20 ml-1 text-[10px]">⇅</span>}
                     </button>
                   )}
                   <button
                     onClick={() => deleteColumn.mutate({ columnId: col.id })}
                     className="ml-1 opacity-0 group-hover/col:opacity-100 text-white/20 hover:text-red-400 transition-all text-xs"
                     title="Delete column"
-                  >
-                    ✕
-                  </button>
+                  >✕</button>
                 </div>
               </th>
             ))}
 
-            {/* Add column button */}
             <th className="px-3 py-2 w-10">
               {addingCol ? (
                 <div className="flex items-center gap-1 min-w-[220px]">
@@ -170,9 +195,7 @@ export default function GridView({ tableId }: { tableId: string }) {
                   onClick={() => setAddingCol(true)}
                   className="text-white/30 hover:text-[#5b6af7] transition-colors text-lg leading-none font-light"
                   title="Add column"
-                >
-                  +
-                </button>
+                >+</button>
               )}
             </th>
           </tr>
@@ -180,7 +203,6 @@ export default function GridView({ tableId }: { tableId: string }) {
         <tbody>
           {sorted.map((row, idx) => (
             <tr key={row.id} className="border-b border-white/5 hover:bg-white/[0.025] group transition-colors">
-              {/* Row number */}
               <td className="px-3 py-2 text-xs text-white/20 select-none">{idx + 1}</td>
 
               {table.columns.map((col) => {
@@ -203,29 +225,25 @@ export default function GridView({ tableId }: { tableId: string }) {
                         onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(null); }}
                       />
                     ) : (
-                      <span className={`cursor-pointer block truncate ${value ? "text-white" : "text-white/20"} hover:text-[#5b6af7] transition-colors text-sm`}>
-                        {value || <span className="italic text-xs">empty</span>}
+                      <span className={`cursor-pointer block truncate text-sm transition-colors ${value ? "text-white hover:text-[#5b6af7]" : "text-white/20 italic"}`}>
+                        {value || "empty"}
                       </span>
                     )}
                   </td>
                 );
               })}
 
-              {/* Delete row */}
               <td className="px-2">
                 <button
                   onClick={() => deleteRow.mutate({ rowId: row.id })}
                   className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all text-xs p-1"
-                >
-                  ✕
-                </button>
+                >✕</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Add row */}
       <button
         onClick={() => addRow.mutate({ tableId })}
         className="mt-1 ml-[52px] flex items-center gap-2 text-sm text-white/30 hover:text-white/60 transition-colors py-2"
