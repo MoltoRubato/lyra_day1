@@ -11,6 +11,7 @@ datasource db {
 model Base {
   id        String   @id @default(cuid())
   name      String
+  starred   Boolean  @default(false)
   tables    Table[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -28,16 +29,26 @@ model Table {
 }
 
 model Column {
-  id        String     @id @default(cuid())
-  name      String
-  type      ColumnType @default(TEXT)
-  order     Int        @default(0)
-  width     Int        @default(180)   // px, adjustable by user
-  table     Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  tableId   String
-  cells     Cell[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String         @id @default(cuid())
+  name          String
+  type          ColumnType     @default(TEXT)
+  order         Int            @default(0)
+  width         Int            @default(180)
+  table         Table          @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableId       String
+  cells         Cell[]
+  selectOptions SelectOption[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model SelectOption {
+  id       String @id @default(cuid())
+  label    String
+  color    String @default("#5b6af7")
+  order    Int    @default(0)
+  column   Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  columnId String
 }
 
 model Row {

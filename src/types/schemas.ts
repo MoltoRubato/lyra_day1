@@ -1,135 +1,77 @@
 // src/types/schemas.ts
-// Contract-first: define all input/output shapes here.
-// Routers import from this file — never define inline schemas on write paths.
-
 import { z } from "zod";
-// ColumnType is now the full enum from Prisma — imported directly
 import { ColumnType } from "@prisma/client";
 
-// ─── Shared primitives ────────────────────────────────────────────────────────
+export const IdInput = z.object({ id: z.string() });
 
-export const IdInput = z.object({ id: z.string().cuid() });
-
-// ─── Base schemas ─────────────────────────────────────────────────────────────
+// ─── Base ─────────────────────────────────────────────────────────────────────
 
 export const BaseOutput = z.object({
-  id: z.string(),
-  name: z.string(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+  id: z.string(), name: z.string(), starred: z.boolean(),
+  createdAt: z.date(), updatedAt: z.date(),
 });
 
 export const BaseWithTablesOutput = BaseOutput.extend({
-  tables: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      _count: z.object({ rows: z.number() }),
-    })
-  ),
+  tables: z.array(z.object({
+    id: z.string(), name: z.string(),
+    _count: z.object({ rows: z.number() }),
+  })),
 });
 
-export const BaseCreateInput = z.object({
-  name: z.string().min(1, "Base name is required"),
-});
-
-export const BaseRenameInput = z.object({
-  id: z.string(),
-  name: z.string().min(1, "Base name is required"),
-});
-
+export const BaseCreateInput = z.object({ name: z.string().min(1) });
+export const BaseRenameInput = z.object({ id: z.string(), name: z.string().min(1) });
 export const BaseDeleteInput = IdInput;
+export const BaseToggleStarInput = z.object({ id: z.string(), starred: z.boolean() });
 
-// ─── Table schemas ────────────────────────────────────────────────────────────
+// ─── Select options ────────────────────────────────────────────────────────────
 
-export const TableOutput = z.object({
-  id: z.string(),
-  name: z.string(),
-  baseId: z.string(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+export const SelectOptionOutput = z.object({
+  id: z.string(), label: z.string(), color: z.string(), order: z.number(), columnId: z.string(),
+});
+export const SelectOptionAddInput = z.object({
+  columnId: z.string(), label: z.string(), color: z.string().default("#5b6af7"),
+});
+export const SelectOptionDeleteInput = z.object({ optionId: z.string() });
+export const SelectOptionUpdateInput = z.object({
+  optionId: z.string(), label: z.string().optional(), color: z.string().optional(),
 });
 
-export const TableCreateInput = z.object({
-  baseId: z.string(),
-  name: z.string().min(1, "Table name is required"),
-});
-
-export const TableRenameInput = z.object({
-  tableId: z.string(),
-  name: z.string().min(1, "Table name is required"),
-});
-
-export const TableDeleteInput = z.object({ tableId: z.string() });
-
-// ─── Column schemas ───────────────────────────────────────────────────────────
+// ─── Column ───────────────────────────────────────────────────────────────────
 
 export const ColumnOutput = z.object({
-  id: z.string(),
-  name: z.string(),
+  id: z.string(), name: z.string(),
   type: z.nativeEnum(ColumnType),
-  order: z.number(),
-  width: z.number(),
-  tableId: z.string(),
+  order: z.number(), width: z.number(), tableId: z.string(),
+  selectOptions: z.array(SelectOptionOutput).optional(),
 });
 
 export const ColumnAddInput = z.object({
-  tableId: z.string(),
-  name: z.string().min(1, "Column name is required"),
+  tableId: z.string(), name: z.string().min(1),
   type: z.nativeEnum(ColumnType).default("TEXT"),
 });
+export const ColumnDeleteInput    = z.object({ columnId: z.string() });
+export const ColumnRenameInput    = z.object({ columnId: z.string(), name: z.string().min(1) });
+export const ColumnChangeTypeInput= z.object({ columnId: z.string(), type: z.string().min(1) });
+export const ColumnReorderInput   = z.object({ tableId: z.string(), orderedIds: z.array(z.string()).min(1) });
+export const ColumnResizeInput    = z.object({ columnId: z.string(), width: z.number().int().min(80).max(1200) });
 
-export const ColumnDeleteInput = z.object({ columnId: z.string() });
+// ─── Table ────────────────────────────────────────────────────────────────────
 
-export const ColumnRenameInput = z.object({
-  columnId: z.string(),
-  name: z.string().min(1, "Column name is required"),
+export const TableOutput = z.object({
+  id: z.string(), name: z.string(), baseId: z.string(),
+  createdAt: z.date(), updatedAt: z.date(),
 });
-
-// ─── Cell schemas ─────────────────────────────────────────────────────────────
 
 export const CellOutput = z.object({
-  id: z.string(),
-  rowId: z.string(),
-  columnId: z.string(),
-  value: z.string().nullable(),
+  id: z.string(), value: z.string().nullable(),
+  rowId: z.string(), columnId: z.string(),
+  createdAt: z.date(), updatedAt: z.date(),
 });
-
-export const CellUpdateInput = z.object({
-  rowId: z.string(),
-  columnId: z.string(),
-  value: z.string().nullable(),
-});
-
-// ─── Row schemas ──────────────────────────────────────────────────────────────
 
 export const RowOutput = z.object({
-  id: z.string(),
-  order: z.number(),
-  tableId: z.string(),
+  id: z.string(), order: z.number(), tableId: z.string(),
   cells: z.array(CellOutput),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-});
-
-export const RowAddInput = z.object({ tableId: z.string() });
-
-export const RowDeleteInput = z.object({ rowId: z.string() });
-
-export const BulkDeleteRowsInput = z.object({
-  rowIds: z.array(z.string()).min(1, "At least one row ID is required"),
-});
-
-// ─── Table query (getById with filtering/sorting) ─────────────────────────────
-
-export const TableGetByIdInput = z.object({
-  id: z.string(),
-  // Optional: sort rows by a specific column's cell value
-  sortByColumnId: z.string().optional(),
-  sortDir: z.enum(["asc", "desc"]).default("asc"),
-  // Optional: filter rows where a specific column contains a substring
-  filterColumnId: z.string().optional(),
-  filterValue: z.string().optional(),
+  createdAt: z.date(), updatedAt: z.date(),
 });
 
 export const TableWithDataOutput = TableOutput.extend({
@@ -137,19 +79,18 @@ export const TableWithDataOutput = TableOutput.extend({
   rows: z.array(RowOutput),
 });
 
-// ─── Column type change / reorder / resize ────────────────────────────────────
+export const TableCreateInput     = z.object({ baseId: z.string(), name: z.string().min(1) });
+export const TableRenameInput     = z.object({ tableId: z.string(), name: z.string().min(1) });
+export const TableDeleteInput     = z.object({ tableId: z.string() });
+export const CellUpdateInput      = z.object({ rowId: z.string(), columnId: z.string(), value: z.string().nullable() });
+export const RowAddInput          = z.object({ tableId: z.string() });
+export const RowDeleteInput       = z.object({ rowId: z.string() });
+export const BulkDeleteRowsInput  = z.object({ rowIds: z.array(z.string()).min(1) });
 
-export const ColumnChangeTypeInput = z.object({
-  columnId: z.string(),
-  type: z.string().min(1),
-});
-
-export const ColumnReorderInput = z.object({
-  tableId: z.string(),
-  orderedIds: z.array(z.string()).min(1),
-});
-
-export const ColumnResizeInput = z.object({
-  columnId: z.string(),
-  width: z.number().int().min(80).max(1200),
+export const TableGetByIdInput = z.object({
+  id: z.string(),
+  filterColumnId: z.string().optional(),
+  filterValue: z.string().optional(),
+  sortByColumnId: z.string().optional(),
+  sortDir: z.enum(["asc", "desc"]).optional(),
 });

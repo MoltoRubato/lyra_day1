@@ -24,11 +24,18 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const [addingTable, setAddingTable]       = useState(false);
   const [newTableName, setNewTableName]     = useState("");
 
-  // All hooks must be called before any early return (Rules of Hooks).
-  // We read columns from the TanStack cache synchronously — no extra query fires.
+  // Resolve current table — before any early returns (Rules of Hooks).
   const currentTableId = activeTableId ?? base?.tables[0]?.id ?? null;
-  const cachedTable = utils.table.getById.getData({ id: currentTableId ?? "" });
-  const groupableCols = (cachedTable?.columns ?? []).filter((c) =>
+
+  // Fetch current table to power the group-by picker.
+  // This fires as soon as a table is selected (or the first table loads),
+  // regardless of which view is active — fixing the bug where group-by only
+  // appeared after visiting Kanban view first.
+  const { data: currentTable } = api.table.getById.useQuery(
+    { id: currentTableId ?? "" },
+    { enabled: !!currentTableId }
+  );
+  const groupableCols = (currentTable?.columns ?? []).filter((c) =>
     ["TEXT", "SINGLE_SELECT"].includes(c.type)
   );
 
@@ -80,7 +87,6 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
       {/* Table tabs + toolbar */}
       <div className="border-b border-white/10 px-6 flex items-center justify-between flex-shrink-0">
-        {/* Tabs */}
         <div className="flex items-center">
           {base.tables.map((table) => {
             const isActive   = currentTableId === table.id;
@@ -109,7 +115,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
           {addingTable ? (
             <div className="flex items-center gap-1 ml-1 py-2">
               <input autoFocus className="bg-[#1e1e28] border border-[#5b6af7] rounded px-2 py-0.5 text-sm outline-none w-28"
-                placeholder="Table name..." value={newTableName} onChange={(e) => setNewTableName(e.target.value)}
+                placeholder="Table name…" value={newTableName} onChange={(e) => setNewTableName(e.target.value)}
                 onBlur={() => { if (!newTableName.trim()) setAddingTable(false); }}
                 onKeyDown={(e) => { if (e.key === "Enter") handleAddTable(); if (e.key === "Escape") { setAddingTable(false); setNewTableName(""); } }} />
               <button onClick={handleAddTable} className="px-2 py-0.5 bg-[#5b6af7] hover:bg-[#4a59e6] rounded text-xs transition-colors">Add</button>

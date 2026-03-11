@@ -21,6 +21,10 @@ import {
   ColumnChangeTypeInput,
   ColumnReorderInput,
   ColumnResizeInput,
+  SelectOptionOutput,
+  SelectOptionAddInput,
+  SelectOptionDeleteInput,
+  SelectOptionUpdateInput,
 } from "~/types/schemas";
 import { z } from "zod";
 
@@ -35,7 +39,7 @@ export const tableRouter = createTRPCRouter({
       const table = await ctx.db.table.findUnique({
         where: { id: input.id },
         include: {
-          columns: { orderBy: { order: "asc" } },
+          columns: { orderBy: { order: "asc" }, include: { selectOptions: { orderBy: { order: "asc" } } } },
           rows: {
             orderBy: { order: "asc" },
             include: { cells: true },
@@ -342,4 +346,33 @@ export const tableRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       return ctx.db.column.update({ where: { id: input.columnId }, data: { width: input.width } });
     }),
+
+  // ── Select option management ───────────────────────────────────────────────
+
+  addSelectOption: publicProcedure
+    .input(SelectOptionAddInput)
+    .output(SelectOptionOutput)
+    .mutation(async ({ ctx, input }) => {
+      const count = await ctx.db.selectOption.count({ where: { columnId: input.columnId } });
+      return ctx.db.selectOption.create({
+        data: { columnId: input.columnId, label: input.label, color: input.color, order: count },
+      });
+    }),
+
+  deleteSelectOption: publicProcedure
+    .input(SelectOptionDeleteInput)
+    .output(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.selectOption.delete({ where: { id: input.optionId } });
+      return { id: input.optionId };
+    }),
+
+  updateSelectOption: publicProcedure
+    .input(SelectOptionUpdateInput)
+    .output(SelectOptionOutput)
+    .mutation(({ ctx, input }) => ctx.db.selectOption.update({
+      where: { id: input.optionId },
+      data: { label: input.label, color: input.color },
+    })),
+
 });
