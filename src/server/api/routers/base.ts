@@ -1,24 +1,35 @@
 // src/server/api/routers/base.ts
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { BaseWithTablesOutput, BaseOutput, BaseCreateInput, BaseRenameInput, BaseDeleteInput, BaseToggleStarInput } from "~/types/schemas";
+import { BaseWithTablesOutput, BaseOutput, BaseCreateInput, BaseRenameInput, BaseDeleteInput, BaseToggleStarInput, BaseMoveInput } from "~/types/schemas";
 import { z } from "zod";
+
+const INCLUDE = {
+  workspace: { select: { id: true, name: true } },
+  tables: { include: { _count: { select: { rows: true } } } },
+} as const;
 
 export const baseRouter = createTRPCRouter({
   getAll: publicProcedure
     .output(z.array(BaseWithTablesOutput))
     .query(({ ctx }) => ctx.db.base.findMany({
-      include: { tables: { include: { _count: { select: { rows: true } } } } },
-      orderBy: { createdAt: "asc" },
+      include: INCLUDE,
+      orderBy: [{ lastOpenedAt: "desc" }, { createdAt: "desc" }],
     })),
 
   getById: publicProcedure
     .input(z.object({ id: z.string() }))
     .output(BaseWithTablesOutput)
     .query(async ({ ctx, input }) => {
+      // Record open time as side effect
+      await ctx.db.base.update({
+        where: { id: input.id },
+        data: { lastOpenedAt: new Date() },
+      }).catch(() => null); // silently ignore if not found yet
+
       const base = await ctx.db.base.findUnique({
         where: { id: input.id },
-        include: { tables: { include: { _count: { select: { rows: true } } } } },
+        include: INCLUDE,
       });
       if (!base) throw new TRPCError({ code: "NOT_FOUND", message: `Base "${input.id}" not found` });
       return base;
@@ -30,6 +41,8 @@ export const baseRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => ctx.db.base.create({
       data: {
         name: input.name,
+        workspaceId: input.workspaceId ?? null,
+        lastOpenedAt: new Date(),
         tables: {
           create: {
             name: "Tasks",
@@ -60,6 +73,11 @@ export const baseRouter = createTRPCRouter({
     .input(BaseToggleStarInput)
     .output(BaseOutput)
     .mutation(({ ctx, input }) => ctx.db.base.update({ where: { id: input.id }, data: { starred: input.starred } })),
+
+  moveToWorkspace: publicProcedure
+    .input(BaseMoveInput)
+    .output(BaseOutput)
+    .mutation(({ ctx, input }) => ctx.db.base.update({ where: { id: input.id }, data: { workspaceId: input.workspaceId } })),
 
   delete: publicProcedure
     .input(BaseDeleteInput)

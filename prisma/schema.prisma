@@ -8,13 +8,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  starred     Boolean  @default(false)
+  bases       Base[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Base {
-  id        String   @id @default(cuid())
-  name      String
-  starred   Boolean  @default(false)
-  tables    Table[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String     @id @default(cuid())
+  name         String
+  starred      Boolean    @default(false)
+  lastOpenedAt DateTime?
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  workspaceId  String?
+  tables       Table[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
 
 model Table {
@@ -58,7 +71,7 @@ model Column {
 model SelectOption {
   id       String @id @default(cuid())
   label    String
-  color    String @default("#5b6af7")
+  color    String @default("#166254")
   order    Int    @default(0)
   column   Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
   columnId String

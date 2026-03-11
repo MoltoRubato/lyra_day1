@@ -12,10 +12,24 @@ async function main() {
   await prisma.view.deleteMany();
   await prisma.table.deleteMany();
   await prisma.base.deleteMany();
+  await prisma.workspace.deleteMany();
+
+  // ── Workspace ─────────────────────────────────────────────────────────────
+  const workspace = await prisma.workspace.create({
+    data: {
+      name: "Lyra Fellowship",
+      description: "Workshop projects and assignments",
+      starred: true,
+    },
+  });
 
   // ── Base ───────────────────────────────────────────────────────────────────
   const base = await prisma.base.create({
-    data: { name: "Lyra Fellow Project Board (fake)" },
+    data: {
+      name: "Lyra Fellow Project Board (fake)",
+      workspaceId: workspace.id,
+      lastOpenedAt: new Date(),
+    },
   });
 
   // ── Table ──────────────────────────────────────────────────────────────────
@@ -100,6 +114,7 @@ async function main() {
   await createRow(8, { name: "Performance profiling",                                status: "Done",        priority: "Low",        estimate: 3,  notes: "Lighthouse score now 94",                         due: "2025-03-10", done: true  });
 
   console.log("✅ Seeded:");
+  console.log("   1 workspace");
   console.log("   1 base · 1 table · 2 views");
   console.log("   8 columns · 6 status options · 4 priority options");
   console.log("   8 rows · 64 cells");
