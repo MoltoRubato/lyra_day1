@@ -40,6 +40,12 @@ export const baseRouter = createTRPCRouter({
                 { name: "Notes",  type: "TEXT",          order: 2, width: 200 },
               ],
             },
+            views: {
+              create: [
+                { name: "Grid view",   type: "GRID",   order: 0 },
+                { name: "Kanban view", type: "KANBAN", order: 1 },
+              ],
+            },
           },
         },
       },

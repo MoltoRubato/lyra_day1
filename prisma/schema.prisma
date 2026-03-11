@@ -24,8 +24,21 @@ model Table {
   baseId    String
   columns   Column[]
   rows      Row[]
+  views     View[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model View {
+  id              String   @id @default(cuid())
+  name            String
+  type            ViewType @default(GRID)
+  order           Int      @default(0)
+  groupByColumnId String?
+  table           Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableId         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Column {
@@ -72,6 +85,11 @@ model Cell {
   updatedAt DateTime @updatedAt
 
   @@unique([rowId, columnId])
+}
+
+enum ViewType {
+  GRID
+  KANBAN
 }
 
 enum ColumnType {
