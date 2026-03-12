@@ -141,72 +141,225 @@ export default function HomePage() {
   const error     = basesError ?? wsError;
 
   // ── Base mutations ─────────────────────────────────────────────────────────
+  // ── Shared optimistic helpers ──────────────────────────────────────────────
+
+  const cancelBases      = () => utils.base.getAll.cancel();
+  const snapshotBases    = () => utils.base.getAll.getData();
+  const patchBases       = (fn: Parameters<typeof utils.base.getAll.setData>[1]) =>
+    utils.base.getAll.setData(undefined, fn);
+  const invalidateBases  = () => void utils.base.getAll.invalidate();
+
+  const cancelWs         = () => utils.workspace.getAll.cancel();
+  const snapshotWs       = () => utils.workspace.getAll.getData();
+  const patchWs          = (fn: Parameters<typeof utils.workspace.getAll.setData>[1]) =>
+    utils.workspace.getAll.setData(undefined, fn);
+  const invalidateWs     = () => void utils.workspace.getAll.invalidate();
+
+  // ── Base mutations ─────────────────────────────────────────────────────────
+
   const createBase = api.base.create.useMutation({
-    onSuccess: () => {
-      void utils.base.getAll.invalidate();
-      void utils.workspace.getAll.invalidate();
+    onMutate: async ({ name, workspaceId }) => {
+      await cancelBases();
+      await cancelWs();
+      const snapshotB = snapshotBases();
+      const snapshotW = snapshotWs();
+      const tempBase: BaseItem = {
+        id: `temp-base-${Date.now()}`, name, starred: false,
+        color: "#f82b60", icon: "default",
+        workspaceId: workspaceId ?? null,
+        lastOpenedAt: new Date(),
+        workspace: null, tables: [],
+      };
+      patchBases((p) => p ? [tempBase, ...p] : [tempBase]);
+      if (workspaceId) {
+        patchWs((p) => p?.map((w) => w.id !== workspaceId ? w : {
+          ...w,
+          bases: [tempBase as unknown as WsFull["bases"][number], ...w.bases],
+        }));
+      }
+      return { snapshotB, snapshotW };
     },
+    onError: (_e, _v, ctx) => {
+      patchBases(() => ctx?.snapshotB);
+      patchWs(() => ctx?.snapshotW);
+    },
+    onSettled: () => { invalidateBases(); invalidateWs(); },
   });
 
   const renameBase = api.base.rename.useMutation({
-    // Optimistic: update name immediately
-    onMutate: ({ id, name }) =>
-      utils.base.getAll.setData(undefined, (p) => p?.map((b) => b.id === id ? { ...b, name } : b)),
-    onSettled: () => void utils.base.getAll.invalidate(),
+    onMutate: async ({ id, name }) => {
+      await cancelBases();
+      await cancelWs();
+      const snapshotB = snapshotBases();
+      const snapshotW = snapshotWs();
+      patchBases((p) => p?.map((b) => b.id === id ? { ...b, name } : b));
+      patchWs((p) => p?.map((w) => ({
+        ...w,
+        bases: w.bases.map((b) => b.id === id ? { ...b, name } : b),
+      })));
+      return { snapshotB, snapshotW };
+    },
+    onError: (_e, _v, ctx) => {
+      patchBases(() => ctx?.snapshotB);
+      patchWs(() => ctx?.snapshotW);
+    },
+    onSettled: () => { invalidateBases(); invalidateWs(); },
   });
 
   const deleteBase = api.base.delete.useMutation({
-    // Optimistic: remove from list immediately
-    onMutate: ({ id }) =>
-      utils.base.getAll.setData(undefined, (p) => p?.filter((b) => b.id !== id)),
-    onSettled: () => {
-      void utils.base.getAll.invalidate();
-      void utils.workspace.getAll.invalidate();
+    onMutate: async ({ id }) => {
+      await cancelBases();
+      await cancelWs();
+      const snapshotB = snapshotBases();
+      const snapshotW = snapshotWs();
+      patchBases((p) => p?.filter((b) => b.id !== id));
+      patchWs((p) => p?.map((w) => ({
+        ...w,
+        bases: w.bases.filter((b) => b.id !== id),
+      })));
+      return { snapshotB, snapshotW };
     },
+    onError: (_e, _v, ctx) => {
+      patchBases(() => ctx?.snapshotB);
+      patchWs(() => ctx?.snapshotW);
+    },
+    onSettled: () => { invalidateBases(); invalidateWs(); },
   });
 
   const toggleBaseStar = api.base.toggleStar.useMutation({
-    // Optimistic: flip star immediately
-    onMutate: ({ id, starred }) =>
-      utils.base.getAll.setData(undefined, (p) => p?.map((b) => b.id === id ? { ...b, starred } : b)),
-    onSettled: () => void utils.base.getAll.invalidate(),
+    onMutate: async ({ id, starred }) => {
+      await cancelBases();
+      await cancelWs();
+      const snapshotB = snapshotBases();
+      const snapshotW = snapshotWs();
+      patchBases((p) => p?.map((b) => b.id === id ? { ...b, starred } : b));
+      patchWs((p) => p?.map((w) => ({
+        ...w,
+        bases: w.bases.map((b) => b.id === id ? { ...b, starred } : b),
+      })));
+      return { snapshotB, snapshotW };
+    },
+    onError: (_e, _v, ctx) => {
+      patchBases(() => ctx?.snapshotB);
+      patchWs(() => ctx?.snapshotW);
+    },
+    onSettled: invalidateBases,
   });
 
   const moveBase = api.base.moveToWorkspace.useMutation({
-    onSuccess: () => {
-      void utils.base.getAll.invalidate();
-      void utils.workspace.getAll.invalidate();
+    onMutate: async ({ id, workspaceId }) => {
+      await cancelBases();
+      await cancelWs();
+      const snapshotB = snapshotBases();
+      const snapshotW = snapshotWs();
+      patchBases((p) =>
+        p?.map((b) => b.id === id ? { ...b, workspaceId: workspaceId ?? null, workspace: null } : b)
+      );
+      patchWs((p) => {
+        if (!p) return p;
+        // Find the base object to move
+        const baseToMove = p.flatMap((w) => w.bases).find((b) => b.id === id);
+        if (!baseToMove) return p;
+        return p.map((w) => {
+          // Remove from old workspace
+          if (w.bases.some((b) => b.id === id)) {
+            return { ...w, bases: w.bases.filter((b) => b.id !== id) };
+          }
+          // Add to new workspace
+          if (workspaceId && w.id === workspaceId) {
+            return { ...w, bases: [...w.bases, { ...baseToMove, workspaceId }] };
+          }
+          return w;
+        });
+      });
+      return { snapshotB, snapshotW };
     },
+    onError: (_e, _v, ctx) => {
+      patchBases(() => ctx?.snapshotB);
+      patchWs(() => ctx?.snapshotW);
+    },
+    onSettled: () => { invalidateBases(); invalidateWs(); },
   });
 
   // ── Workspace mutations ────────────────────────────────────────────────────
+
   const createWs = api.workspace.create.useMutation({
-    onSuccess: () => void utils.workspace.getAll.invalidate(),
+    onMutate: async ({ name, description }) => {
+      await cancelWs();
+      const snapshot = snapshotWs();
+      const tempWs: WsFull = {
+        id: `temp-ws-${Date.now()}`, name,
+        description: description ?? null, starred: false, bases: [],
+      };
+      patchWs((p) => p ? [...p, tempWs] : [tempWs]);
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => patchWs(() => ctx?.snapshot),
+    onSettled: invalidateWs,
   });
 
   const renameWs = api.workspace.rename.useMutation({
-    onMutate: ({ id, name }) =>
-      utils.workspace.getAll.setData(undefined, (p) => p?.map((w) => w.id === id ? { ...w, name } : w)),
-    onSettled: () => void utils.workspace.getAll.invalidate(),
+    onMutate: async ({ id, name }) => {
+      await cancelWs();
+      await cancelBases();
+      const snapshotW = snapshotWs();
+      const snapshotB = snapshotBases();
+      patchWs((p) => p?.map((w) => w.id === id ? { ...w, name } : w));
+      patchBases((p) => p?.map((b) =>
+        b.workspaceId !== id ? b : {
+          ...b,
+          workspace: b.workspace ? { ...b.workspace, name } : { id, name },
+        }
+      ));
+      return { snapshotW, snapshotB };
+    },
+    onError: (_e, _v, ctx) => {
+      patchWs(() => ctx?.snapshotW);
+      patchBases(() => ctx?.snapshotB);
+    },
+    onSettled: () => { invalidateWs(); invalidateBases(); },
   });
 
   const updateDesc = api.workspace.updateDescription.useMutation({
-    onSuccess: () => void utils.workspace.getAll.invalidate(),
+    onMutate: async ({ id, description }) => {
+      await cancelWs();
+      const snapshot = snapshotWs();
+      patchWs((p) => p?.map((w) => w.id === id ? { ...w, description: description ?? null } : w));
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => patchWs(() => ctx?.snapshot),
+    onSettled: invalidateWs,
   });
 
   const deleteWs = api.workspace.delete.useMutation({
-    onMutate: ({ id }) =>
-      utils.workspace.getAll.setData(undefined, (p) => p?.filter((w) => w.id !== id)),
-    onSettled: () => {
-      void utils.workspace.getAll.invalidate();
-      void utils.base.getAll.invalidate();
+    onMutate: async ({ id }) => {
+      await cancelWs();
+      await cancelBases();
+      const snapshotW = snapshotWs();
+      const snapshotB = snapshotBases();
+      patchWs((p) => p?.filter((w) => w.id !== id));
+      // Unassign any bases that belonged to this workspace
+      patchBases((p) => p?.map((b) =>
+        b.workspaceId !== id ? b : { ...b, workspaceId: null, workspace: null }
+      ));
+      return { snapshotW, snapshotB };
     },
+    onError: (_e, _v, ctx) => {
+      patchWs(() => ctx?.snapshotW);
+      patchBases(() => ctx?.snapshotB);
+    },
+    onSettled: () => { invalidateWs(); invalidateBases(); },
   });
 
   const toggleWsStar = api.workspace.toggleStar.useMutation({
-    onMutate: ({ id, starred }) =>
-      utils.workspace.getAll.setData(undefined, (p) => p?.map((w) => w.id === id ? { ...w, starred } : w)),
-    onSettled: () => void utils.workspace.getAll.invalidate(),
+    onMutate: async ({ id, starred }) => {
+      await cancelWs();
+      const snapshot = snapshotWs();
+      patchWs((p) => p?.map((w) => w.id === id ? { ...w, starred } : w));
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => patchWs(() => ctx?.snapshot),
+    onSettled: invalidateWs,
   });
 
   // ── UI state ───────────────────────────────────────────────────────────────
@@ -681,10 +834,17 @@ function BaseListView({ bases, showWorkspace, onRename, onDelete, onStar, onMove
           className={`group grid items-center px-1 py-2 border-b border-[#ebebeb] hover:bg-white transition-colors -mx-1 ${cols}`}>
           <div className="flex items-center gap-2.5 min-w-0 pr-4">
             <BaseIcon base={base} size={26}/>
-            <Link href={`/base/${base.id}`}
-              className="text-[13px] font-medium text-[#172b4d] hover:text-[#0069ff] truncate transition-colors">
-              {base.name}
-            </Link>
+            {base.id.startsWith("temp-") ? (
+              <span className="text-[13px] font-medium text-[#9ca3af] truncate flex items-center gap-1.5">
+                {base.name}
+                <span className="w-2.5 h-2.5 border border-[#ccc] border-t-[#888] rounded-full animate-spin flex-shrink-0"/>
+              </span>
+            ) : (
+              <Link href={`/base/${base.id}`}
+                className="text-[13px] font-medium text-[#172b4d] hover:text-[#0069ff] truncate transition-colors">
+                {base.name}
+              </Link>
+            )}
             <button onClick={() => onStar(base)}
               className={`text-[13px] flex-shrink-0 transition-all ${
                 base.starred ? "text-yellow-400" : "opacity-0 group-hover:opacity-100 text-[#ddd] hover:text-yellow-400"
@@ -720,10 +880,17 @@ function BaseGridView({ bases, onRename, onDelete, onStar, onMove }: {
             <div className="flex items-start gap-3 mb-3">
               <BaseIcon base={base} size={34}/>
               <div className="flex-1 min-w-0 pt-0.5">
-                <Link href={`/base/${base.id}`}
-                  className="text-[13px] font-semibold text-[#172b4d] hover:text-[#0069ff] block truncate transition-colors leading-snug">
-                  {base.name}
-                </Link>
+                {base.id.startsWith("temp-") ? (
+                  <span className="text-[13px] font-semibold text-[#9ca3af] block truncate leading-snug flex items-center gap-1.5">
+                    {base.name}
+                    <span className="w-2.5 h-2.5 border border-[#ccc] border-t-[#888] rounded-full animate-spin flex-shrink-0 inline-block"/>
+                  </span>
+                ) : (
+                  <Link href={`/base/${base.id}`}
+                    className="text-[13px] font-semibold text-[#172b4d] hover:text-[#0069ff] block truncate transition-colors leading-snug">
+                    {base.name}
+                  </Link>
+                )}
                 {base.workspace && <p className="text-[11px] text-[#888] truncate mt-0.5">{base.workspace.name}</p>}
               </div>
               <button onClick={() => onStar(base)}
@@ -824,10 +991,17 @@ function WorkspacesOverview({
               {ws.bases.slice(0, 6).map((base) => (
                 <div key={base.id} className="group/row flex items-center gap-2.5 py-1.5 px-1 rounded-md hover:bg-white transition-colors -mx-1">
                   <BaseIcon base={base} size={22}/>
-                  <Link href={`/base/${base.id}`}
-                    className="flex-1 min-w-0 text-[13px] font-medium text-[#172b4d] hover:text-[#0069ff] truncate transition-colors">
-                    {base.name}
-                  </Link>
+                  {base.id.startsWith("temp-") ? (
+                    <span className="flex-1 min-w-0 text-[13px] font-medium text-[#9ca3af] truncate flex items-center gap-1.5">
+                      {base.name}
+                      <span className="w-2 h-2 border border-[#ccc] border-t-[#888] rounded-full animate-spin flex-shrink-0 inline-block"/>
+                    </span>
+                  ) : (
+                    <Link href={`/base/${base.id}`}
+                      className="flex-1 min-w-0 text-[13px] font-medium text-[#172b4d] hover:text-[#0069ff] truncate transition-colors">
+                      {base.name}
+                    </Link>
+                  )}
                   <span className="text-[11px] text-[#bbb] flex-shrink-0">{timeAgo(base.lastOpenedAt)}</span>
                   <div className="flex items-center gap-0 opacity-0 group-hover/row:opacity-100 transition-opacity flex-shrink-0">
                     <button onClick={() => onStarBase(base)}
@@ -856,10 +1030,17 @@ function WorkspacesOverview({
             {unassigned.map((base) => (
               <div key={base.id} className="group/row flex items-center gap-2.5 py-1.5 px-1 rounded-md hover:bg-white transition-colors -mx-1">
                 <BaseIcon base={base} size={22}/>
-                <Link href={`/base/${base.id}`}
-                  className="flex-1 min-w-0 text-[13px] font-medium text-[#172b4d] hover:text-[#0069ff] truncate transition-colors">
-                  {base.name}
-                </Link>
+                {base.id.startsWith("temp-") ? (
+                  <span className="flex-1 min-w-0 text-[13px] font-medium text-[#9ca3af] truncate flex items-center gap-1.5">
+                    {base.name}
+                    <span className="w-2 h-2 border border-[#ccc] border-t-[#888] rounded-full animate-spin flex-shrink-0 inline-block"/>
+                  </span>
+                ) : (
+                  <Link href={`/base/${base.id}`}
+                    className="flex-1 min-w-0 text-[13px] font-medium text-[#172b4d] hover:text-[#0069ff] truncate transition-colors">
+                    {base.name}
+                  </Link>
+                )}
                 <span className="text-[11px] text-[#bbb] flex-shrink-0">{timeAgo(base.lastOpenedAt)}</span>
                 <div className="flex items-center gap-0 opacity-0 group-hover/row:opacity-100 transition-opacity flex-shrink-0">
                   <ActionBtn title="Move workspace" onClick={() => onMoveBase(base)}><MoveIco size={10}/></ActionBtn>

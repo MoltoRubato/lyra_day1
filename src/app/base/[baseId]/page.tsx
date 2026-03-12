@@ -353,38 +353,164 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const { baseId } = use(params);
   const utils = api.useUtils();
 
-  const { data: base, isLoading } = api.base.getById.useQuery({ id: baseId });
+  const { data: base, isLoading, error } = api.base.getById.useQuery(
+    { id: baseId },
+    {
+      // Retry up to 4 times on NOT_FOUND — the DB write may not have landed yet
+      // when the user navigates immediately after optimistic base creation.
+      retry: (failureCount, err) => {
+        const isNotFound = (err as { data?: { code?: string } })?.data?.code === "NOT_FOUND";
+        return isNotFound && failureCount < 4;
+      },
+      retryDelay: (attempt) => Math.min(300 * 2 ** attempt, 3000),
+    }
+  );
 
   // ── Mutations ──────────────────────────────────────────────────────────────
-  const renameTable = api.table.renameTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
-  const deleteTable = api.table.deleteTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
-  const createTable = api.table.create.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
+
+  // Shared helpers
+  const cancelBase    = () => utils.base.getById.cancel({ id: baseId });
+  const snapshotBase  = () => utils.base.getById.getData({ id: baseId });
+  const patchBase     = (updater: Parameters<typeof utils.base.getById.setData>[1]) =>
+    utils.base.getById.setData({ id: baseId }, updater);
+  const restoreBase   = (snap: ReturnType<typeof snapshotBase>) =>
+    utils.base.getById.setData({ id: baseId }, snap);
+  const invalidateBase = () => {
+    void utils.base.getById.invalidate({ id: baseId });
+    void utils.base.getAll.invalidate();
+  };
+
+  const cancelViews   = (tableId: string) => utils.view.getByTableId.cancel({ tableId });
+  const snapshotViews = (tableId: string) => utils.view.getByTableId.getData({ tableId });
+  const patchViews    = (tableId: string, updater: Parameters<typeof utils.view.getByTableId.setData>[1]) =>
+    utils.view.getByTableId.setData({ tableId }, updater);
+  const invalidateViews = (tableId: string) =>
+    void utils.view.getByTableId.invalidate({ tableId });
+
+  const renameTable = api.table.renameTable.useMutation({
+    onMutate: async ({ tableId, name }) => {
+      await cancelBase();
+      const snapshot = snapshotBase();
+      patchBase((p) => p ? { ...p, tables: p.tables.map((t) => t.id === tableId ? { ...t, name } : t) } : p);
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => restoreBase(ctx?.snapshot),
+    onSettled: invalidateBase,
+  });
+
+  const deleteTable = api.table.deleteTable.useMutation({
+    onMutate: async ({ tableId }) => {
+      await cancelBase();
+      const snapshot = snapshotBase();
+      patchBase((p) => p ? { ...p, tables: p.tables.filter((t) => t.id !== tableId) } : p);
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => restoreBase(ctx?.snapshot),
+    onSettled: invalidateBase,
+  });
+
+  const createTable = api.table.create.useMutation({
+    onMutate: async ({ name }) => {
+      await cancelBase();
+      const snapshot = snapshotBase();
+      const tempId = `temp-tbl-${Date.now()}`;
+      patchBase((p) => p ? {
+        ...p,
+        tables: [...p.tables, {
+          id: tempId, name, baseId, order: p.tables.length,
+          createdAt: new Date(), updatedAt: new Date(),
+          _count: { rows: 0 },
+        }],
+      } : p);
+      return { snapshot, tempId };
+    },
+    onError: (_e, _v, ctx) => restoreBase(ctx?.snapshot),
+    onSettled: invalidateBase,
+  });
+
+  const createView = api.view.create.useMutation({
+    onMutate: async ({ tableId, name, type }) => {
+      await cancelViews(tableId);
+      const snapshot = snapshotViews(tableId);
+      const tempId   = `temp-view-${Date.now()}`;
+      patchViews(tableId, (p) => {
+        const views = p ?? [];
+        return [...views, {
+          id: tempId, name, type: type ?? "GRID",
+          order: views.length, groupByColumnId: null,
+          tableId, createdAt: new Date(), updatedAt: new Date(),
+        }];
+      });
+      return { snapshot, tempId, tableId };
+    },
+    onSuccess: (v, _vars, ctx) => {
+      if (ctx?.tempId) tempViewToRealId.current[ctx.tempId] = v.id;
+      patchViews(v.tableId, (p) =>
+        p?.map((view) => view.id === ctx?.tempId ? v : view)
+      );
+      setActiveViewId((prev) =>
+        prev === null || prev === ctx?.tempId ? v.id : prev
+      );
+    },
+    onError: (_e, vars, ctx) => {
+      utils.view.getByTableId.setData({ tableId: vars.tableId }, ctx?.snapshot);
+    },
+    onSettled: (_d, _e, vars) => invalidateViews(vars.tableId),
+  });
+
+  const renameView = api.view.rename.useMutation({
+    onMutate: async ({ viewId, name }) => {
+      const tid = currentTableId ?? "";
+      await cancelViews(tid);
+      const snapshot = snapshotViews(tid);
+      patchViews(tid, (p) => p?.map((v) => v.id === viewId ? { ...v, name } : v));
+      return { snapshot, tid };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.tid) utils.view.getByTableId.setData({ tableId: ctx.tid }, ctx.snapshot);
+    },
+    onSettled: (_d, _e, _v, ctx) => {
+      if ((ctx as { tid?: string })?.tid) invalidateViews((ctx as { tid: string }).tid);
+    },
+  });
+
+  const deleteView = api.view.delete.useMutation({
+    onMutate: async ({ viewId }) => {
+      const tid = currentTableId ?? "";
+      await cancelViews(tid);
+      const snapshot = snapshotViews(tid);
+      patchViews(tid, (p) => p?.filter((v) => v.id !== viewId));
+      return { snapshot, tid };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.tid) utils.view.getByTableId.setData({ tableId: ctx.tid }, ctx.snapshot);
+    },
+    onSettled: (_d, _e, _v, ctx) => {
+      invalidateViews((ctx as { tid?: string })?.tid ?? currentTableId ?? "");
+    },
+  });
 
   const updateApp = api.base.updateAppearance.useMutation({
-    onMutate: (vars) => {
-      utils.base.getById.setData({ id: baseId }, (prev) => prev ? { ...prev, ...vars } : prev);
+    onMutate: async (vars) => {
+      await cancelBase();
+      const snapshot = snapshotBase();
+      patchBase((prev) => prev ? { ...prev, ...vars } : prev);
+      return { snapshot };
     },
-    onSettled: () => {
-      void utils.base.getById.invalidate({ id: baseId });
-      void utils.base.getAll.invalidate();
-    },
+    onError: (_e, _v, ctx) => restoreBase(ctx?.snapshot),
+    onSettled: invalidateBase,
   });
 
   const toggleStar = api.base.toggleStar.useMutation({
-    onMutate: ({ starred }) => {
-      utils.base.getById.setData({ id: baseId }, (prev) => prev ? { ...prev, starred } : prev);
+    onMutate: async ({ starred }) => {
+      await cancelBase();
+      const snapshot = snapshotBase();
+      patchBase((prev) => prev ? { ...prev, starred } : prev);
+      return { snapshot };
     },
-    onSettled: () => {
-      void utils.base.getById.invalidate({ id: baseId });
-      void utils.base.getAll.invalidate();
-    },
+    onError: (_e, _v, ctx) => restoreBase(ctx?.snapshot),
+    onSettled: invalidateBase,
   });
-
-  const createView  = api.view.create.useMutation({
-    onSuccess: (v) => { void utils.view.getByTableId.invalidate({ tableId: v.tableId }); setActiveViewId(v.id); },
-  });
-  const renameView  = api.view.rename.useMutation({ onSuccess: (v) => void utils.view.getByTableId.invalidate({ tableId: v.tableId }) });
-  const deleteView  = api.view.delete.useMutation({ onSuccess: () => void utils.view.getByTableId.invalidate({ tableId: activeTableId ?? "" }) });
 
   // ── bulkAddRows — dev/perf-test mutation ───────────────────────────────────
   // Inserts 100 000 empty rows in the background, then invalidates the table
@@ -406,6 +532,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [activeViewId, setActiveViewId]   = useState<string | null>(null);
+  const tempViewToRealId                  = useRef<Record<string, string>>({});
   const [viewSidebarOpen, setViewSidebar] = useState(true);
   const [panelOpen, setPanelOpen]         = useState(false);
   const [renamingTable, setRenamingTable] = useState<{ id: string; value: string } | null>(null);
@@ -437,7 +564,10 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     { tableId: currentTableId ?? "" },
     { enabled: !!currentTableId },
   );
-  const activeView = views.find((v) => v.id === activeViewId) ?? views[0] ?? null;
+  const resolvedActiveViewId = activeViewId
+    ? (tempViewToRealId.current[activeViewId] ?? activeViewId)
+    : null;
+  const activeView = views.find((v) => v.id === resolvedActiveViewId) ?? views[0] ?? null;
 
   const { data: currentTable } = api.table.getById.useQuery(
     { id: currentTableId ?? "" },
@@ -458,10 +588,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   }
   function handleAddTable() {
     if (!newTableName.trim()) return;
-    createTable.mutate({ baseId, name: newTableName.trim() }, {
+    const name = newTableName.trim();
+    setNewTableName(""); setAddingTable(false);
+    createTable.mutate({ baseId, name }, {
       onSuccess: (t) => { setActiveTableId(t.id); setActiveViewId(null); },
     });
-    setNewTableName(""); setAddingTable(false);
   }
   function commitViewRename() {
     if (!renamingView?.value.trim()) { setRenamingView(null); return; }
@@ -475,7 +606,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   }
 
   // ── Loading / error ────────────────────────────────────────────────────────
-  if (isLoading) return (
+  if (isLoading || (!base && !error)) return (
     <div className="min-h-screen bg-white flex items-center justify-center"
       style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
       <div className="text-sm text-[#aaa] animate-pulse">Loading…</div>

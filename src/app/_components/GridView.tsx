@@ -290,60 +290,125 @@ export default function GridView({
 
   // ── Shared cache helpers ───────────────────────────────────────────────────
 
+  const cancelCache   = useCallback(
+    () => utils.table.getById.cancel({ id: tableId }),
+    [utils, tableId],
+  );
+  const snapshotCache = useCallback(
+    () => utils.table.getById.getData({ id: tableId }),
+    [utils, tableId],
+  );
   const patchCache = useCallback(
     (updater: Parameters<typeof utils.table.getById.setData>[1]) => {
       utils.table.getById.setData({ id: tableId }, updater);
     },
     [utils, tableId],
   );
+  const restoreCache = useCallback(
+    (snap: ReturnType<typeof snapshotCache>) => {
+      utils.table.getById.setData({ id: tableId }, snap);
+    },
+    [utils, tableId, snapshotCache],
+  );
   const invalidate = useCallback(
     () => void utils.table.getById.invalidate({ id: tableId }),
     [utils, tableId],
   );
 
-  // ── Mutations — all optimistic ─────────────────────────────────────────────
+  // ── Mutations — all optimistic with cancel+snapshot ────────────────────────
 
   const updateCell = api.table.updateCell.useMutation({
-    onMutate: ({ rowId, columnId, value }) =>
+    onMutate: async ({ rowId, columnId, value }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
       patchCache((prev) => prev ? {
         ...prev,
         rows: prev.rows.map((r) => r.id !== rowId ? r : {
           ...r, cells: r.cells.map((c) => c.columnId !== columnId ? c : { ...c, value }),
         }),
-      } : prev),
-    onError:   invalidate,
+      } : prev);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const addRow = api.table.addRow.useMutation({
-    onMutate: () =>
-      patchCache((prev) => {
-        if (!prev) return prev;
-        const tempId = `temp-${Date.now()}`;
-        return {
-          ...prev,
-          rows: [...prev.rows, {
-            id: tempId, tableId, order: prev.rows.length,
-            createdAt: new Date(), updatedAt: new Date(),
-            cells: prev.columns.map((c) => ({
-              id: `tc-${c.id}-${tempId}`, rowId: tempId, columnId: c.id,
-              value: null, createdAt: new Date(), updatedAt: new Date(),
-            })),
-          }],
-        };
-      }),
-    onSettled: invalidate,
-  });
+  onMutate: async () => {
+    await cancelCache();
+    const snapshot = snapshotCache();
+    const tempId = `temp-${Date.now()}`;
+    patchCache((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rows: [...prev.rows, {
+          id: tempId, tableId, order: prev.rows.length,
+          createdAt: new Date(), updatedAt: new Date(),
+          cells: prev.columns.map((c) => ({
+            id: `tc-${c.id}-${tempId}`, rowId: tempId, columnId: c.id,
+            value: null, createdAt: new Date(), updatedAt: new Date(),
+          })),
+        }],
+        rowCount: prev.rowCount + 1,
+      };
+    });
+    // Auto-focus first editable cell
+    const firstEditable = visCols.find(
+      (c) => c.type !== "CHECKBOX" && c.type !== "ATTACHMENT" && !isSelect(c.type)
+    );
+    if (firstEditable) {
+      setEditing({ rowId: tempId, columnId: firstEditable.id, value: "" });
+    }
+    return { snapshot, tempId };
+  },
+  onSuccess: (realRow, _vars, ctx) => {
+    if (!ctx?.tempId) return;
+    const { tempId } = ctx;
+    // Record the permanent mapping
+    tempToRealId.current[tempId] = realRow.id;
+    // Swap the temp row for the real one in the cache
+    patchCache((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rows: prev.rows.map((r) =>
+          r.id === tempId
+            ? { ...realRow, cells: r.cells.map((c) => ({ ...c, rowId: realRow.id })) }
+            : r
+        ),
+      };
+    });
+    // Re-point any active edit at the real row ID
+    setEditing((prev) =>
+      prev?.rowId === tempId ? { ...prev, rowId: realRow.id } : prev
+    );
+    // Flush queued edits that were committed before this response arrived
+    const queued = pendingEdits.current.filter((e) => e.tempRowId === tempId);
+    pendingEdits.current = pendingEdits.current.filter((e) => e.tempRowId !== tempId);
+    for (const edit of queued) {
+      updateCell.mutate({ rowId: realRow.id, columnId: edit.columnId, value: edit.value });
+    }
+  },
+  onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+  onSettled: invalidate,
+});
 
   const deleteRow = api.table.deleteRow.useMutation({
-    onMutate: ({ rowId }) =>
-      patchCache((p) => p ? { ...p, rows: p.rows.filter((r) => r.id !== rowId) } : p),
-    onError:   invalidate,
+    onMutate: async ({ rowId }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      patchCache((p) => p ? { ...p, rows: p.rows.filter((r) => r.id !== rowId), rowCount: Math.max(0, p.rowCount - 1) } : p);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const addColumn = api.table.addColumn.useMutation({
-    onMutate: ({ name, type }) =>
+    onMutate: async ({ name, type }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
       patchCache((prev) => {
         if (!prev) return prev;
         const tempId = `temp-col-${Date.now()}`;
@@ -363,54 +428,75 @@ export default function GridView({
             }],
           })),
         };
-      }),
+      });
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const deleteColumn = api.table.deleteColumn.useMutation({
-    onMutate: ({ columnId }) =>
+    onMutate: async ({ columnId }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
       patchCache((p) => p ? {
         ...p,
         columns: p.columns.filter((c) => c.id !== columnId),
         rows: p.rows.map((r) => ({ ...r, cells: r.cells.filter((c) => c.columnId !== columnId) })),
-      } : p),
-    onError:   invalidate,
+      } : p);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const renameColumn = api.table.renameColumn.useMutation({
-    onMutate: ({ columnId, name }) =>
-      patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, name } : c) } : p),
-    onError:   invalidate,
+    onMutate: async ({ columnId, name }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, name } : c) } : p);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const changeType = api.table.changeColumnType.useMutation({
-    onMutate: ({ columnId, type }) =>
-      patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, type } : c) } : p),
-    onError:   invalidate,
+    onMutate: async ({ columnId, type }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, type } : c) } : p);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const reorderColumns = api.table.reorderColumns.useMutation({
-    onMutate: ({ orderedIds }) =>
+    onMutate: async ({ orderedIds }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
       patchCache((prev) => {
         if (!prev) return prev;
         const byId = Object.fromEntries(prev.columns.map((c) => [c.id, c]));
         return { ...prev, columns: orderedIds.map((id, i) => ({ ...byId[id]!, order: i })) };
-      }),
-    onError:   invalidate,
+      });
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const resizeColumn = api.table.resizeColumn.useMutation({
     onMutate: ({ columnId, width }) =>
       patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, width } : c) } : p),
-    // no onSettled — width is cosmetic-only and already in cache
+    // width is cosmetic-only — no cancel/snapshot/invalidate needed
   });
 
   const addOption = api.table.addSelectOption.useMutation({
-    onMutate: ({ columnId, label, color }) =>
+    onMutate: async ({ columnId, label, color }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
       patchCache((prev) => {
         if (!prev) return prev;
         const tempId = `temp-opt-${Date.now()}`;
@@ -426,25 +512,33 @@ export default function GridView({
             }
           ),
         };
-      }),
-    onError:   invalidate,
+      });
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const deleteOption = api.table.deleteSelectOption.useMutation({
-    onMutate: ({ optionId }) =>
+    onMutate: async ({ optionId }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
       patchCache((prev) => prev ? {
         ...prev,
         columns: prev.columns.map((col) => ({
           ...col, selectOptions: (col.selectOptions ?? []).filter((o) => o.id !== optionId),
         })),
-      } : prev),
-    onError:   invalidate,
+      } : prev);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
 
   const updateOption = api.table.updateSelectOption.useMutation({
-    onMutate: ({ optionId, label, color }) =>
+    onMutate: async ({ optionId, label, color }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
       patchCache((prev) => prev ? {
         ...prev,
         columns: prev.columns.map((col) => ({
@@ -453,10 +547,33 @@ export default function GridView({
             o.id !== optionId ? o : { ...o, label, color }
           ),
         })),
-      } : prev),
-    onError:   invalidate,
+      } : prev);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
+
+  // Wrapper that handles temp-row IDs: queues the edit if the real row
+  // hasn't come back yet, otherwise fires immediately.
+  const safeUpdateCell = useCallback(
+    (rowId: string, columnId: string, value: string | null) => {
+      const realId = tempToRealId.current[rowId] ?? rowId;
+      if (realId.startsWith("temp-")) {
+        // Optimistically show the value immediately in the cache
+        patchCache((prev) => prev ? {
+          ...prev,
+          rows: prev.rows.map((r) => r.id !== realId ? r : {
+            ...r, cells: r.cells.map((c) => c.columnId !== columnId ? c : { ...c, value }),
+          }),
+        } : prev);
+        pendingEdits.current.push({ tempRowId: rowId, columnId, value });
+        return;
+      }
+      updateCell.mutate({ rowId: realId, columnId, value });
+    },
+    [updateCell, patchCache],
+  );
 
   // ── Local UI state ─────────────────────────────────────────────────────────
 
@@ -470,7 +587,9 @@ export default function GridView({
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [dragColId, setDragColId]           = useState<string | null>(null);
   const [dragOverColId, setDragOverColId]   = useState<string | null>(null);
-  const resizingRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
+  const resizingRef   = useRef<{ colId: string; startX: number; startW: number } | null>(null);
+  const tempToRealId  = useRef<Record<string, string>>({});
+  const pendingEdits  = useRef<Array<{ tempRowId: string; columnId: string; value: string | null }>>([]);
 
   // ── Virtual-scroll state ───────────────────────────────────────────────────
 
@@ -605,10 +724,10 @@ export default function GridView({
     setOpenSelectCell(null);
     if (editing?.rowId === row.id && editing.columnId === col.id) return;
     if (col.type === "CHECKBOX") {
-      updateCell.mutate({
-        rowId: row.id, columnId: col.id,
-        value: getCellValue(row, col.id) === "true" ? "false" : "true",
-      });
+      safeUpdateCell(
+        row.id, col.id,
+        getCellValue(row, col.id) === "true" ? "false" : "true",
+      );
     } else if (isSelect(col.type) || col.type === "ATTACHMENT") {
       // handled by sub-components
     } else {
@@ -618,7 +737,7 @@ export default function GridView({
 
   function commitEdit() {
     if (!editing) return;
-    updateCell.mutate({ rowId: editing.rowId, columnId: editing.columnId, value: editing.value || null });
+    safeUpdateCell(editing.rowId, editing.columnId, editing.value || null);
     setEditing(null);
   }
 
@@ -914,11 +1033,11 @@ export default function GridView({
                             value={value}
                             options={(col.selectOptions ?? []) as SelectOption[]}
                             multi={col.type === "MULTI_SELECT"}
-                            onSelect={(v) => updateCell.mutate({ rowId: row.id, columnId: col.id, value: v || null })}/>
+                            onSelect={(v) => safeUpdateCell(row.id, col.id, v || null)}/>
 
                         ) : col.type === "ATTACHMENT" ? (
                           <AttachmentCell value={value}
-                            onUpload={(url) => updateCell.mutate({ rowId: row.id, columnId: col.id, value: url })}/>
+                            onUpload={(url) => safeUpdateCell(row.id, col.id, url)}/>
 
                         ) : isEditing ? (
                           <input autoFocus
