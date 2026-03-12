@@ -36,11 +36,17 @@ export const tableRouter = createTRPCRouter({
     .input(TableGetByIdInput)
     .output(TableWithDataOutput)
     .query(async ({ ctx, input }) => {
+      // Cap rows returned to prevent huge payloads at scale.
+      // rowCount tells the client how many rows actually exist.
+      const ROW_LIMIT = 500;
+
       const table = await ctx.db.table.findUnique({
         where: { id: input.id },
         include: {
+          _count: { select: { rows: true } },
           columns: { orderBy: { order: "asc" }, include: { selectOptions: { orderBy: { order: "asc" } } } },
           rows: {
+            take: ROW_LIMIT,
             orderBy: { order: "asc" },
             include: { cells: true },
           },
@@ -54,7 +60,6 @@ export const tableRouter = createTRPCRouter({
         });
       }
 
-      // Server-side filtering: keep only rows where the filter column contains the value
       let rows = table.rows;
 
       if (input.filterColumnId && input.filterValue) {
@@ -65,21 +70,18 @@ export const tableRouter = createTRPCRouter({
         });
       }
 
-      // Server-side sorting: sort rows by a specific column's cell value
       if (input.sortByColumnId) {
         const col = table.columns.find((c) => c.id === input.sortByColumnId);
         rows = [...rows].sort((a, b) => {
           const av = a.cells.find((c) => c.columnId === input.sortByColumnId)?.value ?? "";
           const bv = b.cells.find((c) => c.columnId === input.sortByColumnId)?.value ?? "";
           const dir = input.sortDir === "asc" ? 1 : -1;
-          if (col?.type === "NUMBER") {
-            return dir * ((parseFloat(av) || 0) - (parseFloat(bv) || 0));
-          }
+          if (col?.type === "NUMBER") return dir * ((parseFloat(av) || 0) - (parseFloat(bv) || 0));
           return dir * av.localeCompare(bv);
         });
       }
 
-      return { ...table, rows };
+      return { ...table, rows, rowCount: table._count.rows };
     }),
 
   // ── Table mutations ────────────────────────────────────────────────────────
@@ -98,6 +100,12 @@ export const tableRouter = createTRPCRouter({
       return ctx.db.table.create({
         data: {
           name: input.name,
+          views: {
+            create: [
+              { name: "Grid view",   type: "GRID",   order: 0 },
+              { name: "Kanban view", type: "KANBAN", order: 1 },
+            ],
+          },
           baseId: input.baseId,
           columns: {
             create: [
@@ -374,5 +382,52 @@ export const tableRouter = createTRPCRouter({
       where: { id: input.optionId },
       data: { label: input.label, color: input.color },
     })),
+
+  // ── Paginated row fetching ─────────────────────────────────────────────────
+  // Used by GridView to progressively load rows beyond the initial 500 cap.
+  getRows: publicProcedure
+    .input(z.object({ tableId: z.string(), skip: z.number().int().min(0), take: z.number().int().min(1).max(5000) }))
+    .output(z.array(RowOutput))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.row.findMany({
+        where: { tableId: input.tableId },
+        orderBy: { order: "asc" },
+        skip: input.skip,
+        take: input.take,
+        include: { cells: true },
+      });
+    }),
+
+  // ── Bulk row insertion (dev/load-test) ─────────────────────────────────────
+  // Inserts N empty rows using createMany — no cells are created, getCellValue
+  // gracefully returns "" for missing cells, so the grid still renders fine.
+  bulkAddRows: publicProcedure
+    .input(z.object({ tableId: z.string(), count: z.number().min(1).max(100000) }))
+    .output(z.object({ inserted: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findUnique({ where: { id: input.tableId } });
+      if (!table) throw new TRPCError({ code: "NOT_FOUND", message: `Table "${input.tableId}" not found` });
+
+      const maxOrder = await ctx.db.row.aggregate({
+        where: { tableId: input.tableId },
+        _max: { order: true },
+      });
+      const baseOrder = (maxOrder._max.order ?? -1) + 1;
+
+      // Insert in chunks of 10 000 to stay within SQLite variable limits
+      const BATCH = 10_000;
+      let inserted = 0;
+      for (let offset = 0; offset < input.count; offset += BATCH) {
+        const batchCount = Math.min(BATCH, input.count - offset);
+        await ctx.db.row.createMany({
+          data: Array.from({ length: batchCount }, (_, i) => ({
+            tableId: input.tableId,
+            order:   baseOrder + offset + i,
+          })),
+        });
+        inserted += batchCount;
+      }
+      return { inserted };
+    }),
 
 });

@@ -1,6 +1,6 @@
 "use client";
 // src/app/_components/GridView.tsx
-import { useState, useRef, useCallback, Fragment } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, Fragment } from "react";
 import { api } from "~/trpc/react";
 import {
   getCellValue, applyFilters, applySorts, applyGroups, flattenGroupTree,
@@ -15,14 +15,26 @@ import {
 type EditingCell  = { rowId: string; columnId: string; value: string };
 type SelectOption = { id: string; label: string; color: string; order: number; columnId: string };
 
-// ─── Colour palette for select options ───────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const OPTION_COLORS = [
   "#2d7b6b","#7c3aed","#ef4444","#f97316",
   "#eab308","#22c55e","#06b6d4","#ec4899",
 ];
 
-// ─── Field type picker ────────────────────────────────────────────────────────
+// How many extra items to render above/below the visible window.
+// Larger = smoother fast-scroll; smaller = fewer DOM nodes.
+const OVERSCAN = 15;
+
+// ─── Group header depth colours ───────────────────────────────────────────────
+
+const GROUP_DEPTH_COLORS = [
+  { bg: "#f0f4f8", text: "#374151", border: "#e2e8f0", dot: "#6b7280" },
+  { bg: "#f5f3ff", text: "#5b21b6", border: "#ede9fe", dot: "#8b5cf6" },
+  { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa", dot: "#f97316" },
+];
+
+// ─── FieldTypePicker ──────────────────────────────────────────────────────────
 
 function FieldTypePicker({ current, onSelect }: { current: string; onSelect: (t: string) => void }) {
   return (
@@ -47,7 +59,7 @@ function FieldTypePicker({ current, onSelect }: { current: string; onSelect: (t:
   );
 }
 
-// ─── Options panel ────────────────────────────────────────────────────────────
+// ─── OptionsPanel ─────────────────────────────────────────────────────────────
 
 function OptionsPanel({ columnId, options, onAdd, onDelete, onUpdate }: {
   columnId: string;
@@ -137,7 +149,7 @@ function OptionsPanel({ columnId, options, onAdd, onDelete, onUpdate }: {
   );
 }
 
-// ─── Select cell ──────────────────────────────────────────────────────────────
+// ─── SelectCell ───────────────────────────────────────────────────────────────
 
 function SelectCell({ cellId, openSelectCell, setOpenSelectCell, value, options, multi, onSelect }: {
   cellId: string;
@@ -204,7 +216,7 @@ function SelectCell({ cellId, openSelectCell, setOpenSelectCell, value, options,
   );
 }
 
-// ─── Attachment cell ──────────────────────────────────────────────────────────
+// ─── AttachmentCell ───────────────────────────────────────────────────────────
 
 function AttachmentCell({ value, onUpload }: { value: string; onUpload: (url: string) => void }) {
   const [uploading, setUploading] = useState(false);
@@ -253,14 +265,6 @@ function AttachmentCell({ value, onUpload }: { value: string; onUpload: (url: st
   );
 }
 
-// ─── Group header row ─────────────────────────────────────────────────────────
-
-const GROUP_DEPTH_COLORS = [
-  { bg: "#f0f4f8", text: "#374151", border: "#e2e8f0", dot: "#6b7280" },
-  { bg: "#f5f3ff", text: "#5b21b6", border: "#ede9fe", dot: "#8b5cf6" },
-  { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa", dot: "#f97316" },
-];
-
 // ─── Main GridView ────────────────────────────────────────────────────────────
 
 export default function GridView({
@@ -272,7 +276,7 @@ export default function GridView({
   rowHeight    = "short",
   onSortsChange,
 }: {
-  tableId: string;
+  tableId:        string;
   hiddenFields?:  Record<string, boolean>;
   filters?:       FilterCondition[];
   sorts?:         SortRule[];
@@ -283,6 +287,8 @@ export default function GridView({
   const utils = api.useUtils();
 
   const { data: table, isLoading, error } = api.table.getById.useQuery({ id: tableId });
+
+  // ── Shared cache helpers ───────────────────────────────────────────────────
 
   const patchCache = useCallback(
     (updater: Parameters<typeof utils.table.getById.setData>[1]) => {
@@ -295,7 +301,7 @@ export default function GridView({
     [utils, tableId],
   );
 
-  // ── Mutations ──────────────────────────────────────────────────────────────
+  // ── Mutations — all optimistic ─────────────────────────────────────────────
 
   const updateCell = api.table.updateCell.useMutation({
     onMutate: ({ rowId, columnId, value }) =>
@@ -400,6 +406,7 @@ export default function GridView({
   const resizeColumn = api.table.resizeColumn.useMutation({
     onMutate: ({ columnId, width }) =>
       patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, width } : c) } : p),
+    // no onSettled — width is cosmetic-only and already in cache
   });
 
   const addOption = api.table.addSelectOption.useMutation({
@@ -453,39 +460,131 @@ export default function GridView({
 
   // ── Local UI state ─────────────────────────────────────────────────────────
 
-  const [editing, setEditing]         = useState<EditingCell | null>(null);
-  const [renamingCol, setRenamingCol] = useState<{ id: string; value: string } | null>(null);
+  const [editing, setEditing]               = useState<EditingCell | null>(null);
+  const [renamingCol, setRenamingCol]       = useState<{ id: string; value: string } | null>(null);
   const [openSelectCell, setOpenSelectCell] = useState<string | null>(null);
-  const [headerPanel, setHeaderPanel] = useState<{ colId: string; panel: "type" | "options" } | null>(null);
-  const [addingCol, setAddingCol]     = useState(false);
-  const [newColName, setNewColName]   = useState("");
-  const [newColType, setNewColType]   = useState("TEXT");
+  const [headerPanel, setHeaderPanel]       = useState<{ colId: string; panel: "type" | "options" } | null>(null);
+  const [addingCol, setAddingCol]           = useState(false);
+  const [newColName, setNewColName]         = useState("");
+  const [newColType, setNewColType]         = useState("TEXT");
   const [showTypePicker, setShowTypePicker] = useState(false);
-  const [dragColId, setDragColId]     = useState<string | null>(null);
-  const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+  const [dragColId, setDragColId]           = useState<string | null>(null);
+  const [dragOverColId, setDragOverColId]   = useState<string | null>(null);
   const resizingRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
 
-  // ── Loading / error ────────────────────────────────────────────────────────
+  // ── Virtual-scroll state ───────────────────────────────────────────────────
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollTopRef = useRef(0);
+  const rafPending   = useRef(false);
+  const [, forceRender] = useState(0);
+  const [viewportH, setViewportH] = useState(600);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setViewportH(el.clientHeight);
+    const ro = new ResizeObserver(([e]) => setViewportH(e!.contentRect.height));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    scrollTopRef.current = e.currentTarget.scrollTop;
+    if (rafPending.current) return;
+    rafPending.current = true;
+    requestAnimationFrame(() => {
+      rafPending.current = false;
+      forceRender((n) => n + 1);
+    });
+  }, []);
+
+  // ── Progressive row loading ────────────────────────────────────────────────
+  // getById returns the first 500 rows for a fast initial paint. This effect
+  // continuously fetches 5 000-row pages and merges them into the same cache,
+  // so all optimistic mutations keep working without any changes.
+
+  const [chunkLoading, setChunkLoading] = useState(false);
+
+  useEffect(() => {
+    if (!table) return;
+    const loaded = table.rows.length;
+    const total  = table.rowCount;
+    if (loaded >= total) return;
+    if (chunkLoading) return;
+
+    setChunkLoading(true);
+    void utils.table.getRows
+      .fetch({ tableId, skip: loaded, take: 5000 })
+      .then((newRows) => {
+        patchCache((prev) => {
+          if (!prev) return prev;
+          const existingIds = new Set(prev.rows.map((r) => r.id));
+          const fresh = newRows.filter((r) => !existingIds.has(r.id));
+          if (fresh.length === 0) return prev;
+          return {
+            ...prev,
+            rows: [...prev.rows, ...fresh],
+            // Keep rowCount accurate so the virtual scroller stays correct
+            rowCount: prev.rowCount,
+          };
+        });
+      })
+      .finally(() => setChunkLoading(false));
+  // Re-fires each time rows.length grows (i.e. after each chunk lands)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table?.rows.length, table?.rowCount, chunkLoading]);
+
+  // ── Data pipeline — all memoised, run before early returns ────────────────
+
+  const allCols = useMemo(
+    () => [...(table?.columns ?? [])].sort((a, b) => a.order - b.order),
+    [table?.columns],
+  );
+
+  const visCols = useMemo(
+    () => allCols.filter((c) => !hiddenFields[c.id]),
+    [allCols, hiddenFields],
+  );
+
+  const flatItems = useMemo(() => {
+    if (!table) return [];
+    const filtered = applyFilters(table.rows as RowWithCells[], filters);
+    const sorted   = applySorts(filtered, sorts, table.columns);
+    const grouped  = applyGroups(sorted, groups);
+    return flattenGroupTree(grouped);
+  }, [table, filters, sorts, groups]);
+
+  const rowNumbers = useMemo(() => {
+    let n = 0;
+    return flatItems.map((item) => (item.kind === "row" ? ++n : null));
+  }, [flatItems]);
+
+  // ── Virtual window ─────────────────────────────────────────────────────────
+
+  const rowH     = ROW_HEIGHT_PX[rowHeight];
+  const isTall   = rowHeight === "tall" || rowHeight === "extra-tall";
+  const isSelect = (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT";
+
+  // When no client-side transforms are active, use rowCount (the true DB total)
+  // for the scroll height so the scrollbar thumb is correct even before all
+  // chunks have arrived. Once transforms are active we fall back to loaded count.
+  const noTransform = filters.length === 0 && sorts.length === 0 && groups.length === 0;
+  const trueTotal   = (noTransform && table) ? table.rowCount : flatItems.length;
+  const loadedCount = flatItems.length;
+
+  const scrollTop = scrollTopRef.current;
+  const startIdx  = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN);
+  const endIdx    = Math.min(loadedCount, Math.ceil((scrollTop + viewportH) / rowH) + OVERSCAN);
+  const topPad    = startIdx * rowH;
+  const bottomPad = Math.max(0, (trueTotal - endIdx) * rowH);
+  const visItems  = flatItems.slice(startIdx, endIdx);
+
+  // ── Early returns (after all hooks) ───────────────────────────────────────
 
   if (isLoading) return <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loading…</div>;
   if (error)     return <div className="p-8 text-red-400 text-sm">Failed to load table. Please refresh.</div>;
   if (!table)    return <div className="p-8 text-[#9ca3af] text-sm">Table not found.</div>;
-
-  // ── Apply pipeline: filter → sort → group ─────────────────────────────────
-
-  const allCols  = [...table.columns].sort((a, b) => a.order - b.order);
-  const visCols  = allCols.filter((c) => !hiddenFields[c.id]);
-
-  const filtered  = applyFilters(table.rows as RowWithCells[], filters);
-  const sorted    = applySorts(filtered, sorts, table.columns);
-  const grouped   = applyGroups(sorted, groups);
-  const flatItems = flattenGroupTree(grouped);
-
-  const isSelect = (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT";
-
-  // Row height derived values
-  const rowH   = ROW_HEIGHT_PX[rowHeight];
-  const isTall = rowHeight === "tall" || rowHeight === "extra-tall";
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -531,8 +630,8 @@ export default function GridView({
 
   function onDragEnd() {
     if (dragColId && dragOverColId && dragColId !== dragOverColId) {
-      const from     = allCols.findIndex((c) => c.id === dragColId);
-      const to       = allCols.findIndex((c) => c.id === dragOverColId);
+      const from      = allCols.findIndex((c) => c.id === dragColId);
+      const to        = allCols.findIndex((c) => c.id === dragOverColId);
       const reordered = [...allCols];
       reordered.splice(to, 0, reordered.splice(from, 1)[0]!);
       reorderColumns.mutate({ tableId, orderedIds: reordered.map((c) => c.id) });
@@ -564,22 +663,25 @@ export default function GridView({
     window.addEventListener("mouseup", onUp);
   }
 
-  // Running row index (only increments for "row" items)
-  let rowIndex = 0;
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="w-full overflow-x-auto select-none bg-white"
-      onClick={() => { setHeaderPanel(null); setOpenSelectCell(null); }}>
+    // This div IS the scroll container. base-page wraps it in flex-1 overflow-hidden,
+    // so h-full here gives it the remaining viewport height.
+    <div
+      ref={containerRef}
+      className="h-full w-full overflow-auto select-none bg-white"
+      onScroll={handleScroll}
+      onClick={() => { setHeaderPanel(null); setOpenSelectCell(null); }}
+    >
       <table className="border-collapse text-sm" style={{ tableLayout: "fixed" }}>
 
-        {/* ── Header ── */}
-        <thead>
+        {/* ── Sticky header ── */}
+        <thead className="sticky top-0 z-20">
           <tr className="border-b border-[#e2e5e9] bg-[#f9fafb]">
 
-            {/* Row number col */}
-            <th className="w-12 px-3 py-0 text-left sticky left-0 bg-[#f9fafb] z-10 border-r border-[#e2e5e9]">
+            {/* Row-number col */}
+            <th className="w-12 px-3 py-0 text-left bg-[#f9fafb] z-10 border-r border-[#e2e5e9]">
               <div className="flex items-center" style={{ height: rowH }}>
                 <input type="checkbox"
                   className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 hover:opacity-100"/>
@@ -718,9 +820,10 @@ export default function GridView({
           </tr>
         </thead>
 
-        {/* ── Body ── */}
+        {/* ── Body — only the visible slice is in the DOM ── */}
         <tbody>
-          {flatItems.length === 0 && (
+          {/* Empty state */}
+          {loadedCount === 0 && (
             <tr>
               <td colSpan={visCols.length + 2} className="px-4 py-8 text-center text-xs text-[#9ca3af]">
                 No records match the current filters.
@@ -728,7 +831,17 @@ export default function GridView({
             </tr>
           )}
 
-          {flatItems.map((item) => {
+          {/* Top virtual spacer */}
+          {topPad > 0 && (
+            <tr aria-hidden="true" style={{ height: topPad }}>
+              <td colSpan={visCols.length + 2} style={{ padding: 0, border: "none" }}/>
+            </tr>
+          )}
+
+          {visItems.map((item, vi) => {
+            const absIdx = startIdx + vi;
+
+            // ── Group header row ──
             if (item.kind === "group") {
               const { node, totalRows } = item;
               const depth  = Math.min(node.depth, GROUP_DEPTH_COLORS.length - 1);
@@ -758,9 +871,10 @@ export default function GridView({
               );
             }
 
-            // row item
-            const { row } = item;
-            const idx      = rowIndex++;
+            // ── Data row ──
+            const { row }  = item;
+            const rowNum   = rowNumbers[absIdx] ?? absIdx + 1;
+
             return (
               <tr key={row.id}
                 className="border-b border-[#e2e5e9] hover:bg-[#f9fafb] group transition-colors"
@@ -772,7 +886,7 @@ export default function GridView({
                     <input type="checkbox"
                       className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"/>
                     <span className="text-[11px] text-[#9ca3af] select-none group-hover:hidden w-4 text-right">
-                      {idx + 1}
+                      {rowNum}
                     </span>
                   </div>
                 </td>
@@ -786,9 +900,7 @@ export default function GridView({
                       className="px-2 py-0 border-r border-[#e2e5e9] overflow-visible"
                       onClick={() => handleCellClick(row as RowWithCells, col)}>
 
-                      <div
-                        className={`flex ${isTall ? "items-start pt-1.5" : "items-center"}`}
-                        style={{ height: rowH }}>
+                      <div className={`flex ${isTall ? "items-start pt-1.5" : "items-center"}`} style={{ height: rowH }}>
 
                         {col.type === "CHECKBOX" ? (
                           <input type="checkbox" readOnly checked={value === "true"}
@@ -843,10 +955,17 @@ export default function GridView({
               </tr>
             );
           })}
+
+          {/* Bottom virtual spacer */}
+          {bottomPad > 0 && (
+            <tr aria-hidden="true" style={{ height: bottomPad }}>
+              <td colSpan={visCols.length + 2} style={{ padding: 0, border: "none" }}/>
+            </tr>
+          )}
         </tbody>
       </table>
 
-      {/* ── Add row ── */}
+      {/* ── Add row + loading progress ── */}
       <div className="border-b border-[#e2e5e9]">
         <button onClick={() => addRow.mutate({ tableId })}
           className="flex items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-xs">
@@ -854,6 +973,17 @@ export default function GridView({
             <path d="M6 2v8M2 6h8" strokeLinecap="round"/>
           </svg>
           Add record
+          <span className="ml-auto flex items-center gap-1.5 text-[10px] text-[#ccc]">
+            {chunkLoading && (
+              <span className="flex items-center gap-1 text-[#f97316]">
+                <span className="w-2 h-2 border border-[#f97316] border-t-transparent rounded-full animate-spin inline-block"/>
+                Loading {loadedCount.toLocaleString()} / {(table?.rowCount ?? 0).toLocaleString()}…
+              </span>
+            )}
+            {!chunkLoading && trueTotal > 0 && (
+              <span>{trueTotal.toLocaleString()} rows</span>
+            )}
+          </span>
         </button>
       </div>
     </div>

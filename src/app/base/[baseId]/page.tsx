@@ -2,7 +2,8 @@
 // src/app/base/[baseId]/page.tsx
 import { api } from "~/trpc/react";
 import Link from "next/link";
-import { useState, use } from "react";
+import { useState, use, useEffect, useRef } from "react";
+import { useIsMutating } from "@tanstack/react-query";
 import GridView from "~/app/_components/GridView";
 import KanbanView from "~/app/_components/KanbanView";
 import ViewToolbar, {
@@ -75,12 +76,12 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
   onUpdateGuide: (g: string) => void;
   onToggleStar: () => void;
 }) {
-  const [tab, setTab]             = useState<"color"|"icon">("color");
+  const [tab, setTab]               = useState<"color"|"icon">("color");
   const [iconSearch, setIconSearch] = useState("");
   const [guideOpen, setGuideOpen]   = useState(true);
   const [guideMode, setGuideMode]   = useState<"view"|"edit">("view");
   const DEFAULT_GUIDE = `Use this space to share the goals and details of your base with your team.\n\nStart by outlining your goal.\n\nNext, share details about key information in your base:\n\nThis table contains...\n\nThis view shows...\n\nThis link contains...`;
-  const [guideText, setGuideText] = useState(base.guide ?? DEFAULT_GUIDE);
+  const [guideText, setGuideText]   = useState(base.guide ?? DEFAULT_GUIDE);
 
   const filteredIcons = BASE_ICONS.filter((i) =>
     !iconSearch.trim() || i.label.toLowerCase().includes(iconSearch.toLowerCase())
@@ -237,6 +238,46 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
   );
 }
 
+// ─── Saving indicator ────────────────────────────────────────────────────────
+
+function SyncIndicator() {
+  const isMutating                = useIsMutating();
+  const [showSaved, setShowSaved] = useState(false);
+  const wasActive                 = useRef(false);
+
+  useEffect(() => {
+    if (isMutating > 0) {
+      wasActive.current = true;
+      setShowSaved(false);
+    } else if (wasActive.current) {
+      wasActive.current = false;
+      setShowSaved(true);
+      const t = setTimeout(() => setShowSaved(false), 2200);
+      return () => clearTimeout(t);
+    }
+  }, [isMutating]);
+
+  if (isMutating > 0) {
+    return (
+      <div className="flex items-center gap-1.5 text-[11px] text-[#888] select-none">
+        <div className="w-3 h-3 border-[1.5px] border-[#ccc] border-t-[#555] rounded-full animate-spin flex-shrink-0"/>
+        <span>Saving changes</span>
+      </div>
+    );
+  }
+  if (showSaved) {
+    return (
+      <div className="flex items-center gap-1.5 text-[11px] text-[#22c55e] select-none">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span>All changes saved</span>
+      </div>
+    );
+  }
+  return null;
+}
+
 // ─── Left icon sidebar ────────────────────────────────────────────────────────
 
 function LeftSidebar() {
@@ -298,9 +339,9 @@ const VIEW_META: Record<string, { icon: React.ReactNode; color: string }> = {
     color: "#9b59b6",
     icon: (
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <rect x="1"   y="1" width="3.5" height="12" rx="0.5"/>
+        <rect x="1"    y="1" width="3.5" height="12" rx="0.5"/>
         <rect x="5.25" y="1" width="3.5" height="8"  rx="0.5"/>
-        <rect x="9.5" y="1" width="3.5" height="10" rx="0.5"/>
+        <rect x="9.5"  y="1" width="3.5" height="10" rx="0.5"/>
       </svg>
     ),
   },
@@ -315,9 +356,9 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const { data: base, isLoading } = api.base.getById.useQuery({ id: baseId });
 
   // ── Mutations ──────────────────────────────────────────────────────────────
-  const renameTable  = api.table.renameTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
-  const deleteTable  = api.table.deleteTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
-  const createTable  = api.table.create.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
+  const renameTable = api.table.renameTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
+  const deleteTable = api.table.deleteTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
+  const createTable = api.table.create.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
 
   const updateApp = api.base.updateAppearance.useMutation({
     onMutate: (vars) => {
@@ -344,7 +385,23 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   });
   const renameView  = api.view.rename.useMutation({ onSuccess: (v) => void utils.view.getByTableId.invalidate({ tableId: v.tableId }) });
   const deleteView  = api.view.delete.useMutation({ onSuccess: () => void utils.view.getByTableId.invalidate({ tableId: activeTableId ?? "" }) });
-  const updateConfig = api.view.updateConfig.useMutation({ onSuccess: (v) => void utils.view.getByTableId.invalidate({ tableId: v.tableId }) });
+
+  // ── bulkAddRows — dev/perf-test mutation ───────────────────────────────────
+  // Inserts 100 000 empty rows in the background, then invalidates the table
+  // query so GridView re-fetches and virtual-scrolls through all of them.
+  const [bulkAdding, setBulkAdding] = useState(false);
+  const bulkAddRows = api.table.bulkAddRows.useMutation({
+    onSuccess: () => {
+      void utils.table.getById.invalidate({ id: currentTableId ?? "" });
+    },
+    onSettled: () => setBulkAdding(false),
+  });
+
+  function handleBulkAddRows() {
+    if (!currentTableId || bulkAdding) return;
+    setBulkAdding(true);
+    bulkAddRows.mutate({ tableId: currentTableId, count: 100_000 });
+  }
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
@@ -466,7 +523,8 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             ))}
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <SyncIndicator />
             <button className="px-4 py-1.5 bg-[#0069ff] hover:bg-[#0055d4] text-white text-[13px] font-medium rounded-md transition-colors">
               Share
             </button>
@@ -593,7 +651,6 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                         {view.name}
                       </span>
                     )}
-                    {/* Dot indicator if view has active config */}
                     {hasActive && !isRenaming && (
                       <span className="w-1.5 h-1.5 rounded-full bg-[#0069ff] flex-shrink-0"/>
                     )}
@@ -641,7 +698,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
 
-            {/* ── Toolbar (ViewToolbar replaces old static buttons) ── */}
+            {/* ── Toolbar ── */}
             {activeView && currentTable ? (
               <ViewToolbar
                 columns={currentTable.columns}
@@ -649,13 +706,16 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                 onConfigChange={(patch) => updateViewConfig(activeView.id, patch)}
                 activeViewName={activeView.name}
                 activeViewType={activeView.type}
+                // Only show the 100k button on GRID views
+                onBulkAddRows={activeView.type === "GRID" ? handleBulkAddRows : undefined}
+                bulkAdding={bulkAdding}
               />
             ) : (
               <div className="h-10 border-b border-[#e0e0e0] bg-white flex-shrink-0"/>
             )}
 
-            {/* View content */}
-            <div className="flex-1 overflow-auto bg-white">
+            {/* View content — overflow-hidden so GridView owns its own scroll */}
+            <div className="flex-1 overflow-hidden bg-white">
               {!currentTableId ? (
                 <div className="flex items-center justify-center h-full text-sm text-[#aaa]">
                   No tables yet — click &ldquo;+ Add or import&rdquo; to create one.
@@ -689,10 +749,10 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
       {panelOpen && (
         <AppearancePanel
           base={{
-            name: base.name,
-            color: base.color ?? "#f82b60",
-            icon:  base.icon  ?? "default",
-            guide: base.guide ?? null,
+            name:    base.name,
+            color:   base.color ?? "#f82b60",
+            icon:    base.icon  ?? "default",
+            guide:   base.guide ?? null,
             starred: base.starred,
           }}
           onClose={() => setPanelOpen(false)}
