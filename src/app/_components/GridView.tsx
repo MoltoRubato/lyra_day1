@@ -3,15 +3,16 @@
 import { useState, useRef, useCallback, Fragment } from "react";
 import { api } from "~/trpc/react";
 import {
-  getCellValue, sortRows, groupRows, formatCellValue,
-  inputTypeForField, FIELD_TYPES, FIELD_TYPE_GROUPS,
-  type RowWithCells,
+  getCellValue, applyFilters, applySorts, applyGroups, flattenGroupTree,
+  formatCellValue, inputTypeForField, FIELD_TYPES, FIELD_TYPE_GROUPS,
+  ROW_HEIGHT_PX,
+  type RowWithCells, type FilterCondition, type SortRule,
+  type GroupRule, type RowHeight,
 } from "./tableUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortState   = { columnId: string; dir: "asc" | "desc" } | null;
-type EditingCell = { rowId: string; columnId: string; value: string };
+type EditingCell  = { rowId: string; columnId: string; value: string };
 type SelectOption = { id: string; label: string; color: string; order: number; columnId: string };
 
 // ─── Colour palette for select options ───────────────────────────────────────
@@ -55,10 +56,10 @@ function OptionsPanel({ columnId, options, onAdd, onDelete, onUpdate }: {
   onDelete: (id: string) => void;
   onUpdate: (id: string, label: string, color: string) => void;
 }) {
-  const [newLabel, setNewLabel]     = useState("");
-  const [newColor, setNewColor]     = useState(OPTION_COLORS[0]!);
-  const [editingId, setEditingId]   = useState<string | null>(null);
-  const [editLabel, setEditLabel]   = useState("");
+  const [newLabel, setNewLabel]       = useState("");
+  const [newColor, setNewColor]       = useState(OPTION_COLORS[0]!);
+  const [editingId, setEditingId]     = useState<string | null>(null);
+  const [editLabel, setEditLabel]     = useState("");
   const [showPalette, setShowPalette] = useState(false);
 
   return (
@@ -86,7 +87,6 @@ function OptionsPanel({ columnId, options, onAdd, onDelete, onUpdate }: {
                   onDoubleClick={() => { setEditingId(opt.id); setEditLabel(opt.label); }}>
                   {opt.label}
                 </span>
-                {/* Inline colour swatches on hover */}
                 <div className="hidden group-hover/opt:flex gap-0.5">
                   {OPTION_COLORS.map((c) => (
                     <button key={c} onClick={() => onUpdate(opt.id, opt.label, c)}
@@ -103,7 +103,6 @@ function OptionsPanel({ columnId, options, onAdd, onDelete, onUpdate }: {
         {options.length === 0 && <p className="text-xs text-[#9ca3af] italic">No options yet</p>}
       </div>
 
-      {/* Add new option */}
       <div className="flex items-center gap-1 border-t border-[#e2e5e9] pt-2">
         <div className="relative">
           <div className="w-5 h-5 rounded-full cursor-pointer border border-[#e2e5e9]"
@@ -149,7 +148,7 @@ function SelectCell({ cellId, openSelectCell, setOpenSelectCell, value, options,
   multi: boolean;
   onSelect: (v: string) => void;
 }) {
-  const isOpen = openSelectCell === cellId;
+  const isOpen   = openSelectCell === cellId;
   const selected = multi
     ? value.split(",").map((s) => s.trim()).filter(Boolean)
     : value ? [value] : [];
@@ -189,7 +188,7 @@ function SelectCell({ cellId, openSelectCell, setOpenSelectCell, value, options,
         <div className="absolute top-full left-0 z-50 mt-1 bg-white border border-[#e2e5e9] rounded-xl shadow-xl p-1 w-48 max-h-56 overflow-y-auto"
           onClick={(e) => e.stopPropagation()}>
           {options.length === 0 && (
-            <p className="text-xs text-[#9ca3af] p-2">No options — use the ⚙ icon in the column header to add some.</p>
+            <p className="text-xs text-[#9ca3af] p-2">No options — use the ⚙ icon to add some.</p>
           )}
           {options.map((opt) => (
             <button key={opt.id} onClick={() => toggle(opt.label)}
@@ -254,17 +253,37 @@ function AttachmentCell({ value, onUpload }: { value: string; onUpload: (url: st
   );
 }
 
+// ─── Group header row ─────────────────────────────────────────────────────────
+
+const GROUP_DEPTH_COLORS = [
+  { bg: "#f0f4f8", text: "#374151", border: "#e2e8f0", dot: "#6b7280" },
+  { bg: "#f5f3ff", text: "#5b21b6", border: "#ede9fe", dot: "#8b5cf6" },
+  { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa", dot: "#f97316" },
+];
+
 // ─── Main GridView ────────────────────────────────────────────────────────────
 
-export default function GridView({ tableId, groupByColumnId }: {
+export default function GridView({
+  tableId,
+  hiddenFields = {},
+  filters      = [],
+  sorts        = [],
+  groups       = [],
+  rowHeight    = "short",
+  onSortsChange,
+}: {
   tableId: string;
-  groupByColumnId?: string | null;
+  hiddenFields?:  Record<string, boolean>;
+  filters?:       FilterCondition[];
+  sorts?:         SortRule[];
+  groups?:        GroupRule[];
+  rowHeight?:     RowHeight;
+  onSortsChange?: (sorts: SortRule[]) => void;
 }) {
   const utils = api.useUtils();
 
   const { data: table, isLoading, error } = api.table.getById.useQuery({ id: tableId });
 
-  // Shared cache helpers — one place to update, one place to invalidate
   const patchCache = useCallback(
     (updater: Parameters<typeof utils.table.getById.setData>[1]) => {
       utils.table.getById.setData({ id: tableId }, updater);
@@ -276,25 +295,20 @@ export default function GridView({ tableId, groupByColumnId }: {
     [utils, tableId],
   );
 
-  // ── Cell mutations ─────────────────────────────────────────────────────────
+  // ── Mutations ──────────────────────────────────────────────────────────────
 
-  // updateCell: optimistic patch, rollback on error, then reconcile on settle
   const updateCell = api.table.updateCell.useMutation({
     onMutate: ({ rowId, columnId, value }) =>
       patchCache((prev) => prev ? {
         ...prev,
         rows: prev.rows.map((r) => r.id !== rowId ? r : {
-          ...r,
-          cells: r.cells.map((c) => c.columnId !== columnId ? c : { ...c, value }),
+          ...r, cells: r.cells.map((c) => c.columnId !== columnId ? c : { ...c, value }),
         }),
       } : prev),
     onError:   invalidate,
     onSettled: invalidate,
   });
 
-  // ── Row mutations ──────────────────────────────────────────────────────────
-
-  // addRow: insert a temp placeholder row immediately, replace on settle
   const addRow = api.table.addRow.useMutation({
     onMutate: () =>
       patchCache((prev) => {
@@ -315,15 +329,12 @@ export default function GridView({ tableId, groupByColumnId }: {
     onSettled: invalidate,
   });
 
-  // deleteRow: remove immediately, re-sync on settle
   const deleteRow = api.table.deleteRow.useMutation({
     onMutate: ({ rowId }) =>
       patchCache((p) => p ? { ...p, rows: p.rows.filter((r) => r.id !== rowId) } : p),
     onError:   invalidate,
     onSettled: invalidate,
   });
-
-  // ── Column mutations ───────────────────────────────────────────────────────
 
   const addColumn = api.table.addColumn.useMutation({
     onMutate: ({ name, type }) =>
@@ -389,12 +400,8 @@ export default function GridView({ tableId, groupByColumnId }: {
   const resizeColumn = api.table.resizeColumn.useMutation({
     onMutate: ({ columnId, width }) =>
       patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, width } : c) } : p),
-    // No invalidate on settle — width is purely cosmetic and already synced
   });
 
-  // ── Select option mutations — ALL optimistic ───────────────────────────────
-
-  // addSelectOption: push a temp option onto the column immediately
   const addOption = api.table.addSelectOption.useMutation({
     onMutate: ({ columnId, label, color }) =>
       patchCache((prev) => {
@@ -417,21 +424,18 @@ export default function GridView({ tableId, groupByColumnId }: {
     onSettled: invalidate,
   });
 
-  // deleteSelectOption: remove immediately, rollback on error
   const deleteOption = api.table.deleteSelectOption.useMutation({
     onMutate: ({ optionId }) =>
       patchCache((prev) => prev ? {
         ...prev,
         columns: prev.columns.map((col) => ({
-          ...col,
-          selectOptions: (col.selectOptions ?? []).filter((o) => o.id !== optionId),
+          ...col, selectOptions: (col.selectOptions ?? []).filter((o) => o.id !== optionId),
         })),
       } : prev),
     onError:   invalidate,
     onSettled: invalidate,
   });
 
-  // updateSelectOption: patch label/colour immediately
   const updateOption = api.table.updateSelectOption.useMutation({
     onMutate: ({ optionId, label, color }) =>
       patchCache((prev) => prev ? {
@@ -449,7 +453,6 @@ export default function GridView({ tableId, groupByColumnId }: {
 
   // ── Local UI state ─────────────────────────────────────────────────────────
 
-  const [sort, setSort]               = useState<SortState>(null);
   const [editing, setEditing]         = useState<EditingCell | null>(null);
   const [renamingCol, setRenamingCol] = useState<{ id: string; value: string } | null>(null);
   const [openSelectCell, setOpenSelectCell] = useState<string | null>(null);
@@ -462,45 +465,53 @@ export default function GridView({ tableId, groupByColumnId }: {
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
   const resizingRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
 
-  // ── Loading / error states (workshop requirement) ──────────────────────────
+  // ── Loading / error ────────────────────────────────────────────────────────
 
-  if (isLoading) return (
-    <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loading…</div>
-  );
-  if (error) return (
-    <div className="p-8 text-red-400 text-sm">Failed to load table. Please refresh.</div>
-  );
-  if (!table) return (
-    <div className="p-8 text-[#9ca3af] text-sm">Table not found.</div>
-  );
+  if (isLoading) return <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loading…</div>;
+  if (error)     return <div className="p-8 text-red-400 text-sm">Failed to load table. Please refresh.</div>;
+  if (!table)    return <div className="p-8 text-[#9ca3af] text-sm">Table not found.</div>;
 
-  const cols    = [...table.columns].sort((a, b) => a.order - b.order);
-  const sorted  = sortRows(table.rows as RowWithCells[], sort, table.columns);
-  const grouped = groupRows(sorted, groupByColumnId ?? null);
+  // ── Apply pipeline: filter → sort → group ─────────────────────────────────
+
+  const allCols  = [...table.columns].sort((a, b) => a.order - b.order);
+  const visCols  = allCols.filter((c) => !hiddenFields[c.id]);
+
+  const filtered  = applyFilters(table.rows as RowWithCells[], filters);
+  const sorted    = applySorts(filtered, sorts, table.columns);
+  const grouped   = applyGroups(sorted, groups);
+  const flatItems = flattenGroupTree(grouped);
+
   const isSelect = (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT";
 
-  // ── Event handlers ─────────────────────────────────────────────────────────
+  // Row height derived values
+  const rowH   = ROW_HEIGHT_PX[rowHeight];
+  const isTall = rowHeight === "tall" || rowHeight === "extra-tall";
 
-  function toggleSort(colId: string) {
-    setSort((p) =>
-      p?.columnId === colId
-        ? p.dir === "asc" ? { columnId: colId, dir: "desc" } : null
-        : { columnId: colId, dir: "asc" }
-    );
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  function handleHeaderSortClick(colId: string) {
+    if (!onSortsChange) return;
+    const existing = sorts.find((s) => s.columnId === colId);
+    if (!existing) {
+      onSortsChange([{ id: `s-${colId}`, columnId: colId, dir: "asc" }]);
+    } else if (existing.dir === "asc") {
+      onSortsChange(sorts.map((s) => s.columnId === colId ? { ...s, dir: "desc" } : s));
+    } else {
+      onSortsChange(sorts.filter((s) => s.columnId !== colId));
+    }
   }
 
-  function handleCellClick(row: RowWithCells, col: typeof cols[0]) {
+  function handleCellClick(row: RowWithCells, col: (typeof allCols)[0]) {
     setHeaderPanel(null);
     setOpenSelectCell(null);
     if (editing?.rowId === row.id && editing.columnId === col.id) return;
-
     if (col.type === "CHECKBOX") {
       updateCell.mutate({
         rowId: row.id, columnId: col.id,
         value: getCellValue(row, col.id) === "true" ? "false" : "true",
       });
     } else if (isSelect(col.type) || col.type === "ATTACHMENT") {
-      // These render their own interactive sub-UI
+      // handled by sub-components
     } else {
       setEditing({ rowId: row.id, columnId: col.id, value: getCellValue(row, col.id) });
     }
@@ -520,9 +531,9 @@ export default function GridView({ tableId, groupByColumnId }: {
 
   function onDragEnd() {
     if (dragColId && dragOverColId && dragColId !== dragOverColId) {
-      const from = cols.findIndex((c) => c.id === dragColId);
-      const to   = cols.findIndex((c) => c.id === dragOverColId);
-      const reordered = [...cols];
+      const from     = allCols.findIndex((c) => c.id === dragColId);
+      const to       = allCols.findIndex((c) => c.id === dragOverColId);
+      const reordered = [...allCols];
       reordered.splice(to, 0, reordered.splice(from, 1)[0]!);
       reorderColumns.mutate({ tableId, orderedIds: reordered.map((c) => c.id) });
     }
@@ -541,7 +552,6 @@ export default function GridView({ tableId, groupByColumnId }: {
         ...p, columns: p.columns.map((c) => c.id === resizingRef.current!.colId ? { ...c, width: w } : c),
       } : p);
     };
-
     const onUp = (ev: MouseEvent) => {
       if (!resizingRef.current) return;
       const w = Math.round(Math.max(80, resizingRef.current.startW + ev.clientX - resizingRef.current.startX));
@@ -550,10 +560,12 @@ export default function GridView({ tableId, groupByColumnId }: {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   }
+
+  // Running row index (only increments for "row" items)
+  let rowIndex = 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -568,14 +580,16 @@ export default function GridView({ tableId, groupByColumnId }: {
 
             {/* Row number col */}
             <th className="w-12 px-3 py-0 text-left sticky left-0 bg-[#f9fafb] z-10 border-r border-[#e2e5e9]">
-              <div className="flex items-center h-8">
-                <input type="checkbox" className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 hover:opacity-100"/>
+              <div className="flex items-center" style={{ height: rowH }}>
+                <input type="checkbox"
+                  className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 hover:opacity-100"/>
               </div>
             </th>
 
-            {cols.map((col) => {
+            {visCols.map((col) => {
               const ft             = FIELD_TYPES[col.type] ?? FIELD_TYPES.TEXT!;
               const isCurrentPanel = headerPanel?.colId === col.id;
+              const sortForCol     = sorts.find((s) => s.columnId === col.id);
               return (
                 <th key={col.id} style={{ width: col.width, minWidth: col.width }}
                   className={`relative px-0 py-0 text-left group/col border-r border-[#e2e5e9] bg-[#f9fafb] ${
@@ -586,8 +600,7 @@ export default function GridView({ tableId, groupByColumnId }: {
                   onDragOver={(e) => { e.preventDefault(); setDragOverColId(col.id); }}
                   onDragEnd={onDragEnd}>
 
-                  <div className="flex items-center h-8 px-2 gap-1.5">
-                    {/* Field type icon — click to change type */}
+                  <div className="flex items-center px-2 gap-1.5" style={{ height: rowH }}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -598,7 +611,6 @@ export default function GridView({ tableId, groupByColumnId }: {
                       {ft.icon}
                     </button>
 
-                    {/* Options gear — only for select columns */}
                     {isSelect(col.type) && (
                       <button
                         onClick={(e) => {
@@ -611,7 +623,6 @@ export default function GridView({ tableId, groupByColumnId }: {
                       </button>
                     )}
 
-                    {/* Column name / rename input */}
                     {renamingCol?.id === col.id ? (
                       <input autoFocus
                         className="bg-transparent border-b-2 border-[#166254] px-1 text-xs outline-none flex-1 min-w-0 text-[#1f2937]"
@@ -624,23 +635,28 @@ export default function GridView({ tableId, groupByColumnId }: {
                         }}/>
                     ) : (
                       <button
-                        onClick={() => toggleSort(col.id)}
+                        onClick={() => handleHeaderSortClick(col.id)}
                         onDoubleClick={() => setRenamingCol({ id: col.id, value: col.name })}
                         className="flex-1 min-w-0 text-left text-[11px] font-medium text-[#4b5563] hover:text-[#1f2937] truncate"
                         title="Click to sort · Double-click to rename">
                         {col.name}
-                        {sort?.columnId === col.id && (
-                          <span className="text-[#166254] ml-1 text-[10px]">{sort.dir === "asc" ? "↑" : "↓"}</span>
+                        {sortForCol && (
+                          <span className="text-[#166254] ml-1 text-[10px]">
+                            {sortForCol.dir === "asc" ? "↑" : "↓"}
+                          </span>
+                        )}
+                        {sortForCol && sorts.length > 1 && (
+                          <span className="text-[#9ca3af] ml-0.5 text-[9px]">
+                            {sorts.indexOf(sortForCol) + 1}
+                          </span>
                         )}
                       </button>
                     )}
 
-                    {/* Delete column */}
                     <button onClick={() => deleteColumn.mutate({ columnId: col.id })}
                       className="opacity-0 group-hover/col:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs flex-shrink-0 transition-all p-0.5 rounded hover:bg-red-50">✕</button>
                   </div>
 
-                  {/* Panels */}
                   {isCurrentPanel && headerPanel?.panel === "type" && (
                     <FieldTypePicker current={col.type}
                       onSelect={(t) => { changeType.mutate({ columnId: col.id, type: t as any }); setHeaderPanel(null); }}/>
@@ -654,7 +670,6 @@ export default function GridView({ tableId, groupByColumnId }: {
                       onUpdate={(id, label, color) => updateOption.mutate({ optionId: id, label, color })}/>
                   )}
 
-                  {/* Resize handle */}
                   <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[#166254]/40 transition-colors z-10"
                     onMouseDown={(e) => startResize(e, col.id, col.width)}/>
                 </th>
@@ -664,7 +679,7 @@ export default function GridView({ tableId, groupByColumnId }: {
             {/* Add column */}
             <th className="px-2 py-0 text-left w-24 bg-[#f9fafb]">
               {addingCol ? (
-                <div className="flex items-center gap-1 h-8" style={{ minWidth: 240 }}>
+                <div className="flex items-center gap-1" style={{ height: rowH, minWidth: 240 }}>
                   <div className="relative">
                     <button onClick={(e) => { e.stopPropagation(); setShowTypePicker((p) => !p); }}
                       className="text-xs px-1.5 py-1 rounded border border-[#e2e5e9] bg-white hover:bg-[#f5f6f8] text-[#4b5563] transition-colors">
@@ -690,9 +705,10 @@ export default function GridView({ tableId, groupByColumnId }: {
                 </div>
               ) : (
                 <button onClick={() => setAddingCol(true)}
-                  className="flex items-center gap-1 h-8 px-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f0f1f3] transition-colors w-full text-xs"
+                  className="flex items-center gap-1 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f0f1f3] transition-colors w-full text-xs"
+                  style={{ height: rowH }}
                   title="Add field">
-                  <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5">
+                  <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3 ml-2" stroke="currentColor" strokeWidth="1.5">
                     <path d="M6 2v8M2 6h8" strokeLinecap="round"/>
                   </svg>
                   Add field
@@ -704,89 +720,129 @@ export default function GridView({ tableId, groupByColumnId }: {
 
         {/* ── Body ── */}
         <tbody>
-          {grouped.map(({ value: groupValue, rows: groupRows }) => (
-            <Fragment key={groupValue || "__ungrouped__"}>
-              {groupByColumnId && (
-                <tr className="bg-[#f9fafb]">
-                  <td colSpan={cols.length + 2} className="px-4 py-1.5 text-[11px] font-semibold text-[#4b5563] border-b border-[#e2e5e9]">
-                    {groupValue || "—"}
-                    <span className="font-normal text-[#9ca3af] ml-2">({groupRows.length})</span>
-                  </td>
-                </tr>
-              )}
+          {flatItems.length === 0 && (
+            <tr>
+              <td colSpan={visCols.length + 2} className="px-4 py-8 text-center text-xs text-[#9ca3af]">
+                No records match the current filters.
+              </td>
+            </tr>
+          )}
 
-              {groupRows.map((row, idx) => (
-                <tr key={row.id} className="border-b border-[#e2e5e9] hover:bg-[#f9fafb] group transition-colors">
-
-                  {/* Row number + checkbox */}
-                  <td className="px-3 py-0 sticky left-0 bg-white group-hover:bg-[#f9fafb] transition-colors border-r border-[#e2e5e9] z-10">
-                    <div className="flex items-center h-8 gap-1">
-                      <input type="checkbox"
-                        className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"/>
-                      <span className="text-[11px] text-[#9ca3af] select-none group-hover:hidden w-4 text-right">{idx + 1}</span>
+          {flatItems.map((item) => {
+            if (item.kind === "group") {
+              const { node, totalRows } = item;
+              const depth  = Math.min(node.depth, GROUP_DEPTH_COLORS.length - 1);
+              const colors = GROUP_DEPTH_COLORS[depth]!;
+              return (
+                <tr key={node.key} style={{ background: colors.bg }}>
+                  <td colSpan={visCols.length + 2}
+                    className="border-b border-t"
+                    style={{
+                      borderColor: colors.border,
+                      paddingLeft: `${node.depth * 16 + 12}px`,
+                      paddingTop: "6px",
+                      paddingBottom: "6px",
+                    }}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: colors.dot }}/>
+                      <span className="text-[11px] font-semibold" style={{ color: colors.text }}>
+                        {node.value}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ background: colors.border, color: colors.text }}>
+                        {totalRows}
+                      </span>
                     </div>
                   </td>
-
-                  {cols.map((col) => {
-                    const isEditing = editing?.rowId === row.id && editing.columnId === col.id;
-                    const value     = getCellValue(row as RowWithCells, col.id);
-                    return (
-                      <td key={col.id} style={{ width: col.width, maxWidth: col.width }}
-                        className="px-2 py-0 border-r border-[#e2e5e9] overflow-visible h-8"
-                        onClick={() => handleCellClick(row as RowWithCells, col)}>
-                        <div className="flex items-center h-8">
-
-                          {col.type === "CHECKBOX" ? (
-                            <input type="checkbox" readOnly checked={value === "true"}
-                              className="w-3.5 h-3.5 rounded accent-[#166254] cursor-pointer"/>
-
-                          ) : isSelect(col.type) ? (
-                            <SelectCell
-                              cellId={`${row.id}-${col.id}`}
-                              openSelectCell={openSelectCell}
-                              setOpenSelectCell={setOpenSelectCell}
-                              value={value}
-                              options={(col.selectOptions ?? []) as SelectOption[]}
-                              multi={col.type === "MULTI_SELECT"}
-                              onSelect={(v) => updateCell.mutate({ rowId: row.id, columnId: col.id, value: v || null })}/>
-
-                          ) : col.type === "ATTACHMENT" ? (
-                            <AttachmentCell value={value}
-                              onUpload={(url) => updateCell.mutate({ rowId: row.id, columnId: col.id, value: url })}/>
-
-                          ) : isEditing ? (
-                            <input autoFocus
-                              className="border-2 border-[#166254] rounded px-2 py-0.5 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm"
-                              value={editing.value}
-                              type={inputTypeForField(col.type)}
-                              onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                              onBlur={commitEdit}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter")  commitEdit();
-                                if (e.key === "Escape") setEditing(null);
-                              }}/>
-
-                          ) : (
-                            <span className={`cursor-pointer block truncate text-xs transition-colors ${
-                              value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"
-                            }`}>
-                              {formatCellValue(value, col.type) || ""}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    );
-                  })}
-
-                  {/* Delete row */}
-                  <td className="w-8 px-1">
-                    <button onClick={() => deleteRow.mutate({ rowId: row.id })}
-                      className="opacity-0 group-hover:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs p-1 transition-all rounded hover:bg-red-50">✕</button>
-                  </td>
                 </tr>
-              ))}
-            </Fragment>
-          ))}
+              );
+            }
+
+            // row item
+            const { row } = item;
+            const idx      = rowIndex++;
+            return (
+              <tr key={row.id}
+                className="border-b border-[#e2e5e9] hover:bg-[#f9fafb] group transition-colors"
+                style={{ height: rowH }}>
+
+                {/* Row number + checkbox */}
+                <td className="px-3 py-0 sticky left-0 bg-white group-hover:bg-[#f9fafb] transition-colors border-r border-[#e2e5e9] z-10">
+                  <div className="flex items-center gap-1" style={{ height: rowH }}>
+                    <input type="checkbox"
+                      className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"/>
+                    <span className="text-[11px] text-[#9ca3af] select-none group-hover:hidden w-4 text-right">
+                      {idx + 1}
+                    </span>
+                  </div>
+                </td>
+
+                {visCols.map((col) => {
+                  const isEditing = editing?.rowId === row.id && editing.columnId === col.id;
+                  const value     = getCellValue(row as RowWithCells, col.id);
+                  return (
+                    <td key={col.id}
+                      style={{ width: col.width, maxWidth: col.width, height: rowH }}
+                      className="px-2 py-0 border-r border-[#e2e5e9] overflow-visible"
+                      onClick={() => handleCellClick(row as RowWithCells, col)}>
+
+                      <div
+                        className={`flex ${isTall ? "items-start pt-1.5" : "items-center"}`}
+                        style={{ height: rowH }}>
+
+                        {col.type === "CHECKBOX" ? (
+                          <input type="checkbox" readOnly checked={value === "true"}
+                            className="w-3.5 h-3.5 rounded accent-[#166254] cursor-pointer"/>
+
+                        ) : isSelect(col.type) ? (
+                          <SelectCell
+                            cellId={`${row.id}-${col.id}`}
+                            openSelectCell={openSelectCell}
+                            setOpenSelectCell={setOpenSelectCell}
+                            value={value}
+                            options={(col.selectOptions ?? []) as SelectOption[]}
+                            multi={col.type === "MULTI_SELECT"}
+                            onSelect={(v) => updateCell.mutate({ rowId: row.id, columnId: col.id, value: v || null })}/>
+
+                        ) : col.type === "ATTACHMENT" ? (
+                          <AttachmentCell value={value}
+                            onUpload={(url) => updateCell.mutate({ rowId: row.id, columnId: col.id, value: url })}/>
+
+                        ) : isEditing ? (
+                          <input autoFocus
+                            className="border-2 border-[#166254] rounded px-2 py-0.5 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm"
+                            value={editing.value}
+                            type={inputTypeForField(col.type)}
+                            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                            onBlur={commitEdit}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter")  commitEdit();
+                              if (e.key === "Escape") setEditing(null);
+                            }}/>
+
+                        ) : (
+                          <span
+                            className={`cursor-pointer text-xs transition-colors ${
+                              isTall
+                                ? "whitespace-normal break-words line-clamp-4"
+                                : "block truncate"
+                            } ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}>
+                            {formatCellValue(value, col.type) || ""}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
+
+                {/* Delete row */}
+                <td className="w-8 px-1">
+                  <button onClick={() => deleteRow.mutate({ rowId: row.id })}
+                    className="opacity-0 group-hover:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs p-1 transition-all rounded hover:bg-red-50">✕</button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

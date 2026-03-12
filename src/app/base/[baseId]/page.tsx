@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useState, use } from "react";
 import GridView from "~/app/_components/GridView";
 import KanbanView from "~/app/_components/KanbanView";
+import ViewToolbar, {
+  DEFAULT_VIEW_CONFIG,
+  type ViewConfig,
+} from "~/app/_components/ViewToolbar";
 import { BASE_ICONS } from "~/app/_components/baseIcons";
 import type { ViewType } from "@prisma/client";
 
@@ -16,13 +20,13 @@ const COLOR_PALETTE = [
 ];
 
 function tabBarBg(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-  const m = (c: number) => Math.round(c + (255 - c) * 0.88);
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const m = (c: number) => Math.round(c + (255-c)*0.88);
   return `rgb(${m(r)},${m(g)},${m(b)})`;
 }
 function tabBarBorder(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-  const m = (c: number) => Math.round(c + (255 - c) * 0.72);
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const m = (c: number) => Math.round(c + (255-c)*0.72);
   return `rgb(${m(r)},${m(g)},${m(b)})`;
 }
 
@@ -34,7 +38,7 @@ function BaseIconSVG({ iconId, color, size = 28 }: { iconId: string; color: stri
     <div className="rounded flex items-center justify-center flex-shrink-0 font-bold text-white"
       style={{ width: size, height: size, background: color, fontSize: size * 0.38 }}>
       {def?.path ? (
-        <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 16 16" fill="none"
+        <svg width={size*0.6} height={size*0.6} viewBox="0 0 16 16" fill="none"
           stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
           <path d={def.path}/>
         </svg>
@@ -47,25 +51,23 @@ function BaseIconSVG({ iconId, color, size = 28 }: { iconId: string; color: stri
 
 function renderMarkdown(md: string): string {
   return md
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/^### (.+)$/gm, "<h3 style='font-size:13px;font-weight:700;margin:12px 0 4px'>$1</h3>")
-    .replace(/^## (.+)$/gm,  "<h2 style='font-size:15px;font-weight:700;margin:14px 0 4px'>$1</h2>")
-    .replace(/^# (.+)$/gm,   "<h1 style='font-size:17px;font-weight:700;margin:16px 0 6px'>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g,     "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code style='background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px;font-family:monospace'>$1</code>")
-    .replace(/\[(.+?)\]\((.+?)\)/g, "<a href='$2' target='_blank' style='color:#0069ff;text-decoration:underline'>$1</a>")
-    .replace(/^[-*] (.+)$/gm, "<li style='margin:2px 0;padding-left:4px'>$1</li>")
-    .replace(/(<li[\s\S]*?<\/li>)/g, "<ul style='padding-left:16px;list-style:disc;margin:6px 0'>$1</ul>")
-    .replace(/\n\n/g, "</p><p style='margin:6px 0'>")
-    .replace(/\n/g, "<br/>");
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/^### (.+)$/gm,"<h3 style='font-size:13px;font-weight:700;margin:12px 0 4px'>$1</h3>")
+    .replace(/^## (.+)$/gm, "<h2 style='font-size:15px;font-weight:700;margin:14px 0 4px'>$1</h2>")
+    .replace(/^# (.+)$/gm,  "<h1 style='font-size:17px;font-weight:700;margin:16px 0 6px'>$1</h1>")
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g,    "<em>$1</em>")
+    .replace(/`(.+?)`/g,"<code style='background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px;font-family:monospace'>$1</code>")
+    .replace(/\[(.+?)\]\((.+?)\)/g,"<a href='$2' target='_blank' style='color:#0069ff;text-decoration:underline'>$1</a>")
+    .replace(/^[-*] (.+)$/gm,"<li style='margin:2px 0;padding-left:4px'>$1</li>")
+    .replace(/(<li[\s\S]*?<\/li>)/g,"<ul style='padding-left:16px;list-style:disc;margin:6px 0'>$1</ul>")
+    .replace(/\n\n/g,"</p><p style='margin:6px 0'>")
+    .replace(/\n/g,"<br/>");
 }
 
 // ─── Appearance panel ─────────────────────────────────────────────────────────
 
-function AppearancePanel({
-  base, onClose, onUpdateColor, onUpdateIcon, onUpdateGuide, onToggleStar,
-}: {
+function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateGuide, onToggleStar }: {
   base: { name: string; color: string; icon: string; guide: string | null; starred: boolean };
   onClose: () => void;
   onUpdateColor: (c: string) => void;
@@ -73,12 +75,12 @@ function AppearancePanel({
   onUpdateGuide: (g: string) => void;
   onToggleStar: () => void;
 }) {
-  const [tab, setTab]             = useState<"color" | "icon">("color");
+  const [tab, setTab]             = useState<"color"|"icon">("color");
   const [iconSearch, setIconSearch] = useState("");
   const [guideOpen, setGuideOpen]   = useState(true);
-  const [guideMode, setGuideMode]   = useState<"view" | "edit">("view");
+  const [guideMode, setGuideMode]   = useState<"view"|"edit">("view");
   const DEFAULT_GUIDE = `Use this space to share the goals and details of your base with your team.\n\nStart by outlining your goal.\n\nNext, share details about key information in your base:\n\nThis table contains...\n\nThis view shows...\n\nThis link contains...`;
-  const [guideText, setGuideText]   = useState(base.guide ?? DEFAULT_GUIDE);
+  const [guideText, setGuideText] = useState(base.guide ?? DEFAULT_GUIDE);
 
   const filteredIcons = BASE_ICONS.filter((i) =>
     !iconSearch.trim() || i.label.toLowerCase().includes(iconSearch.toLowerCase())
@@ -86,14 +88,10 @@ function AppearancePanel({
 
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40" onClick={onClose}/>
-
-      {/* Panel — positioned just right of the 48px sidebar, below the 52px header */}
       <div className="fixed left-[52px] top-[52px] z-50 w-[480px] bg-white border border-[#e0e0e0] rounded-xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
         <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-[#f0f0f0]">
           <span className="text-[17px] font-semibold text-[#172b4d]">{base.name}</span>
           <div className="flex items-center gap-2">
@@ -110,8 +108,6 @@ function AppearancePanel({
         </div>
 
         <div className="overflow-y-auto max-h-[calc(100vh-120px)]">
-
-          {/* Appearance */}
           <div className="px-5 py-4">
             <div className="flex items-center gap-1.5 mb-4">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#172b4d" strokeWidth="1.4">
@@ -121,21 +117,18 @@ function AppearancePanel({
               <span className="text-[13px] font-bold text-[#172b4d]">Appearance</span>
             </div>
 
-            {/* Color / Icon tabs */}
             <div className="flex mb-4 border border-[#e0e0e0] rounded-md overflow-hidden w-fit">
-              {(["color", "icon"] as const).map((t) => (
+              {(["color","icon"] as const).map((t) => (
                 <button key={t} onClick={() => setTab(t)}
                   className={`px-5 py-1.5 text-[13px] transition-colors capitalize ${
-                    tab === t
-                      ? "bg-white text-[#172b4d] font-medium border border-[#0069ff] -m-px rounded-md z-10"
-                      : "bg-[#f8f8f8] text-[#666] hover:bg-[#f0f0f0]"
+                    tab === t ? "bg-white text-[#172b4d] font-medium border border-[#0069ff] -m-px rounded-md z-10"
+                              : "bg-[#f8f8f8] text-[#666] hover:bg-[#f0f0f0]"
                   }`}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  {t.charAt(0).toUpperCase()+t.slice(1)}
                 </button>
               ))}
             </div>
 
-            {/* Color grid */}
             {tab === "color" && (
               <div className="space-y-2">
                 {COLOR_PALETTE.map((row, ri) => (
@@ -156,7 +149,6 @@ function AppearancePanel({
               </div>
             )}
 
-            {/* Icon grid */}
             {tab === "icon" && (
               <div>
                 <div className="flex items-center gap-2 border border-[#e0e0e0] rounded-md px-3 py-1.5 mb-3">
@@ -190,7 +182,6 @@ function AppearancePanel({
             )}
           </div>
 
-          {/* Base guide */}
           <div className="border-t border-[#f0f0f0]">
             <button className="w-full flex items-center gap-2 px-5 py-3 hover:bg-[#f8f8f8] transition-colors"
               onClick={() => setGuideOpen((p) => !p)}>
@@ -225,7 +216,6 @@ function AppearancePanel({
                     )}
                   </div>
                 </div>
-
                 {guideMode === "edit" ? (
                   <textarea autoFocus rows={8}
                     className="w-full border border-[#e0e0e0] rounded-lg p-3 text-[13px] text-[#172b4d] outline-none focus:border-[#0069ff] focus:ring-1 focus:ring-[#0069ff]/20 resize-none font-mono leading-relaxed"
@@ -247,12 +237,11 @@ function AppearancePanel({
   );
 }
 
-// ─── Left icon sidebar — logo is the home button ──────────────────────────────
+// ─── Left icon sidebar ────────────────────────────────────────────────────────
 
 function LeftSidebar() {
   return (
     <aside className="w-12 flex-shrink-0 bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1 z-10">
-      {/* Logo = home button */}
       <Link href="/"
         className="w-8 h-8 rounded-lg mb-2 flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity"
         title="Home">
@@ -309,8 +298,8 @@ const VIEW_META: Record<string, { icon: React.ReactNode; color: string }> = {
     color: "#9b59b6",
     icon: (
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <rect x="1" y="1" width="3.5" height="12" rx="0.5"/>
-        <rect x="5.25" y="1" width="3.5" height="8" rx="0.5"/>
+        <rect x="1"   y="1" width="3.5" height="12" rx="0.5"/>
+        <rect x="5.25" y="1" width="3.5" height="8"  rx="0.5"/>
         <rect x="9.5" y="1" width="3.5" height="10" rx="0.5"/>
       </svg>
     ),
@@ -325,12 +314,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
   const { data: base, isLoading } = api.base.getById.useQuery({ id: baseId });
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  // ── Mutations ──────────────────────────────────────────────────────────────
   const renameTable  = api.table.renameTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
   const deleteTable  = api.table.deleteTable.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
   const createTable  = api.table.create.useMutation({ onSuccess: () => void utils.base.getById.invalidate({ id: baseId }) });
 
-  // updateAppearance invalidates both getById (for this page) and getAll (for home page)
   const updateApp = api.base.updateAppearance.useMutation({
     onMutate: (vars) => {
       utils.base.getById.setData({ id: baseId }, (prev) => prev ? { ...prev, ...vars } : prev);
@@ -341,7 +329,6 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     },
   });
 
-  // toggleStar also invalidates both caches
   const toggleStar = api.base.toggleStar.useMutation({
     onMutate: ({ starred }) => {
       utils.base.getById.setData({ id: baseId }, (prev) => prev ? { ...prev, starred } : prev);
@@ -352,14 +339,14 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     },
   });
 
-  const createView   = api.view.create.useMutation({
+  const createView  = api.view.create.useMutation({
     onSuccess: (v) => { void utils.view.getByTableId.invalidate({ tableId: v.tableId }); setActiveViewId(v.id); },
   });
-  const renameView   = api.view.rename.useMutation({ onSuccess: (v) => void utils.view.getByTableId.invalidate({ tableId: v.tableId }) });
-  const deleteView   = api.view.delete.useMutation({ onSuccess: () => void utils.view.getByTableId.invalidate({ tableId: activeTableId ?? "" }) });
+  const renameView  = api.view.rename.useMutation({ onSuccess: (v) => void utils.view.getByTableId.invalidate({ tableId: v.tableId }) });
+  const deleteView  = api.view.delete.useMutation({ onSuccess: () => void utils.view.getByTableId.invalidate({ tableId: activeTableId ?? "" }) });
   const updateConfig = api.view.updateConfig.useMutation({ onSuccess: (v) => void utils.view.getByTableId.invalidate({ tableId: v.tableId }) });
 
-  // ── UI state ──────────────────────────────────────────────────────────────
+  // ── UI state ───────────────────────────────────────────────────────────────
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [activeViewId, setActiveViewId]   = useState<string | null>(null);
   const [viewSidebarOpen, setViewSidebar] = useState(true);
@@ -372,23 +359,37 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const [newViewName, setNewViewName]     = useState("");
   const [newViewType, setNewViewType]     = useState<ViewType>("GRID");
 
+  // ── Per-view config (filter / sort / group / hide / rowHeight) ─────────────
+  const [viewConfigs, setViewConfigs] = useState<Record<string, ViewConfig>>({});
+
+  function getViewConfig(viewId: string): ViewConfig {
+    return viewConfigs[viewId] ?? { ...DEFAULT_VIEW_CONFIG };
+  }
+
+  function updateViewConfig(viewId: string, patch: Partial<ViewConfig>) {
+    setViewConfigs((prev) => ({
+      ...prev,
+      [viewId]: { ...getViewConfig(viewId), ...patch },
+    }));
+  }
+
+  // ── Derived state ──────────────────────────────────────────────────────────
   const currentTableId = activeTableId ?? base?.tables[0]?.id ?? null;
 
   const { data: views = [] } = api.view.getByTableId.useQuery(
     { tableId: currentTableId ?? "" },
-    { enabled: !!currentTableId }
+    { enabled: !!currentTableId },
   );
   const activeView = views.find((v) => v.id === activeViewId) ?? views[0] ?? null;
 
   const { data: currentTable } = api.table.getById.useQuery(
     { id: currentTableId ?? "" },
-    { enabled: !!currentTableId }
-  );
-  const groupableCols = (currentTable?.columns ?? []).filter((c) =>
-    ["TEXT", "SINGLE_SELECT"].includes(c.type)
+    { enabled: !!currentTableId },
   );
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  const currentCfg = activeView ? getViewConfig(activeView.id) : DEFAULT_VIEW_CONFIG;
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
   function commitTableRename() {
     if (!renamingTable?.value.trim()) { setRenamingTable(null); return; }
     renameTable.mutate({ tableId: renamingTable.id, name: renamingTable.value.trim() });
@@ -415,12 +416,8 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     createView.mutate({ tableId: currentTableId, name: newViewName.trim(), type: newViewType });
     setNewViewName(""); setAddingView(false);
   }
-  function handleGroupByChange(colId: string | null) {
-    if (!activeView) return;
-    updateConfig.mutate({ viewId: activeView.id, groupByColumnId: colId });
-  }
 
-  // ── Loading / error ───────────────────────────────────────────────────────
+  // ── Loading / error ────────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="min-h-screen bg-white flex items-center justify-center"
       style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
@@ -459,13 +456,12 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             </svg>
           </button>
 
-          {/* Center tabs */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center h-full">
             <div className="relative flex items-center h-full">
               <span className="text-[13px] font-medium text-[#166a5b] px-3">Data</span>
               <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#166a5b] rounded-full"/>
             </div>
-            {["Automations", "Interfaces"].map((t) => (
+            {["Automations","Interfaces"].map((t) => (
               <button key={t} className="text-[13px] text-[#666] hover:text-[#172b4d] px-3 transition-colors">{t}</button>
             ))}
           </div>
@@ -574,10 +570,13 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                 const isActive   = activeView?.id === view.id;
                 const isRenaming = renamingView?.id === view.id;
                 const meta       = VIEW_META[view.type];
+                const vcfg       = getViewConfig(view.id);
+                const hasActive  = vcfg.filters.length > 0 || vcfg.sorts.length > 0 || vcfg.groups.length > 0
+                  || Object.values(vcfg.hiddenFields).some(Boolean);
                 return (
                   <div key={view.id}
                     className={`group/view flex items-center gap-2 mx-1.5 px-2 py-2 rounded-md cursor-pointer transition-colors ${
-                      isActive ? "bg-[#f0f0ef]" : "hover:bg-[#f8f8f7]"
+                      isActive ? "bg-[#f9fafb]" : "hover:bg-[#f8f8f7]"
                     }`}
                     onClick={() => setActiveViewId(view.id)}>
                     <span className="flex-shrink-0" style={{ color: isActive ? meta?.color : "#999" }}>{meta?.icon}</span>
@@ -593,6 +592,10 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                         onDoubleClick={(e) => { e.stopPropagation(); setRenamingView({ id: view.id, value: view.name }); }}>
                         {view.name}
                       </span>
+                    )}
+                    {/* Dot indicator if view has active config */}
+                    {hasActive && !isRenaming && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#0069ff] flex-shrink-0"/>
                     )}
                     {!isRenaming && views.length > 1 && (
                       <button onClick={(e) => { e.stopPropagation(); deleteView.mutate({ viewId: view.id }); }}
@@ -610,7 +613,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                   onChange={(e) => setNewViewName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddView(); if (e.key === "Escape") setAddingView(false); }}/>
                 <div className="flex gap-1">
-                  {(["GRID", "KANBAN"] as ViewType[]).map((t) => {
+                  {(["GRID","KANBAN"] as ViewType[]).map((t) => {
                     const m = VIEW_META[t];
                     return (
                       <button key={t} onClick={() => setNewViewType(t)}
@@ -637,64 +640,45 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
           {/* Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Toolbar */}
-            <div className="h-10 border-b border-[#e0e0e0] flex items-center px-3 gap-1 flex-shrink-0 bg-white">
-              {activeView && (
-                <button className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f5f5f4] text-[#172b4d] font-medium text-[12px] transition-colors">
-                  <span style={{ color: VIEW_META[activeView.type]?.color }}>{VIEW_META[activeView.type]?.icon}</span>
-                  {activeView.name}
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#aaa" strokeWidth="1.5">
-                    <path d="M2.5 4l2.5 2.5L7.5 4"/>
-                  </svg>
-                </button>
-              )}
 
-              <div className="w-px h-5 bg-[#e8e8e8] mx-1"/>
-
-              {[
-                { label: "Hide fields", icon: <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M1 6s2-3.5 5-3.5S11 6 11 6s-2 3.5-5 3.5S1 6 1 6z"/><circle cx="6" cy="6" r="1.5"/><path d="M2 2l8 8" strokeLinecap="round"/></svg> },
-                { label: "Filter",      icon: <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M1 2h10l-4 5v4l-2-1V7L1 2z" strokeLinejoin="round"/></svg> },
-                { label: "Group",       icon: <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M1 3h10M1 6h7M1 9h4" strokeLinecap="round"/></svg> },
-                { label: "Sort",        icon: <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M1 3h10M2 6h8M3 9h6" strokeLinecap="round"/></svg> },
-              ].map((btn) => (
-                <button key={btn.label}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded hover:bg-[#f5f5f4] text-[#666] hover:text-[#172b4d] text-[12px] transition-colors">
-                  <span className="text-[#888]">{btn.icon}</span>
-                  {btn.label}
-                </button>
-              ))}
-
-              {groupableCols.length > 0 && activeView && (
-                <>
-                  <div className="w-px h-5 bg-[#e8e8e8] mx-1"/>
-                  <div className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f5f5f4] text-[12px] text-[#666] transition-colors">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
-                      <rect x="1" y="1" width="4" height="4" rx="0.5"/><rect x="7" y="1" width="4" height="4" rx="0.5"/>
-                      <rect x="1" y="7" width="4" height="4" rx="0.5"/><rect x="7" y="7" width="4" height="4" rx="0.5"/>
-                    </svg>
-                    <select value={activeView.groupByColumnId ?? ""}
-                      onChange={(e) => handleGroupByChange(e.target.value || null)}
-                      className="bg-transparent outline-none text-[12px] cursor-pointer text-[#666]">
-                      <option value="">{activeView.type === "KANBAN" ? "Group: Auto" : "Group by…"}</option>
-                      {groupableCols.map((col) => <option key={col.id} value={col.id}>{col.name}</option>)}
-                    </select>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* ── Toolbar (ViewToolbar replaces old static buttons) ── */}
+            {activeView && currentTable ? (
+              <ViewToolbar
+                columns={currentTable.columns}
+                config={currentCfg}
+                onConfigChange={(patch) => updateViewConfig(activeView.id, patch)}
+                activeViewName={activeView.name}
+                activeViewType={activeView.type}
+              />
+            ) : (
+              <div className="h-10 border-b border-[#e0e0e0] bg-white flex-shrink-0"/>
+            )}
 
             {/* View content */}
             <div className="flex-1 overflow-auto bg-white">
               {!currentTableId ? (
                 <div className="flex items-center justify-center h-full text-sm text-[#aaa]">
-                  No tables yet — click "+ Add or import" to create one.
+                  No tables yet — click &ldquo;+ Add or import&rdquo; to create one.
                 </div>
               ) : !activeView ? (
                 <div className="flex items-center justify-center h-full text-sm text-[#aaa] animate-pulse">Loading views…</div>
               ) : activeView.type === "GRID" ? (
-                <GridView key={activeView.id} tableId={currentTableId} groupByColumnId={activeView.groupByColumnId}/>
+                <GridView
+                  key={activeView.id}
+                  tableId={currentTableId}
+                  hiddenFields={currentCfg.hiddenFields}
+                  filters={currentCfg.filters}
+                  sorts={currentCfg.sorts}
+                  groups={currentCfg.groups}
+                  rowHeight={currentCfg.rowHeight}
+                  onSortsChange={(sorts) => updateViewConfig(activeView.id, { sorts })}
+                />
               ) : (
-                <KanbanView key={activeView.id} tableId={currentTableId} groupByColumnId={activeView.groupByColumnId}/>
+                <KanbanView
+                  key={activeView.id}
+                  tableId={currentTableId}
+                  groupByColumnId={activeView.groupByColumnId}
+                />
               )}
             </div>
           </div>
@@ -707,7 +691,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
           base={{
             name: base.name,
             color: base.color ?? "#f82b60",
-            icon: base.icon ?? "default",
+            icon:  base.icon  ?? "default",
             guide: base.guide ?? null,
             starred: base.starred,
           }}
