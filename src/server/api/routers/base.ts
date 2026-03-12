@@ -1,7 +1,7 @@
 // src/server/api/routers/base.ts
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { BaseWithTablesOutput, BaseOutput, BaseCreateInput, BaseRenameInput, BaseDeleteInput, BaseToggleStarInput, BaseMoveInput } from "~/types/schemas";
+import { BaseWithTablesOutput, BaseOutput, BaseCreateInput, BaseRenameInput, BaseDeleteInput, BaseToggleStarInput, BaseMoveInput, BaseUpdateAppearanceInput } from "~/types/schemas";
 import { z } from "zod";
 
 const INCLUDE = {
@@ -78,6 +78,14 @@ export const baseRouter = createTRPCRouter({
     .input(BaseMoveInput)
     .output(BaseOutput)
     .mutation(({ ctx, input }) => ctx.db.base.update({ where: { id: input.id }, data: { workspaceId: input.workspaceId } })),
+
+  updateAppearance: publicProcedure
+    .input(BaseUpdateAppearanceInput)
+    .output(BaseOutput)
+    .mutation(({ ctx, input }) => {
+      const { id, ...data } = input;
+      return ctx.db.base.update({ where: { id }, data });
+    }),
 
   delete: publicProcedure
     .input(BaseDeleteInput)

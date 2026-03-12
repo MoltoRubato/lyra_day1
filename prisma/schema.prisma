@@ -21,6 +21,9 @@ model Workspace {
 model Base {
   id           String     @id @default(cuid())
   name         String
+  color        String     @default("#f82b60")
+  icon         String     @default("default")
+  guide        String?
   starred      Boolean    @default(false)
   lastOpenedAt DateTime?
   workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)

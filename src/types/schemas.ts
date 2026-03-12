@@ -30,9 +30,16 @@ export const WorkspaceDeleteInput      = IdInput;
 
 export const BaseOutput = z.object({
   id: z.string(), name: z.string(), starred: z.boolean(),
+  color: z.string(), icon: z.string(), guide: z.string().nullable(),
   workspaceId: z.string().nullable(),
   lastOpenedAt: z.date().nullable(),
   createdAt: z.date(), updatedAt: z.date(),
+});
+export const BaseUpdateAppearanceInput = z.object({
+  id: z.string(),
+  color: z.string().optional(),
+  icon: z.string().optional(),
+  guide: z.string().nullable().optional(),
 });
 export const BaseWithTablesOutput = BaseOutput.extend({
   workspace: z.object({ id: z.string(), name: z.string() }).nullable(),
