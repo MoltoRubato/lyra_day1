@@ -37,7 +37,7 @@ function BaseIconSVG({ iconId, color, size = 28 }: { iconId: string; color: stri
   const def = BASE_ICONS.find((i) => i.id === iconId);
   return (
     <div className="rounded flex items-center justify-center flex-shrink-0 font-bold text-white"
-      style={{ width: size, height: size, background: color, fontSize: size * 0.38 }}>
+      style={{ width: size, height: size, background: color, fontSize: size * 0.36 }}>
       {def?.path ? (
         <svg width={size*0.6} height={size*0.6} viewBox="0 0 16 16" fill="none"
           stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -97,10 +97,8 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
           <span className="text-[17px] font-semibold text-[#172b4d]">{base.name}</span>
           <div className="flex items-center gap-2">
             <button onClick={onToggleStar}
-              className={`text-lg transition-colors ${base.starred ? "text-yellow-400" : "text-[#ccc] hover:text-yellow-400"}`}>
-              ★
-            </button>
-            <button className="text-[#999] hover:text-[#555] transition-colors" title="More options">
+              className={`text-lg transition-colors ${base.starred ? "text-yellow-400" : "text-[#ccc] hover:text-yellow-400"}`}>★</button>
+            <button className="text-[#999] hover:text-[#555] transition-colors">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/>
               </svg>
@@ -118,11 +116,11 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
               <span className="text-[13px] font-bold text-[#172b4d]">Appearance</span>
             </div>
 
-            <div className="flex mb-4 border border-[#e0e0e0] rounded-md overflow-hidden w-fit">
+            <div className="flex mb-4 border border-[#e0e0e0] rounded overflow-hidden w-fit">
               {(["color","icon"] as const).map((t) => (
                 <button key={t} onClick={() => setTab(t)}
                   className={`px-5 py-1.5 text-[13px] transition-colors capitalize ${
-                    tab === t ? "bg-white text-[#172b4d] font-medium border border-[#0069ff] -m-px rounded-md z-10"
+                    tab === t ? "bg-white text-[#172b4d] font-medium border border-[#0069ff] -m-px rounded z-10"
                               : "bg-[#f8f8f8] text-[#666] hover:bg-[#f0f0f0]"
                   }`}>
                   {t.charAt(0).toUpperCase()+t.slice(1)}
@@ -136,7 +134,7 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
                   <div key={ri} className="flex gap-2">
                     {row.map((hex) => (
                       <button key={hex} onClick={() => onUpdateColor(hex)} title={hex}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-transform hover:scale-110 flex-shrink-0"
+                        className="w-8 h-8 rounded flex items-center justify-center transition-transform hover:scale-110 flex-shrink-0"
                         style={{ background: hex }}>
                         {base.color === hex && (
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -152,18 +150,18 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
 
             {tab === "icon" && (
               <div>
-                <div className="flex items-center gap-2 border border-[#e0e0e0] rounded-md px-3 py-1.5 mb-3">
+                <div className="flex items-center gap-2 border border-[#e0e0e0] rounded px-3 py-1.5 mb-3">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#aaa" strokeWidth="1.5">
                     <circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/>
                   </svg>
-                  <input className="flex-1 text-xs outline-none text-[#172b4d] placeholder-[#aaa]"
+                  <input className="flex-1 text-[12px] outline-none text-[#172b4d] placeholder-[#aaa]"
                     placeholder="Search icons" value={iconSearch}
                     onChange={(e) => setIconSearch(e.target.value)}/>
                 </div>
                 <div className="grid grid-cols-10 gap-1">
                   {filteredIcons.map((icon) => (
                     <button key={icon.id} onClick={() => onUpdateIcon(icon.id)} title={icon.label}
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-110 ${
+                      className={`w-9 h-9 rounded flex items-center justify-center transition-all hover:scale-110 ${
                         base.icon === icon.id ? "ring-2 ring-[#0069ff] ring-offset-1" : "hover:bg-[#f5f5f4]"
                       }`}
                       style={{ background: base.icon === icon.id ? base.color : undefined }}>
@@ -196,21 +194,21 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
             {guideOpen && (
               <div className="px-5 pb-5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-[#888]">Supports Markdown</span>
+                  <span className="text-[12px] text-[#888]">Supports Markdown</span>
                   <div className="flex items-center gap-1">
                     {guideMode === "view" ? (
                       <button onClick={() => setGuideMode("edit")}
-                        className="text-xs text-[#0069ff] hover:underline px-2 py-0.5 rounded hover:bg-[#f0f7ff] transition-colors">
+                        className="text-[12px] text-[#0069ff] hover:underline px-2 py-0.5 rounded hover:bg-[#f0f7ff] transition-colors">
                         Edit
                       </button>
                     ) : (
                       <>
                         <button onClick={() => setGuideMode("view")}
-                          className="text-xs text-[#888] hover:text-[#555] px-2 py-0.5 rounded hover:bg-[#f5f5f5] transition-colors">
+                          className="text-[12px] text-[#888] hover:text-[#555] px-2 py-0.5 rounded hover:bg-[#f5f5f5] transition-colors">
                           Cancel
                         </button>
                         <button onClick={() => { onUpdateGuide(guideText); setGuideMode("view"); }}
-                          className="text-xs bg-[#0069ff] hover:bg-[#0055d4] text-white px-3 py-0.5 rounded transition-colors">
+                          className="text-[12px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-3 py-0.5 rounded transition-colors">
                           Save
                         </button>
                       </>
@@ -219,13 +217,11 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
                 </div>
                 {guideMode === "edit" ? (
                   <textarea autoFocus rows={8}
-                    className="w-full border border-[#e0e0e0] rounded-lg p-3 text-[13px] text-[#172b4d] outline-none focus:border-[#0069ff] focus:ring-1 focus:ring-[#0069ff]/20 resize-none font-mono leading-relaxed"
+                    className="w-full border border-[#e0e0e0] rounded p-3 text-[13px] text-[#172b4d] outline-none focus:border-[#0069ff] resize-none font-mono leading-relaxed"
                     value={guideText}
-                    onChange={(e) => setGuideText(e.target.value)}
-                    placeholder="Write your base guide in Markdown..."/>
+                    onChange={(e) => setGuideText(e.target.value)}/>
                 ) : (
                   <div className="text-[13px] text-[#444] leading-relaxed min-h-[60px] cursor-text"
-                    style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}
                     onClick={() => setGuideMode("edit")}
                     dangerouslySetInnerHTML={{ __html: `<p style='margin:6px 0'>${renderMarkdown(guideText)}</p>` }}/>
                 )}
@@ -238,7 +234,7 @@ function AppearancePanel({ base, onClose, onUpdateColor, onUpdateIcon, onUpdateG
   );
 }
 
-// ─── Saving indicator ────────────────────────────────────────────────────────
+// ─── Saving indicator ─────────────────────────────────────────────────────────
 
 function SyncIndicator() {
   const isMutating                = useIsMutating();
@@ -261,7 +257,7 @@ function SyncIndicator() {
     return (
       <div className="flex items-center gap-1.5 text-[11px] text-[#888] select-none">
         <div className="w-3 h-3 border-[1.5px] border-[#ccc] border-t-[#555] rounded-full animate-spin flex-shrink-0"/>
-        <span>Saving changes</span>
+        <span>Saving</span>
       </div>
     );
   }
@@ -278,58 +274,70 @@ function SyncIndicator() {
   return null;
 }
 
-// ─── Left icon sidebar ────────────────────────────────────────────────────────
+// ─── Left icon sidebar ─────────────────────────────────────────────────────────
 
 function LeftSidebar() {
   return (
-    <aside className="w-12 flex-shrink-0 bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1 z-10">
+    <aside className="w-[48px] flex-shrink-0 bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1 z-10">
       <Link href="/"
-        className="w-8 h-8 rounded-lg mb-2 flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity"
+        className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity mb-2"
         title="Home">
-        <svg width="32" height="32" viewBox="0 0 32 32">
+        <svg width="28" height="28" viewBox="0 0 28 28">
           <defs>
             <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#ff6b35"/>
-              <stop offset="50%" stopColor="#ffd700"/>
+              <stop offset="0%"   stopColor="#ff6b35"/>
+              <stop offset="50%"  stopColor="#ffd700"/>
               <stop offset="100%" stopColor="#0080ff"/>
             </linearGradient>
           </defs>
-          <rect width="32" height="32" rx="6" fill="url(#lg2)"/>
-          <path d="M6 12l10-5 10 5v3L16 20 6 15v-3z" fill="white" fillOpacity="0.95"/>
-          <path d="M6 15v5l10 5V20L6 15z" fill="white" fillOpacity="0.7"/>
-          <path d="M26 15v5l-10 5V20L26 15z" fill="white" fillOpacity="0.5"/>
+          <rect width="28" height="28" rx="5" fill="url(#lg2)"/>
+          <path d="M5 10.5L14 6l9 4.5v2.5L14 17.5l-9-4.5V10.5z" fill="white" fillOpacity="0.95"/>
+          <path d="M5 13v4.5L14 22V18L5 13z" fill="white" fillOpacity="0.7"/>
+          <path d="M23 13v4.5L14 22V18L23 13z" fill="white" fillOpacity="0.5"/>
         </svg>
       </Link>
 
+      <button className="w-8 h-8 rounded flex items-center justify-center text-[#666] hover:bg-[#f5f5f4] hover:text-[#172b4d] transition-colors" title="Search">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <circle cx="6.5" cy="6.5" r="4.5"/><path d="M10.5 10.5L14 14" strokeLinecap="round"/>
+        </svg>
+      </button>
+
+      <button className="w-8 h-8 rounded flex items-center justify-center text-[#666] hover:bg-[#f5f5f4] hover:text-[#172b4d] transition-colors" title="Home">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round">
+          <path d="M2 7.5L8 2L14 7.5V14H10V10H6V14H2V7.5Z"/>
+        </svg>
+      </button>
+
       <div className="flex-1"/>
 
-      <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#777] hover:bg-[#f5f5f4] hover:text-[#172b4d] transition-colors" title="Help">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <button className="w-8 h-8 rounded flex items-center justify-center text-[#666] hover:bg-[#f5f5f4] hover:text-[#172b4d] transition-colors" title="Help">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
           <circle cx="8" cy="8" r="6"/>
           <path d="M6 6a2 2 0 114 0c0 1-1 1.5-2 2M8 12v.5" strokeLinecap="round"/>
         </svg>
       </button>
 
-      <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#777] hover:bg-[#f5f5f4] hover:text-[#172b4d] transition-colors" title="Notifications">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <button className="w-8 h-8 rounded flex items-center justify-center text-[#666] hover:bg-[#f5f5f4] hover:text-[#172b4d] transition-colors" title="Notifications">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
           <path d="M8 1.5a5 5 0 015 5v3l1.5 2h-13L3 9.5v-3a5 5 0 015-5zM6 12a2 2 0 004 0" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
 
-      <button className="w-8 h-8 rounded-full bg-[#c0392b] flex items-center justify-center text-white text-xs font-bold mt-1 flex-shrink-0" title="Account">
+      <button className="w-8 h-8 rounded-full bg-[#c0392b] flex items-center justify-center text-white text-[12px] font-bold mt-1 flex-shrink-0" title="Account">
         R
       </button>
     </aside>
   );
 }
 
-// ─── View meta ────────────────────────────────────────────────────────────────
+// ─── View meta ─────────────────────────────────────────────────────────────────
 
 const VIEW_META: Record<string, { icon: React.ReactNode; color: string }> = {
   GRID: {
     color: "#166a5b",
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
         <rect x="1" y="1" width="5" height="5" rx="0.5"/><rect x="8" y="1" width="5" height="5" rx="0.5"/>
         <rect x="1" y="8" width="5" height="5" rx="0.5"/><rect x="8" y="8" width="5" height="5" rx="0.5"/>
       </svg>
@@ -338,7 +346,7 @@ const VIEW_META: Record<string, { icon: React.ReactNode; color: string }> = {
   KANBAN: {
     color: "#9b59b6",
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
         <rect x="1"    y="1" width="3.5" height="12" rx="0.5"/>
         <rect x="5.25" y="1" width="3.5" height="8"  rx="0.5"/>
         <rect x="9.5"  y="1" width="3.5" height="10" rx="0.5"/>
@@ -347,7 +355,7 @@ const VIEW_META: Record<string, { icon: React.ReactNode; color: string }> = {
   },
 };
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function BasePage({ params }: { params: Promise<{ baseId: string }> }) {
   const { baseId } = use(params);
@@ -356,8 +364,6 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const { data: base, isLoading, error } = api.base.getById.useQuery(
     { id: baseId },
     {
-      // Retry up to 4 times on NOT_FOUND — the DB write may not have landed yet
-      // when the user navigates immediately after optimistic base creation.
       retry: (failureCount, err) => {
         const isNotFound = (err as { data?: { code?: string } })?.data?.code === "NOT_FOUND";
         return isNotFound && failureCount < 4;
@@ -368,7 +374,6 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
-  // Shared helpers
   const cancelBase    = () => utils.base.getById.cancel({ id: baseId });
   const snapshotBase  = () => utils.base.getById.getData({ id: baseId });
   const patchBase     = (updater: Parameters<typeof utils.base.getById.setData>[1]) =>
@@ -512,14 +517,9 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     onSettled: invalidateBase,
   });
 
-  // ── bulkAddRows — dev/perf-test mutation ───────────────────────────────────
-  // Inserts 100 000 empty rows in the background, then invalidates the table
-  // query so GridView re-fetches and virtual-scrolls through all of them.
   const [bulkAdding, setBulkAdding] = useState(false);
   const bulkAddRows = api.table.bulkAddRows.useMutation({
-    onSuccess: () => {
-      void utils.table.getById.invalidate({ id: currentTableId ?? "" });
-    },
+    onSuccess: () => { void utils.table.getById.invalidate({ id: currentTableId ?? "" }); },
     onSettled: () => setBulkAdding(false),
   });
 
@@ -543,13 +543,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const [newViewName, setNewViewName]     = useState("");
   const [newViewType, setNewViewType]     = useState<ViewType>("GRID");
 
-  // ── Per-view config (filter / sort / group / hide / rowHeight) ─────────────
   const [viewConfigs, setViewConfigs] = useState<Record<string, ViewConfig>>({});
 
   function getViewConfig(viewId: string): ViewConfig {
     return viewConfigs[viewId] ?? { ...DEFAULT_VIEW_CONFIG };
   }
-
   function updateViewConfig(viewId: string, patch: Partial<ViewConfig>) {
     setViewConfigs((prev) => ({
       ...prev,
@@ -609,15 +607,15 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   if (isLoading || (!base && !error)) return (
     <div className="min-h-screen bg-white flex items-center justify-center"
       style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
-      <div className="text-sm text-[#aaa] animate-pulse">Loading…</div>
+      <div className="text-[13px] text-[#aaa] animate-pulse">Loading…</div>
     </div>
   );
   if (!base) return (
     <div className="min-h-screen bg-white flex items-center justify-center"
       style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
       <div className="text-center">
-        <p className="text-[#aaa] mb-4 text-sm">Base not found</p>
-        <Link href="/" className="text-[#0069ff] text-sm hover:underline">← Home</Link>
+        <p className="text-[#aaa] mb-4 text-[13px]">Base not found</p>
+        <Link href="/" className="text-[#0069ff] text-[13px] hover:underline">← Home</Link>
       </div>
     </div>
   );
@@ -633,56 +631,92 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* ── Top nav bar ─────────────────────────────────────────────────── */}
-        <header className="h-[52px] bg-white border-b border-[#e0e0e0] flex items-center px-4 gap-3 flex-shrink-0 relative">
+        {/* ── Top nav bar ──────────────────────────────────────────────────── */}
+        <header className="h-[44px] bg-white border-b border-[#e0e0e0] flex items-center px-3 gap-0 flex-shrink-0 relative">
+
+          {/* Left: base name button */}
           <button onClick={() => setPanelOpen((p) => !p)}
-            className="flex items-center gap-2 group rounded-md hover:bg-[#f5f5f4] px-2 py-1.5 transition-colors -ml-2">
-            <BaseIconSVG iconId={baseIcon} color={baseColor} size={30}/>
-            <span className="text-[14px] font-semibold text-[#172b4d]">{base.name}</span>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#aaa] group-hover:text-[#666] transition-colors">
-              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            className="flex items-center gap-1.5 group rounded hover:bg-[#f0f0ef] px-2 py-1 transition-colors mr-2 flex-shrink-0">
+            <BaseIconSVG iconId={baseIcon} color={baseColor} size={22}/>
+            <span className="text-[13px] font-semibold text-[#172b4d] max-w-[160px] truncate">{base.name}</span>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-[#999] group-hover:text-[#555] transition-colors flex-shrink-0">
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
 
+          {/* Center: nav tabs */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center h-full">
             <div className="relative flex items-center h-full">
-              <span className="text-[13px] font-medium text-[#166a5b] px-3">Data</span>
+              <span className="text-[13px] font-medium text-[#172b4d] px-3 cursor-default">Data</span>
               <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#166a5b] rounded-full"/>
             </div>
-            {["Automations","Interfaces"].map((t) => (
-              <button key={t} className="text-[13px] text-[#666] hover:text-[#172b4d] px-3 transition-colors">{t}</button>
+            {["Automations","Interfaces","Forms"].map((t) => (
+              <button key={t} className="text-[13px] text-[#555] hover:text-[#172b4d] px-3 h-full transition-colors">{t}</button>
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-3">
-            <SyncIndicator />
-            <button className="px-4 py-1.5 bg-[#0069ff] hover:bg-[#0055d4] text-white text-[13px] font-medium rounded-md transition-colors">
+          {/* Right: actions */}
+          <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+            <SyncIndicator/>
+            {/* History / revision */}
+            <button className="p-1.5 rounded text-[#555] hover:bg-[#f0f0ef] hover:text-[#172b4d] transition-colors" title="Revision history">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2" strokeLinecap="round"/>
+              </svg>
+            </button>
+            {/* Upgrade */}
+            <button className="flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium text-[#172b4d] border border-[#d8d8d8] rounded hover:bg-[#f5f5f4] transition-colors">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11l-3-1.5L3 11l.5-3.5L1 5l3.5-.5L6 1z"/>
+              </svg>
+              Upgrade
+            </button>
+            {/* Launch */}
+            <button className="flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium text-[#172b4d] border border-[#d8d8d8] rounded hover:bg-[#f5f5f4] transition-colors">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M10 2L6 6M10 2H7M10 2v3" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M5 3H3a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V7"/>
+              </svg>
+              Launch
+            </button>
+            {/* Link icon */}
+            <button className="p-1.5 rounded text-[#555] hover:bg-[#f0f0ef] hover:text-[#172b4d] transition-colors">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <path d="M7 9a3 3 0 004.5.5l2-2a3 3 0 00-4.25-4.25L8 4.5M9 7a3 3 0 00-4.5-.5l-2 2A3 3 0 006.75 12.75L8 11.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+            {/* Share */}
+            <button className="px-3 py-1 bg-[#0069ff] hover:bg-[#0055d4] text-white text-[13px] font-medium rounded transition-colors">
               Share
             </button>
           </div>
         </header>
 
         {/* ── Table tabs bar ───────────────────────────────────────────────── */}
-        <div className="flex items-center px-3 flex-shrink-0 h-10 overflow-x-auto"
+        <div className="flex items-center px-2 flex-shrink-0 h-9 overflow-x-auto"
           style={{ background: tabBarBg(baseColor), borderBottom: `1px solid ${tabBarBorder(baseColor)}` }}>
 
+          {/* View sidebar toggle */}
           <button onClick={() => setViewSidebar((p) => !p)}
-            className="mr-2 p-1.5 rounded hover:bg-black/10 text-[#555] transition-colors flex-shrink-0"
+            className="mr-1 p-1.5 rounded hover:bg-black/10 text-[#444] transition-colors flex-shrink-0"
             title="Toggle view sidebar">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="2" width="4" height="12" rx="1" fill="currentColor" opacity="0.6"/>
-              <rect x="6" y="2" width="9" height="4" rx="1" fill="currentColor" opacity="0.35"/>
-              <rect x="6" y="7" width="9" height="4" rx="1" fill="currentColor" opacity="0.35"/>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <rect x="1" y="2" width="4" height="12" rx="1" fill="currentColor" opacity="0.5"/>
+              <rect x="6" y="2" width="9" height="4" rx="1" fill="currentColor" opacity="0.3"/>
+              <rect x="6" y="7" width="9" height="4" rx="1" fill="currentColor" opacity="0.3"/>
             </svg>
           </button>
 
+          {/* Table tabs */}
           {base.tables.map((table) => {
             const isActive   = currentTableId === table.id;
             const isRenaming = renamingTable?.id === table.id;
             return (
               <div key={table.id}
-                className={`group/tab relative flex items-center flex-shrink-0 h-10 transition-all ${
-                  isActive ? "bg-white rounded-t border-l border-t border-r border-[#e0e0e0] -mb-px z-10" : ""
+                className={`group/tab relative flex items-center flex-shrink-0 h-9 transition-all ${
+                  isActive
+                    ? "bg-white rounded-t border-l border-t border-r border-[#d8d8d8] -mb-px z-10"
+                    : ""
                 }`}>
                 {isRenaming ? (
                   <input autoFocus value={renamingTable.value}
@@ -694,21 +728,29 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                   <button
                     onClick={() => { setActiveTableId(table.id); setActiveViewId(null); }}
                     onDoubleClick={() => setRenamingTable({ id: table.id, value: table.name })}
-                    className={`px-3 h-full text-[12px] font-medium transition-colors ${
-                      isActive ? "text-[#172b4d]" : "text-[#555] hover:text-[#172b4d] hover:bg-black/5 rounded-t"
-                    }`}
-                    title="Double-click to rename">
+                    className={`flex items-center gap-1 px-3 h-full text-[12px] font-medium transition-colors ${
+                      isActive
+                        ? "text-[#172b4d]"
+                        : "text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded-t"
+                    }`}>
                     {table.name}
+                    {/* Active tab gets dropdown arrow */}
+                    {isActive && (
+                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#888]">
+                        <path d="M2.5 4l2.5 2.5L7.5 4"/>
+                      </svg>
+                    )}
                   </button>
                 )}
-                {!isRenaming && base.tables.length > 1 && (
+                {!isRenaming && !isActive && base.tables.length > 1 && (
                   <button onClick={() => handleDeleteTable(table.id)}
-                    className="opacity-0 group-hover/tab:opacity-100 mr-1 text-[#aaa] hover:text-red-500 transition-all text-[10px] p-0.5 rounded">✕</button>
+                    className="opacity-0 group-hover/tab:opacity-100 mr-1 text-[#888] hover:text-red-500 transition-all text-[10px] p-0.5 rounded">✕</button>
                 )}
               </div>
             );
           })}
 
+          {/* Add table */}
           {addingTable ? (
             <div className="flex items-center gap-1 ml-2">
               <input autoFocus value={newTableName} placeholder="Table name…"
@@ -717,36 +759,66 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                 onBlur={() => { if (!newTableName.trim()) setAddingTable(false); }}
                 onKeyDown={(e) => { if (e.key === "Enter") handleAddTable(); if (e.key === "Escape") { setAddingTable(false); setNewTableName(""); } }}/>
               <button onClick={handleAddTable} className="px-2 py-0.5 bg-[#166a5b] text-white rounded text-[11px]">Add</button>
-              <button onClick={() => { setAddingTable(false); setNewTableName(""); }} className="text-[#888] text-[10px] px-1">✕</button>
+              <button onClick={() => { setAddingTable(false); setNewTableName(""); }} className="text-[#666] text-[10px] px-1">✕</button>
             </div>
           ) : (
             <button onClick={() => setAddingTable(true)}
-              className="ml-2 flex items-center gap-1.5 px-3 py-1 text-[#555] hover:text-[#172b4d] hover:bg-black/5 rounded text-[12px] font-medium transition-colors flex-shrink-0">
+              className="ml-1 flex items-center gap-1 px-2 py-1 text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded text-[12px] font-medium transition-colors flex-shrink-0">
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M5.5 1v9M1 5.5h9"/>
               </svg>
               Add or import
             </button>
           )}
+
+          {/* Tools button on far right */}
+          <div className="ml-auto flex-shrink-0">
+            <button className="flex items-center gap-1 px-2 py-1 text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded text-[12px] transition-colors">
+              Tools
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M3 2l4 3-4 3"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {/* ── Body ─────────────────────────────────────────────────────────── */}
+        {/* ── Body ──────────────────────────────────────────────────────────── */}
         <div className="flex flex-1 overflow-hidden">
 
           {/* View sidebar */}
           <aside className={`flex-shrink-0 bg-white border-r border-[#e0e0e0] flex flex-col transition-all duration-200 overflow-hidden ${viewSidebarOpen ? "w-[248px]" : "w-0"}`}>
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-[#e0e0e0] flex-shrink-0">
+
+            {/* Sidebar header: shows active view type + dropdown */}
+            {activeView && (
+              <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[#e0e0e0] flex-shrink-0 min-w-0">
+                <button className="flex items-center gap-1.5 flex-1 min-w-0 px-1 py-1 rounded hover:bg-[#f0f0ef] transition-colors">
+                  <span className="flex-shrink-0" style={{ color: VIEW_META[activeView.type]?.color ?? "#166a5b" }}>
+                    {VIEW_META[activeView.type]?.icon}
+                  </span>
+                  <span className="text-[12px] font-semibold text-[#172b4d] truncate">
+                    {activeView.name}
+                  </span>
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#888] flex-shrink-0">
+                    <path d="M2.5 4l2.5 2.5L7.5 4"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Create new */}
+            <div className="px-2 py-1.5 border-b border-[#e0e0e0] flex-shrink-0">
               <button onClick={() => { setAddingView(true); setNewViewName(""); }}
-                className="flex items-center gap-1.5 px-2 py-1.5 text-[12px] text-[#555] font-medium hover:bg-[#f5f5f4] rounded transition-colors">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7">
+                className="flex items-center gap-1.5 w-full px-2 py-1.5 text-[12px] text-[#444] font-medium hover:bg-[#f5f5f4] rounded transition-colors">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7">
                   <path d="M6 1v10M1 6h10"/>
                 </svg>
                 Create new…
               </button>
             </div>
 
-            <div className="px-3 py-2 border-b border-[#e0e0e0]">
-              <div className="flex items-center gap-2 px-2 py-1.5 bg-[#f8f8f7] rounded-md border border-[#e8e8e8] text-[12px] text-[#aaa]">
+            {/* Find a view */}
+            <div className="px-2 py-1.5 border-b border-[#e0e0e0] flex-shrink-0">
+              <div className="flex items-center gap-2 px-2 py-1 bg-[#f5f5f4] rounded text-[12px] text-[#aaa]">
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
                   <circle cx="5" cy="5" r="3.5"/><path d="M8 8L10 10"/>
                 </svg>
@@ -754,6 +826,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
               </div>
             </div>
 
+            {/* View list */}
             <div className="flex-1 overflow-y-auto py-1">
               {views.map((view) => {
                 const isActive   = activeView?.id === view.id;
@@ -764,9 +837,12 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                   || Object.values(vcfg.hiddenFields).some(Boolean);
                 return (
                   <div key={view.id}
-                    className={`group/view flex items-center gap-2 mx-1.5 px-2 py-2 rounded-md cursor-pointer transition-colors ${
-                      isActive ? "bg-[#f9fafb]" : "hover:bg-[#f8f8f7]"
+                    className={`group/view flex items-center gap-2 mx-1 px-2 py-1.5 rounded cursor-pointer transition-colors ${
+                      isActive
+                        ? "bg-[#eaf3f1] border-l-2 border-[#166a5b]"
+                        : "hover:bg-[#f5f5f4]"
                     }`}
+                    style={isActive ? { borderRadius: "0 6px 6px 0" } : {}}
                     onClick={() => setActiveViewId(view.id)}>
                     <span className="flex-shrink-0" style={{ color: isActive ? meta?.color : "#999" }}>{meta?.icon}</span>
                     {isRenaming ? (
@@ -777,7 +853,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                         onBlur={commitViewRename}
                         onKeyDown={(e) => { if (e.key === "Enter") commitViewRename(); if (e.key === "Escape") setRenamingView(null); }}/>
                     ) : (
-                      <span className={`flex-1 text-[12px] truncate font-medium ${isActive ? "text-[#172b4d]" : "text-[#555]"}`}
+                      <span className={`flex-1 text-[12px] truncate ${isActive ? "text-[#172b4d] font-medium" : "text-[#444]"}`}
                         onDoubleClick={(e) => { e.stopPropagation(); setRenamingView({ id: view.id, value: view.name }); }}>
                         {view.name}
                       </span>
@@ -794,10 +870,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
               })}
             </div>
 
+            {/* Add view form */}
             {addingView && (
-              <div className="border-t border-[#e0e0e0] p-3 space-y-2">
+              <div className="border-t border-[#e0e0e0] p-3 space-y-2 flex-shrink-0">
                 <input autoFocus value={newViewName} placeholder="View name…"
-                  className="w-full bg-white border border-[#0069ff] rounded-md px-2 py-1.5 text-[12px] outline-none"
+                  className="w-full bg-white border border-[#0069ff] rounded px-2 py-1.5 text-[12px] outline-none"
                   onChange={(e) => setNewViewName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddView(); if (e.key === "Escape") setAddingView(false); }}/>
                 <div className="flex gap-1">
@@ -805,8 +882,8 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                     const m = VIEW_META[t];
                     return (
                       <button key={t} onClick={() => setNewViewType(t)}
-                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border text-[11px] font-medium transition-colors ${
-                          newViewType === t ? "border-[#0069ff] text-[#0069ff] bg-[#f0f7ff]" : "border-[#e0e0e0] text-[#777] hover:border-[#ccc]"
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded border text-[11px] font-medium transition-colors ${
+                          newViewType === t ? "border-[#0069ff] text-[#0069ff] bg-[#f0f7ff]" : "border-[#e0e0e0] text-[#666] hover:border-[#ccc]"
                         }`}>
                         <span style={{ color: newViewType === t ? m?.color : "#aaa" }}>{m?.icon}</span>
                         {t === "GRID" ? "Grid" : "Kanban"}
@@ -816,11 +893,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                 </div>
                 <div className="flex gap-1.5">
                   <button onClick={handleAddView}
-                    className="flex-1 py-1.5 bg-[#0069ff] hover:bg-[#0055d4] text-white rounded-md text-[11px] font-medium transition-colors">
+                    className="flex-1 py-1.5 bg-[#0069ff] hover:bg-[#0055d4] text-white rounded text-[11px] font-medium transition-colors">
                     Add view
                   </button>
                   <button onClick={() => setAddingView(false)}
-                    className="px-2 py-1.5 border border-[#e0e0e0] text-[#888] rounded-md text-[11px] hover:bg-[#f5f5f4] transition-colors">✕</button>
+                    className="px-2 py-1.5 border border-[#e0e0e0] text-[#888] rounded text-[11px] hover:bg-[#f5f5f4] transition-colors">✕</button>
                 </div>
               </div>
             )}
@@ -837,7 +914,6 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                 onConfigChange={(patch) => updateViewConfig(activeView.id, patch)}
                 activeViewName={activeView.name}
                 activeViewType={activeView.type}
-                // Only show the 100k button on GRID views
                 onBulkAddRows={activeView.type === "GRID" ? handleBulkAddRows : undefined}
                 bulkAdding={bulkAdding}
               />
@@ -845,14 +921,14 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
               <div className="h-10 border-b border-[#e0e0e0] bg-white flex-shrink-0"/>
             )}
 
-            {/* View content — overflow-hidden so GridView owns its own scroll */}
+            {/* View content */}
             <div className="flex-1 overflow-hidden bg-white">
               {!currentTableId ? (
-                <div className="flex items-center justify-center h-full text-sm text-[#aaa]">
-                  No tables yet — click &ldquo;+ Add or import&rdquo; to create one.
+                <div className="flex items-center justify-center h-full text-[13px] text-[#aaa]">
+                  No tables yet — click &ldquo;Add or import&rdquo; to create one.
                 </div>
               ) : !activeView ? (
-                <div className="flex items-center justify-center h-full text-sm text-[#aaa] animate-pulse">Loading views…</div>
+                <div className="flex items-center justify-center h-full text-[13px] text-[#aaa] animate-pulse">Loading views…</div>
               ) : activeView.type === "GRID" ? (
                 <GridView
                   key={activeView.id}
