@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { api } from "~/trpc/react";
 import {
@@ -381,7 +381,7 @@ export default function GridView({
   const topPad    = startIdx * rowH;
   const bottomPad = Math.max(0, (trueTotal - endIdx) * rowH);
   const visItems  = flatItems.slice(startIdx, endIdx);
-  if (isLoading) return <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loadingâ€¦</div>;
+  if (isLoading) return <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loading...</div>;
   if (error)     return <div className="p-8 text-red-400 text-sm">Failed to load table. Please refresh.</div>;
   if (!table)    return <div className="p-8 text-[#9ca3af] text-sm">Table not found.</div>;
   function handleHeaderSortClick(colId: string) {

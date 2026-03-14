@@ -32,6 +32,7 @@ type ViewSidebarProps = {
   views: Array<{ id: string; name: string; type: ViewType }>;
   activeViewId: string | null;
   getViewConfig: (viewId: string) => ViewConfig;
+  getViewDescription: (viewId: string) => string | null;
   onSelectView: (viewId: string) => void;
   onRenameView: (viewId: string, name: string) => void;
   onDeleteView: (viewId: string) => void;
@@ -43,6 +44,7 @@ export function ViewSidebar({
   views,
   activeViewId,
   getViewConfig,
+  getViewDescription,
   onSelectView,
   onRenameView,
   onDeleteView,
@@ -104,6 +106,7 @@ export function ViewSidebar({
           const isRenaming = renamingView?.id === view.id;
           const meta = VIEW_META[view.type];
           const vcfg = getViewConfig(view.id);
+          const desc = getViewDescription(view.id);
           const hasActive =
             vcfg.filters.length > 0 ||
             vcfg.sorts.length > 0 ||
@@ -135,15 +138,18 @@ export function ViewSidebar({
                   }}
                 />
               ) : (
-                <span
-                  className={`flex-1 text-[12px] truncate ${isActive ? "text-[#172b4d] font-medium" : "text-[#444]"}`}
+                <div
+                  className="flex-1 min-w-0"
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     setRenamingView({ id: view.id, value: view.name });
                   }}
                 >
-                  {view.name}
-                </span>
+                  <div className={`text-[12px] truncate ${isActive ? "text-[#172b4d] font-medium" : "text-[#444]"}`}>
+                    {view.name}
+                  </div>
+                  {desc && <div className="text-[11px] text-[#999] truncate">{desc}</div>}
+                </div>
               )}
               {hasActive && !isRenaming && <span className="w-1.5 h-1.5 rounded-full bg-[#0069ff] flex-shrink-0" />}
               {!isRenaming && views.length > 1 && (

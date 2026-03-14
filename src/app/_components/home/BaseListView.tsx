@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import { groupByTime, timeAgo } from "~/app/_components/home/helpers";
-import { MoveIco, PencilIco, TrashIco } from "~/app/_components/home/icons";
+import { MoveIco, PencilIco, StarIco, TrashIco } from "~/app/_components/home/icons";
 import type { BaseItem } from "~/app/_components/home/types";
 import { ActionBtn, BaseIcon } from "~/app/_components/home/ui";
 
@@ -48,7 +48,7 @@ export function BaseListView({ bases, showWorkspace, onRename, onDelete, onStar,
                 <button onClick={() => onStar(base)}
                   className={`text-[13px] flex-shrink-0 transition-all ${
                     base.starred ? "text-yellow-400" : "opacity-0 group-hover:opacity-100 text-[#ddd] hover:text-yellow-400"
-                  }`}>?</button>
+                  }`}><StarIco/></button>
               </div>
               <span className="text-[12px] text-[#888]">{timeAgo(base.lastOpenedAt)}</span>
               {showWorkspace && <span className="text-[12px] text-[#555]">{base.workspace?.name ?? "—"}</span>}

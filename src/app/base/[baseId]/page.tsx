@@ -196,6 +196,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const tempViewToRealId                  = useRef<Record<string, string>>({});
   const [viewSidebarOpen, setViewSidebar] = useState(true);
   const [panelOpen, setPanelOpen]         = useState(false);
+  const [viewDescriptions, setViewDescriptions] = useState<Record<string, string>>({});
 
   const [viewConfigs, setViewConfigs] = useState<Record<string, ViewConfig>>({});
 
@@ -207,6 +208,12 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
       ...prev,
       [viewId]: { ...getViewConfig(viewId), ...patch },
     }));
+  }
+  function getViewDescription(viewId: string): string | null {
+    return viewDescriptions[viewId] ?? null;
+  }
+  function updateViewDescription(viewId: string, description: string) {
+    setViewDescriptions((prev) => ({ ...prev, [viewId]: description }));
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -366,6 +373,10 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             onConfigChange={(patch) => updateViewConfig(activeView.id, patch)}
             activeViewName={activeView.name}
             activeViewType={activeView.type}
+            activeViewId={activeView.id}
+            activeViewDescription={getViewDescription(activeView.id)}
+            onRenameView={handleRenameView}
+            onUpdateViewDescription={updateViewDescription}
             onBulkAddRows={activeView.type === "GRID" ? handleBulkAddRows : undefined}
             bulkAdding={bulkAdding}
             onToggleSidebar={() => setViewSidebar((p) => !p)}
@@ -381,6 +392,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             views={views}
             activeViewId={activeView?.id ?? null}
             getViewConfig={getViewConfig}
+            getViewDescription={getViewDescription}
             onSelectView={(viewId) => setActiveViewId(viewId)}
             onRenameView={handleRenameView}
             onDeleteView={handleDeleteView}

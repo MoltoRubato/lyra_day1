@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import { fallbackColor, timeAgo } from "~/app/_components/home/helpers";
-import { MoveIco, PencilIco, TrashIco } from "~/app/_components/home/icons";
+import { MoveIco, PencilIco, StarIco, TrashIco } from "~/app/_components/home/icons";
 import type { BaseItem } from "~/app/_components/home/types";
 import { ActionBtn, BaseIcon } from "~/app/_components/home/ui";
 
@@ -37,7 +37,7 @@ export function BaseGridView({ bases, onRename, onDelete, onStar, onMove }: {
               <button onClick={() => onStar(base)}
                 className={`text-[14px] flex-shrink-0 mt-0.5 transition-all ${
                   base.starred ? "text-yellow-400" : "opacity-0 group-hover:opacity-100 text-[#ddd] hover:text-yellow-400"
-                }`}>?</button>
+                }`}><StarIco/></button>
             </div>
             <div className="flex items-center justify-between border-t border-[#f0f0f0] pt-2.5">
               <span className="text-[11px] text-[#aaa]">{timeAgo(base.lastOpenedAt)}</span>

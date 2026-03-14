@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { timeAgo } from "~/app/_components/home/helpers";
+import { StarIco } from "~/app/_components/home/icons";
 import type { BaseItem, WsFull } from "~/app/_components/home/types";
 import { BaseIcon } from "~/app/_components/home/ui";
 
@@ -65,7 +66,7 @@ export function SearchModal({ bases, workspaces, onClose }: {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[13px] font-medium text-[#172b4d] truncate">{ws.name}</span>
-                  {ws.starred && <span className="text-yellow-400 text-[11px]">?</span>}
+                  {ws.starred && <span className="text-yellow-400 text-[11px]"><StarIco/></span>}
                 </div>
                 <p className="text-[11px] text-[#888]">Workspace</p>
               </div>
@@ -80,7 +81,7 @@ export function SearchModal({ bases, workspaces, onClose }: {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[13px] font-medium text-[#172b4d] truncate">{base.name}</span>
-                  {base.starred && <span className="text-yellow-400 text-[11px]">?</span>}
+                  {base.starred && <span className="text-yellow-400 text-[11px]"><StarIco/></span>}
                   <span className="text-[12px] text-[#aaa]">· Base</span>
                 </div>
                 <p className="text-[11px] text-[#888]">{base.workspace?.name ?? "No workspace"}</p>

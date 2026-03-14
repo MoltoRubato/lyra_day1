@@ -1,4 +1,5 @@
 "use client";
+"use client";
 import { useMemo, useState } from "react";
 
 function tabBarBg(hex: string): string {
@@ -22,6 +23,8 @@ type TableTabsBarProps = {
   onCreateTable: (name: string) => void;
 };
 
+type AnchorRect = { left: number; top: number; width: number; height: number };
+
 export function TableTabsBar({
   baseColor,
   tables,
@@ -35,6 +38,8 @@ export function TableTabsBar({
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [scratchOpen, setScratchOpen] = useState(false);
   const [tableSearchOpen, setTableSearchOpen] = useState(false);
+  const [tableSearchAnchor, setTableSearchAnchor] = useState<AnchorRect | null>(null);
+  const [addMenuAnchor, setAddMenuAnchor] = useState<AnchorRect | null>(null);
   const [tableSearch, setTableSearch] = useState("");
   const [newTableName, setNewTableName] = useState("");
   const [recordLabel, setRecordLabel] = useState("Record");
@@ -70,9 +75,20 @@ export function TableTabsBar({
     ? tables.filter((t) => t.name.toLowerCase().includes(tableSearch.toLowerCase()))
     : tables;
 
+  const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+  const searchMenuWidth = 360;
+  const addMenuWidth = 280;
+  const searchLeft = tableSearchAnchor
+    ? clamp(tableSearchAnchor.left, 12, viewportW - searchMenuWidth - 12)
+    : 12;
+  const addMenuLeft = addMenuAnchor
+    ? clamp(addMenuAnchor.left + addMenuAnchor.width - addMenuWidth, 12, viewportW - addMenuWidth - 12)
+    : 12;
+
   return (
     <div
-      className="relative flex items-center px-2 flex-shrink-0 h-9 overflow-x-auto"
+      className="relative flex items-center px-2 flex-shrink-0 h-9 overflow-hidden"
       style={{ background: tabBarBg(baseColor), borderBottom: `1px solid ${tabBarBorder(baseColor)}` }}
     >
       {tables.map((table) => {
@@ -113,7 +129,7 @@ export function TableTabsBar({
                 onClick={() => onDeleteTable(table.id)}
                 className="opacity-0 group-hover/tab:opacity-100 mr-1 text-[#888] hover:text-red-500 transition-all text-[10px] p-0.5 rounded"
               >
-                ✕
+                x
               </button>
             )}
           </div>
@@ -122,7 +138,11 @@ export function TableTabsBar({
 
       <div className="relative ml-1 flex-shrink-0">
         <button
-          onClick={() => setTableSearchOpen((p) => !p)}
+          onClick={(e) => {
+            const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+            setTableSearchAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
+            setTableSearchOpen((p) => !p);
+          }}
           className="p-1.5 rounded hover:bg-black/10 text-[#444] transition-colors"
           title="Switch table"
         >
@@ -134,7 +154,10 @@ export function TableTabsBar({
         {tableSearchOpen && (
           <>
             <div className="fixed inset-0 z-20" onClick={() => setTableSearchOpen(false)} />
-            <div className="absolute left-0 top-[34px] z-30 w-[360px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden">
+            <div
+              className="fixed z-30 w-[360px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden"
+              style={{ left: searchLeft, top: (tableSearchAnchor?.top ?? 0) + (tableSearchAnchor?.height ?? 0) + 8 }}
+            >
               <div className="flex items-center gap-2 px-4 py-3 border-b border-[#f0f0f0] text-[#888]">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="7" cy="7" r="4.5" />
@@ -214,7 +237,11 @@ export function TableTabsBar({
 
       <div className="relative ml-1 flex-shrink-0">
         <button
-          onClick={() => setAddMenuOpen((p) => !p)}
+          onClick={(e) => {
+            const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+            setAddMenuAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
+            setAddMenuOpen((p) => !p);
+          }}
           className="w-7 h-7 rounded flex items-center justify-center text-[#444] hover:text-[#172b4d] hover:bg-black/5 transition-colors"
           title="Add table"
         >
@@ -226,7 +253,10 @@ export function TableTabsBar({
         {addMenuOpen && (
           <>
             <div className="fixed inset-0 z-20" onClick={() => setAddMenuOpen(false)} />
-            <div className="absolute right-0 top-[34px] z-30 w-[280px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden text-[13px]">
+            <div
+              className="fixed z-30 w-[280px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden text-[13px]"
+              style={{ left: addMenuLeft, top: (addMenuAnchor?.top ?? 0) + (addMenuAnchor?.height ?? 0) + 8 }}
+            >
               <button
                 onClick={() => {
                   setAddMenuOpen(false);
@@ -272,7 +302,7 @@ export function TableTabsBar({
                 className="text-[18px] font-semibold text-[#172b4d] outline-none border border-[#2d7ff9] rounded px-2 py-1 flex-1"
               />
               <button onClick={() => setScratchOpen(false)} className="ml-2 text-[#bbb] hover:text-[#555]">
-                ✕
+                x
               </button>
             </div>
             <div className="text-[13px] text-[#666] mb-2">What should each record be called?</div>

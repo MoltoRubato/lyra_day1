@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import { timeAgo } from "~/app/_components/home/helpers";
-import { MoveIco, PencilIco, TrashIco } from "~/app/_components/home/icons";
+import { MoveIco, PencilIco, StarIco, TrashIco } from "~/app/_components/home/icons";
 import type { BaseItem, WsFull } from "~/app/_components/home/types";
 import { ActionBtn, BaseIcon, WorkspaceIcon } from "~/app/_components/home/ui";
 
@@ -49,7 +49,7 @@ export function WorkspacesOverview({
                 <button onClick={() => onStarWs(ws)}
                   className={`text-sm transition-all ${
                     ws.starred ? "text-yellow-400" : "opacity-0 group-hover:opacity-100 text-[#ddd] hover:text-yellow-400"
-                  }`}>?</button>
+                  }`}><StarIco/></button>
               </div>
               {ws.description && <p className="text-[12px] text-[#888] mt-0.5">{ws.description}</p>}
             </div>
@@ -67,14 +67,14 @@ export function WorkspacesOverview({
             </div>
             <button onClick={() => onNavigate(ws.id)}
               className="text-[12px] text-[#0069ff] hover:underline flex-shrink-0 ml-2 font-medium">
-              View workspace ?
+              View workspace
             </button>
           </div>
 
           {ws.bases.length === 0 ? (
             <p className="ml-[44px] text-[12px] text-[#aaa] py-2">
               No bases.{" "}
-              <button onClick={() => onCreateBase(ws.id)} className="text-[#0069ff] hover:underline">Create one ?</button>
+              <button onClick={() => onCreateBase(ws.id)} className="text-[#0069ff] hover:underline">Create one</button>
             </p>
           ) : (
             <div className="ml-[44px] space-y-0">
@@ -95,7 +95,7 @@ export function WorkspacesOverview({
                   <span className="text-[11px] text-[#bbb] flex-shrink-0">{timeAgo(base.lastOpenedAt)}</span>
                   <div className="flex items-center gap-0 opacity-0 group-hover/row:opacity-100 transition-opacity flex-shrink-0">
                     <button onClick={() => onStarBase(base)}
-                      className={`px-1 text-sm transition-colors ${base.starred ? "text-yellow-400" : "text-[#ddd] hover:text-yellow-400"}`}>?</button>
+                      className={`px-1 text-sm transition-colors ${base.starred ? "text-yellow-400" : "text-[#ddd] hover:text-yellow-400"}`}><StarIco/></button>
                     <ActionBtn title="Rename" onClick={() => onRenameBase(base)}><PencilIco size={10}/></ActionBtn>
                     <ActionBtn title="Move workspace" onClick={() => onMoveBase(base)}><MoveIco size={10}/></ActionBtn>
                     <ActionBtn title="Delete" danger onClick={() => onDeleteBase(base.id)}><TrashIco size={10}/></ActionBtn>
@@ -104,7 +104,7 @@ export function WorkspacesOverview({
               ))}
               {ws.bases.length > 6 && (
                 <button onClick={() => onNavigate(ws.id)} className="ml-[30px] text-[12px] text-[#0069ff] hover:underline py-1">
-                  +{ws.bases.length - 6} more — View workspace ?
+                  +{ws.bases.length - 6} more — View workspace
                 </button>
               )}
             </div>
