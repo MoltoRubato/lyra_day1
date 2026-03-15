@@ -60,6 +60,7 @@ export default function ViewToolbar({
   activeViewType = "GRID",
   onBulkAddRows,
   bulkAdding = false,
+  onToggleSidebar,
 }: {
   columns: Column[];
   config: ViewConfig;
@@ -68,6 +69,7 @@ export default function ViewToolbar({
   activeViewType?: string;
   onBulkAddRows?: () => void;
   bulkAdding?: boolean;
+  onToggleSidebar?: () => void;
 }) {
   const [open, setOpen] = useState<OpenPanel>(null);
 
@@ -145,6 +147,17 @@ export default function ViewToolbar({
 
   return (
     <div className="h-10 border-b border-[#e0e0e0] flex items-center px-3 gap-1 flex-shrink-0 bg-white">
+      {onToggleSidebar && (
+        <button
+          onClick={onToggleSidebar}
+          className="mr-1 p-1.5 rounded hover:bg-[#f0f0ef] text-[#444] transition-colors flex-shrink-0"
+          title="Toggle view sidebar"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
       {activeViewName && (
         <>
           <button className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f5f5f4] text-[#172b4d] font-medium text-[12px] transition-colors">
