@@ -7,6 +7,7 @@ import GridView from "~/app/_components/GridView";
 import KanbanView from "~/app/_components/KanbanView";
 import ViewToolbar, {
   DEFAULT_VIEW_CONFIG,
+  type OpenPanel,
   type ViewConfig,
 } from "~/app/_components/ViewToolbar";
 import { AppearancePanel } from "~/app/_components/base/AppearancePanel";
@@ -202,6 +203,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const pendingRecordLabel = useRef<{ name: string; label: string } | null>(null);
 
   const [viewConfigs, setViewConfigs] = useState<Record<string, ViewConfig>>({});
+  const [forcedToolbarPanel, setForcedToolbarPanel] = useState<Exclude<OpenPanel, null> | null>(null);
 
   function getViewConfig(viewId: string): ViewConfig {
     return viewConfigs[viewId] ?? { ...DEFAULT_VIEW_CONFIG };
@@ -405,6 +407,8 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             onBulkAddRows={activeView.type === "GRID" ? handleBulkAddRows : undefined}
             bulkAdding={bulkAdding}
             onToggleSidebar={() => setViewSidebar((p) => !p)}
+            forcedOpenPanel={forcedToolbarPanel}
+            onForcedOpenHandled={() => setForcedToolbarPanel(null)}
           />
         ) : (
           <div className="h-10 border-b border-[#e0e0e0] bg-white flex-shrink-0" />
@@ -455,6 +459,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                   rowHeight={currentCfg.rowHeight}
                   recordLabel={getRecordLabel(currentTableId) ?? "Record"}
                   onSortsChange={(sorts) => updateViewConfig(activeView.id, { sorts })}
+                  onFiltersChange={(filters) => updateViewConfig(activeView.id, { filters })}
+                  onGroupsChange={(groups) => updateViewConfig(activeView.id, { groups })}
+                  onRequestOpenSortPanel={() => setForcedToolbarPanel("sort")}
+                  onRequestOpenFilterPanel={() => setForcedToolbarPanel("filter")}
+                  onRequestOpenGroupPanel={() => setForcedToolbarPanel("group")}
                 />
               ) : (
                 <KanbanView

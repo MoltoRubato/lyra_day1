@@ -60,6 +60,7 @@ model View {
 model Column {
   id            String         @id @default(cuid())
   name          String
+  description   String?
   type          ColumnType     @default(TEXT)
   order         Int            @default(0)
   width         Int            @default(180)

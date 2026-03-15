@@ -1,6 +1,6 @@
 ﻿"use client";
 // src/app/_components/ViewToolbar.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Column } from "@prisma/client";
 import type {
   FilterCondition,
@@ -27,7 +27,7 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   rowHeight: "short",
 };
 
-type OpenPanel = "hide" | "filter" | "group" | "sort" | "height" | null;
+export type OpenPanel = "hide" | "filter" | "group" | "sort" | "height" | null;
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
   GRID: (
@@ -65,6 +65,8 @@ export default function ViewToolbar({
   onBulkAddRows,
   bulkAdding = false,
   onToggleSidebar,
+  forcedOpenPanel,
+  onForcedOpenHandled,
 }: {
   columns: Column[];
   config: ViewConfig;
@@ -78,6 +80,8 @@ export default function ViewToolbar({
   onBulkAddRows?: () => void;
   bulkAdding?: boolean;
   onToggleSidebar?: () => void;
+  forcedOpenPanel?: Exclude<OpenPanel, null> | null;
+  onForcedOpenHandled?: () => void;
 }) {
   const [open, setOpen] = useState<OpenPanel>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -86,6 +90,12 @@ export default function ViewToolbar({
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftName, setDraftName] = useState(activeViewName ?? "");
   const [draftDesc, setDraftDesc] = useState(activeViewDescription ?? "");
+
+  useEffect(() => {
+    if (!forcedOpenPanel) return;
+    setOpen(forcedOpenPanel);
+    onForcedOpenHandled?.();
+  }, [forcedOpenPanel, onForcedOpenHandled]);
 
   function toggle(panel: Exclude<OpenPanel, null>) {
     setOpen((p) => (p === panel ? null : panel));

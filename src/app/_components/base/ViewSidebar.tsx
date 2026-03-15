@@ -201,12 +201,6 @@ export function ViewSidebar({
             placeholder="Find a view"
             className="flex-1 bg-transparent outline-none text-[12px] text-[#444] placeholder-[#aaa]"
           />
-          <button className="text-[#888] hover:text-[#555]">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-              <circle cx="8" cy="8" r="2.5" />
-              <path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4" strokeLinecap="round" />
-            </svg>
-          </button>
         </div>
       </div>
 

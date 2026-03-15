@@ -17,7 +17,7 @@ export function BaseListView({ bases, showWorkspace, onRename, onDelete, onStar,
 
   return (
     <div>
-      <div className={`grid items-center px-1 py-2 text-[11px] font-medium text-[#888] border-b border-[#e0e0e0] ${cols}`}>
+      <div className={`grid items-center px-1 py-2 text-[13px] font-medium text-[#888] border-b border-[#e0e0e0] ${cols}`}>
         <span className="pl-1">Name</span>
         <span>Last opened</span>
         {showWorkspace && <span>Workspace</span>}

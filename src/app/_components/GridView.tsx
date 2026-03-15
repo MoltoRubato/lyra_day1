@@ -20,6 +20,11 @@ export default function GridView({
   rowHeight    = "short",
   recordLabel  = "Record",
   onSortsChange,
+  onFiltersChange,
+  onGroupsChange,
+  onRequestOpenSortPanel,
+  onRequestOpenFilterPanel,
+  onRequestOpenGroupPanel,
 }: {
   tableId:        string;
   hiddenFields?:  Record<string, boolean>;
@@ -29,6 +34,11 @@ export default function GridView({
   rowHeight?:     RowHeight;
   recordLabel?:   string;
   onSortsChange?: (sorts: SortRule[]) => void;
+  onFiltersChange?: (filters: FilterCondition[]) => void;
+  onGroupsChange?: (groups: GroupRule[]) => void;
+  onRequestOpenSortPanel?: () => void;
+  onRequestOpenFilterPanel?: () => void;
+  onRequestOpenGroupPanel?: () => void;
 }) {
   const utils = api.useUtils();
   const { data: table, isLoading, error } = api.table.getById.useQuery({ id: tableId });
@@ -147,6 +157,7 @@ export default function GridView({
           ...prev,
           columns: [...prev.columns, {
             id: tempId, name, type: type ?? "TEXT",
+            description: null,
             order: prev.columns.length, width: 180, tableId,
             createdAt: new Date(), updatedAt: new Date(),
             selectOptions: [],
@@ -194,6 +205,193 @@ export default function GridView({
       await cancelCache();
       const snapshot = snapshotCache();
       patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, type } : c) } : p);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+    onSettled: invalidate,
+  });
+  const updateColumnDescription = api.table.updateColumnDescription.useMutation({
+    onMutate: async ({ columnId, description }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      patchCache((p) => p ? {
+        ...p,
+        columns: p.columns.map((c) => c.id === columnId ? { ...c, description } : c),
+      } : p);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+    onSettled: invalidate,
+  });
+  const duplicateColumn = api.table.duplicateColumn.useMutation({
+    onMutate: async ({ columnId, duplicateCells }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      patchCache((prev) => {
+        if (!prev) return prev;
+        const source = prev.columns.find((c) => c.id === columnId);
+        if (!source) return prev;
+
+        const copiedName = `${source.name} copy`;
+        const used = new Set(prev.columns.map((c) => c.name.toLowerCase()));
+        let finalName = copiedName;
+        let suffix = 2;
+        while (used.has(finalName.toLowerCase())) {
+          finalName = `${copiedName} ${suffix}`;
+          suffix += 1;
+        }
+
+        const tempId = `temp-col-copy-${Date.now()}`;
+        const nextOrder = source.order + 1;
+        const createdAt = new Date();
+        const inserted = {
+          id: tempId,
+          name: finalName,
+          description: source.description ?? null,
+          type: source.type,
+          order: nextOrder,
+          width: source.width,
+          tableId: source.tableId,
+          createdAt,
+          updatedAt: createdAt,
+          selectOptions: (source.selectOptions ?? []).map((opt, idx) => ({
+            ...opt,
+            id: `temp-opt-copy-${Date.now()}-${idx}`,
+            columnId: tempId,
+          })),
+        };
+
+        return {
+          ...prev,
+          columns: [
+            ...prev.columns
+              .map((c) => (c.order > source.order ? { ...c, order: c.order + 1 } : c)),
+            inserted,
+          ].sort((a, b) => a.order - b.order),
+          rows: prev.rows.map((r) => {
+            const sourceValue = r.cells.find((cell) => cell.columnId === source.id)?.value ?? null;
+            return {
+              ...r,
+              cells: [
+                ...r.cells,
+                {
+                  id: `tc-${tempId}-${r.id}`,
+                  rowId: r.id,
+                  columnId: tempId,
+                  value: duplicateCells ? sourceValue : null,
+                  createdAt,
+                  updatedAt: createdAt,
+                },
+              ],
+            };
+          }),
+        };
+      });
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+    onSettled: invalidate,
+  });
+  const insertColumnLeft = api.table.insertColumnLeft.useMutation({
+    onMutate: async ({ anchorColumnId, name, type }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      const colName = name ?? "New field";
+      const colType = type ?? "TEXT";
+      patchCache((prev) => {
+        if (!prev) return prev;
+        const anchor = prev.columns.find((c) => c.id === anchorColumnId);
+        if (!anchor) return prev;
+
+        const tempId = `temp-col-left-${Date.now()}`;
+        const createdAt = new Date();
+        return {
+          ...prev,
+          columns: [
+            ...prev.columns
+              .map((c) => (c.order >= anchor.order ? { ...c, order: c.order + 1 } : c)),
+            {
+              id: tempId,
+              name: colName,
+              description: null,
+              type: colType,
+              order: anchor.order,
+              width: 180,
+              tableId: anchor.tableId,
+              createdAt,
+              updatedAt: createdAt,
+              selectOptions: [],
+            },
+          ].sort((a, b) => a.order - b.order),
+          rows: prev.rows.map((r) => ({
+            ...r,
+            cells: [
+              ...r.cells,
+              {
+                id: `tc-${tempId}-${r.id}`,
+                rowId: r.id,
+                columnId: tempId,
+                value: null,
+                createdAt,
+                updatedAt: createdAt,
+              },
+            ],
+          })),
+        };
+      });
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+    onSettled: invalidate,
+  });
+  const insertColumnRight = api.table.insertColumnRight.useMutation({
+    onMutate: async ({ anchorColumnId, name, type }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      const colName = name ?? "New field";
+      const colType = type ?? "TEXT";
+      patchCache((prev) => {
+        if (!prev) return prev;
+        const anchor = prev.columns.find((c) => c.id === anchorColumnId);
+        if (!anchor) return prev;
+
+        const tempId = `temp-col-right-${Date.now()}`;
+        const createdAt = new Date();
+        const insertOrder = anchor.order + 1;
+        return {
+          ...prev,
+          columns: [
+            ...prev.columns
+              .map((c) => (c.order > anchor.order ? { ...c, order: c.order + 1 } : c)),
+            {
+              id: tempId,
+              name: colName,
+              description: null,
+              type: colType,
+              order: insertOrder,
+              width: 180,
+              tableId: anchor.tableId,
+              createdAt,
+              updatedAt: createdAt,
+              selectOptions: [],
+            },
+          ].sort((a, b) => a.order - b.order),
+          rows: prev.rows.map((r) => ({
+            ...r,
+            cells: [
+              ...r.cells,
+              {
+                id: `tc-${tempId}-${r.id}`,
+                rowId: r.id,
+                columnId: tempId,
+                value: null,
+                createdAt,
+                updatedAt: createdAt,
+              },
+            ],
+          })),
+        };
+      });
       return { snapshot };
     },
     onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
@@ -466,7 +664,12 @@ export default function GridView({
       setDragOverColId={setDragOverColId} onDragEnd={onDragEnd} headerPanel={headerPanel}
       setHeaderPanel={setHeaderPanel} renamingCol={renamingCol} setRenamingCol={setRenamingCol}
       handleHeaderSortClick={handleHeaderSortClick} deleteColumn={deleteColumn} renameColumn={renameColumn}
-      changeType={changeType} addOption={addOption} deleteOption={deleteOption} updateOption={updateOption}
+      changeType={changeType} updateColumnDescription={updateColumnDescription} duplicateColumn={duplicateColumn}
+      insertColumnLeft={insertColumnLeft} insertColumnRight={insertColumnRight}
+      filters={filters} groups={groups} onSortsChange={onSortsChange} onFiltersChange={onFiltersChange}
+      onGroupsChange={onGroupsChange} onRequestOpenSortPanel={onRequestOpenSortPanel}
+      onRequestOpenFilterPanel={onRequestOpenFilterPanel} onRequestOpenGroupPanel={onRequestOpenGroupPanel}
+      addOption={addOption} deleteOption={deleteOption} updateOption={updateOption}
       startResize={startResize} addingCol={addingCol} setAddingCol={setAddingCol} showTypePicker={showTypePicker}
       setShowTypePicker={setShowTypePicker} newColType={newColType} setNewColType={setNewColType}
       newColName={newColName} setNewColName={setNewColName} handleAddColumn={handleAddColumn}

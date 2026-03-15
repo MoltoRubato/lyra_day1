@@ -447,7 +447,6 @@ export function TableTabsBar({
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
                     <path d="M6 1v10M1 6h10" />
                   </svg>
-                  Add record
                 </span>
                 <span className="flex items-center gap-1.5">
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">

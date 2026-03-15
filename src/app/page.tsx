@@ -51,50 +51,24 @@ export default function HomePage() {
       style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", fontSize: "13px" }}>
 
       <header className="fixed top-0 left-0 right-0 h-[56px] bg-white border-b border-[#e0e0e0] flex items-center z-30">
-        <div className={`h-full flex items-center flex-shrink-0 ${sidebarOpen ? "w-[300px] px-3 gap-2" : "w-[56px] justify-center"}`}>
-          {sidebarOpen ? (
-            <>
-              <button onClick={() => setSidebar(false)}
-                className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#f0f0ef] text-[#555] transition-colors flex-shrink-0">
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-                  <path d="M2 3.5h11M2 7.5h11M2 11.5h11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                </svg>
-              </button>
-              <button onClick={() => setPage("home")}
-                className="flex items-center gap-2 ml-1 overflow-hidden hover:opacity-80 transition-opacity">
-                <svg width="22" height="22" viewBox="0 0 22 22" className="flex-shrink-0">
-                  <defs>
-                    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#ff6b35"/>
-                      <stop offset="50%" stopColor="#ffd700"/>
-                      <stop offset="100%" stopColor="#0080ff"/>
-                    </linearGradient>
-                  </defs>
-                  <rect width="22" height="22" rx="4" fill="url(#g1)"/>
-                  <path d="M4 7.5l7-3.2 7 3.2v2L11 13l-7-3.5V7.5z" fill="white" fillOpacity="0.9"/>
-                  <path d="M4 9.5v3.5l7 3.2V13L4 9.5z" fill="white" fillOpacity="0.7"/>
-                  <path d="M18 9.5v3.5l-7 3.2V13L18 9.5z" fill="white" fillOpacity="0.5"/>
-                </svg>
-                <span className="font-bold text-[#172b4d] text-[15px] truncate">Airtable</span>
-              </button>
-            </>
-          ) : (
-            <button onClick={() => setSidebar(true)} className="hover:opacity-80 transition-opacity">
-              <svg width="22" height="22" viewBox="0 0 22 22">
-                <defs>
-                  <linearGradient id="g1c" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#ff6b35"/>
-                    <stop offset="50%" stopColor="#ffd700"/>
-                    <stop offset="100%" stopColor="#0080ff"/>
-                  </linearGradient>
-                </defs>
-                <rect width="22" height="22" rx="4" fill="url(#g1c)"/>
-                <path d="M4 7.5l7-3.2 7 3.2v2L11 13l-7-3.5V7.5z" fill="white" fillOpacity="0.9"/>
-                <path d="M4 9.5v3.5l7 3.2V13L4 9.5z" fill="white" fillOpacity="0.7"/>
-                <path d="M18 9.5v3.5l-7 3.2V13L18 9.5z" fill="white" fillOpacity="0.5"/>
-              </svg>
-            </button>
-          )}
+        <div className="h-full flex items-center flex-shrink-0 w-[300px] px-3 gap-2">
+          <button
+            onClick={() => setSidebar((prev) => !prev)}
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#f0f0ef] text-[#555] transition-colors flex-shrink-0"
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <path d="M2 3.5h11M2 7.5h11M2 11.5h11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button onClick={() => setPage("home")} className="flex items-center ml-1 overflow-hidden hover:opacity-80 transition-opacity">
+            <img
+              src="/airtable_assets/Airtable_Logo.svg.png"
+              alt="Airtable"
+              className="flex-shrink-0"
+              style={{ width: 102, height: 22.2 }}
+              draggable={false}
+            />
+          </button>
         </div>
         <div className="h-full flex-1 flex items-center px-6 gap-3">
           <div className="flex-1 flex justify-center">
@@ -210,7 +184,7 @@ export default function HomePage() {
       </aside>
 
       <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[56px] ${sidebarOpen ? "ml-[300px]" : "ml-[56px]"}`}>
-        <div className="flex-1 px-8 py-6 max-w-[1100px] w-full">
+        <div className="flex-1 px-12 py-8 max-w-[1100px] w-full">
           <h1 className="text-[27px] font-bold text-[#172b4d] mb-4">{pageTitle}</h1>
 
           {error && (

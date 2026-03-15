@@ -82,6 +82,7 @@ export const SelectOptionUpdateInput = z.object({ optionId: z.string(), label: z
 export const ColumnOutput        = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().nullable(),
   type: z.nativeEnum(ColumnType),
   order: z.number(),
   width: z.number(),
@@ -94,6 +95,20 @@ export const ColumnAddInput      = z.object({ tableId: z.string(), name: z.strin
 export const ColumnDeleteInput   = z.object({ columnId: z.string() });
 export const ColumnRenameInput   = z.object({ columnId: z.string(), name: z.string().min(1) });
 export const ColumnChangeTypeInput = z.object({ columnId: z.string(), type: z.nativeEnum(ColumnType) });
+export const ColumnDescriptionInput = z.object({ columnId: z.string(), description: z.string().nullable() });
+export const ColumnDuplicateInput = z.object({ columnId: z.string(), duplicateCells: z.boolean().default(true) });
+export const ColumnInsertLeftInput = z.object({
+  tableId: z.string(),
+  anchorColumnId: z.string(),
+  name: z.string().min(1).default("New field"),
+  type: z.nativeEnum(ColumnType).default("TEXT"),
+});
+export const ColumnInsertRightInput = z.object({
+  tableId: z.string(),
+  anchorColumnId: z.string(),
+  name: z.string().min(1).default("New field"),
+  type: z.nativeEnum(ColumnType).default("TEXT"),
+});
 export const ColumnReorderInput  = z.object({ tableId: z.string(), orderedIds: z.array(z.string()).min(1) });
 export const ColumnResizeInput   = z.object({ columnId: z.string(), width: z.number().int().min(80).max(1200) });
 
