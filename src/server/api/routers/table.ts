@@ -331,7 +331,7 @@ export const tableRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const exists = await ctx.db.column.findUnique({ where: { id: input.columnId } });
       if (!exists) throw new TRPCError({ code: "NOT_FOUND", message: `Column "${input.columnId}" not found` });
-      return ctx.db.column.update({ where: { id: input.columnId }, data: { type: input.type as any } });
+      return ctx.db.column.update({ where: { id: input.columnId }, data: { type: input.type } });
     }),
 
   // Reorder columns — client sends the full ordered array of IDs

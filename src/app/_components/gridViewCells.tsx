@@ -1,4 +1,5 @@
-﻿import { useRef, useState } from "react";
+import { useRef, useState } from "react";
+import Image from "next/image";
 import { FIELD_TYPES, FIELD_TYPE_GROUPS } from "~/app/_components/tableUtils";
 
 export type SelectOption = { id: string; label: string; color: string; order: number; columnId: string };
@@ -208,7 +209,7 @@ export function AttachmentCell({ value, onUpload }: { value: string; onUpload: (
     return (
       <div className="flex items-center gap-1 text-xs">
         {isImage
-          ? <img src={value} alt="attachment" className="h-6 w-6 object-cover rounded"/>
+          ? <Image src={value} alt="attachment" width={24} height={24} unoptimized className="h-6 w-6 object-cover rounded"/>
           : <span className="text-[10px]">📎</span>}
         <a href={value} target="_blank" rel="noopener noreferrer"
           className="text-[#166254] hover:underline truncate max-w-[120px] text-[11px]"

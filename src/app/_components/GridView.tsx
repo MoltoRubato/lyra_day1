@@ -50,7 +50,7 @@ export default function GridView({
     (snap: ReturnType<typeof snapshotCache>) => {
       utils.table.getById.setData({ id: tableId }, snap);
     },
-    [utils, tableId, snapshotCache],
+    [utils, tableId],
   );
   const invalidate = useCallback(
     () => void utils.table.getById.invalidate({ id: tableId }),
@@ -381,9 +381,7 @@ export default function GridView({
   const isSelect = (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT";
   const noTransform = filters.length === 0 && sorts.length === 0 && groups.length === 0;
   const rawRowCount = table?.rowCount;
-  const totalRows = Number.isFinite(rawRowCount as number)
-    ? (rawRowCount as number)
-    : (table?.rows.length ?? 0);
+  const totalRows = rawRowCount ?? (table?.rows.length ?? 0);
   const visibleTotal = noTransform ? totalRows : flatItems.length;
   const loadedCount = flatItems.length;
   const scrollTop = scrollTopRef.current;
