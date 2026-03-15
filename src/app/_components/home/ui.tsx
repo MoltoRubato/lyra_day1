@@ -46,11 +46,11 @@ export function NavBtn({ icon, label, active, collapsed, onClick, children }: {
 }) {
   return (
     <button onClick={onClick}
-      className={`w-full flex items-center gap-2 px-2 py-[6px] rounded text-[13px] transition-colors ${
+    className={`w-full flex items-center gap-2 px-2 py-[6px] rounded text-[15px] transition-colors ${
         active ? "bg-[#f0f0ef] text-[#172b4d] font-medium" : "text-[#374151] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
       } ${collapsed ? "justify-center" : ""}`}>
       <span className={`flex-shrink-0 ${active ? "text-[#172b4d]" : "text-[#6b7280]"}`}>{icon}</span>
-      {!collapsed && <span className="flex-1 text-left text-[13px]">{label}</span>}
+      {!collapsed && <span className="flex-1 text-left text-[15px]">{label}</span>}
       {!collapsed && children}
     </button>
   );

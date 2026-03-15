@@ -61,9 +61,12 @@ export function AppearancePanel({
           <div className="flex items-center gap-2">
             <button
               onClick={onToggleStar}
-              className={`text-lg transition-colors ${base.starred ? "text-yellow-400" : "text-[#ccc] hover:text-yellow-400"}`}
+              className={`transition-colors ${base.starred ? "text-yellow-400" : "text-[#bbb] hover:text-yellow-400"}`}
+              title="Star"
             >
-              *
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+                <path d="M10 2.5l2.2 4.6 5.1.5-3.9 3.3 1.2 5-4.6-2.6-4.6 2.6 1.2-5-3.9-3.3 5.1-.5L10 2.5z" />
+              </svg>
             </button>
             <button className="text-[#999] hover:text-[#555] transition-colors">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

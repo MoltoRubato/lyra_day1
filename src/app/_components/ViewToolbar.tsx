@@ -165,7 +165,7 @@ export default function ViewToolbar({
   const menuTop = viewMenuAnchor ? viewMenuAnchor.top + viewMenuAnchor.height + 8 : 48;
 
   return (
-    <div className="h-10 border-b border-[#e0e0e0] flex items-center px-3 gap-1 flex-shrink-0 bg-white">
+    <div className="h-12 border-b border-[#e0e0e0] flex items-center px-3 gap-1 flex-shrink-0 bg-white">
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
@@ -179,26 +179,45 @@ export default function ViewToolbar({
       )}
       {activeViewName && (
         <>
-          <button
-            onClick={(e) => {
-              const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-              setViewMenuAnchor({ left: rect.left, top: rect.top, height: rect.height });
-              setViewMenuOpen((p) => !p);
-              setRenamingView(false);
-              setEditingDesc(false);
-              setDraftName(activeViewName ?? "");
-              setDraftDesc(activeViewDescription ?? "");
-            }}
-            className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f5f5f4] text-[#172b4d] font-medium text-[12px] transition-colors"
-          >
-            <span style={{ color: VIEW_COLORS[activeViewType] ?? "#166a5b" }}>
-              {VIEW_ICONS[activeViewType] ?? VIEW_ICONS.GRID}
-            </span>
-            {activeViewName}
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#aaa" strokeWidth="1.5">
-              <path d="M2.5 4l2.5 2.5L7.5 4" />
-            </svg>
-          </button>
+          {renamingView ? (
+            <input
+              autoFocus
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={() => {
+                if (onRenameView && activeViewId) onRenameView(activeViewId, draftName.trim() || activeViewName || "");
+                setRenamingView(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (onRenameView && activeViewId) onRenameView(activeViewId, draftName.trim() || activeViewName || "");
+                  setRenamingView(false);
+                }
+                if (e.key === "Escape") setRenamingView(false);
+              }}
+              className="px-2 py-1 rounded border border-[#c9c9c9] text-[12px] text-[#172b4d] font-medium outline-none w-[160px]"
+            />
+          ) : (
+            <button
+              onClick={(e) => {
+                const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                setViewMenuAnchor({ left: rect.left, top: rect.top, height: rect.height });
+                setViewMenuOpen((p) => !p);
+                setEditingDesc(false);
+                setDraftName(activeViewName ?? "");
+                setDraftDesc(activeViewDescription ?? "");
+              }}
+              className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f5f5f4] text-[#172b4d] font-medium text-[12px] transition-colors"
+            >
+              <span style={{ color: VIEW_COLORS[activeViewType] ?? "#166a5b" }}>
+                {VIEW_ICONS[activeViewType] ?? VIEW_ICONS.GRID}
+              </span>
+              {activeViewName}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#aaa" strokeWidth="1.5">
+                <path d="M2.5 4l2.5 2.5L7.5 4" />
+              </svg>
+            </button>
+          )}
           <div className="w-px h-5 bg-[#e8e8e8] mx-1" />
         </>
       )}
@@ -301,8 +320,9 @@ export default function ViewToolbar({
             <div className="py-1">
               <button
                 onClick={() => {
+                  setViewMenuOpen(false);
                   setRenamingView(true);
-                  setEditingDesc(false);
+                  setDraftName(activeViewName ?? "");
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-[#f8f8f8] flex items-center gap-2"
               >
@@ -356,18 +376,8 @@ export default function ViewToolbar({
               </button>
             </div>
 
-            {(renamingView || editingDesc) && (
+            {editingDesc && (
               <div className="border-t border-[#f0f0f0] px-4 py-3 space-y-2">
-                {renamingView && (
-                  <>
-                    <label className="text-[11px] text-[#777]">View name</label>
-                    <input
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      className="w-full border border-[#d9d9d9] rounded px-2 py-1 text-[12px] outline-none focus:border-[#0069ff]"
-                    />
-                  </>
-                )}
                 {editingDesc && (
                   <>
                     <label className="text-[11px] text-[#777]">Description</label>
@@ -391,9 +401,7 @@ export default function ViewToolbar({
                   </button>
                   <button
                     onClick={() => {
-                      if (renamingView && onRenameView && activeViewId) onRenameView(activeViewId, draftName.trim() || activeViewName || "");
                       if (editingDesc && onUpdateViewDescription && activeViewId) onUpdateViewDescription(activeViewId, draftDesc);
-                      setRenamingView(false);
                       setEditingDesc(false);
                     }}
                     className="text-[12px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-2.5 py-1 rounded"

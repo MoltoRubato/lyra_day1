@@ -197,6 +197,9 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const [viewSidebarOpen, setViewSidebar] = useState(true);
   const [panelOpen, setPanelOpen]         = useState(false);
   const [viewDescriptions, setViewDescriptions] = useState<Record<string, string>>({});
+  const [viewFavorites, setViewFavorites] = useState<Record<string, boolean>>({});
+  const [recordLabels, setRecordLabels]   = useState<Record<string, string>>({});
+  const pendingRecordLabel = useRef<{ name: string; label: string } | null>(null);
 
   const [viewConfigs, setViewConfigs] = useState<Record<string, ViewConfig>>({});
 
@@ -214,6 +217,13 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   }
   function updateViewDescription(viewId: string, description: string) {
     setViewDescriptions((prev) => ({ ...prev, [viewId]: description }));
+  }
+  function toggleViewFavorite(viewId: string) {
+    setViewFavorites((prev) => ({ ...prev, [viewId]: !prev[viewId] }));
+  }
+  function getRecordLabel(tableId: string | null): string | null {
+    if (!tableId) return null;
+    return recordLabels[tableId] ?? null;
   }
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -243,9 +253,18 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     if ((activeTableId ?? base?.tables[0]?.id) === tableId) setActiveTableId(null);
     deleteTable.mutate({ tableId });
   }
-  function handleCreateTable(name: string) {
+  function handleCreateTable(name: string, recordLabel?: string) {
+    if (recordLabel) pendingRecordLabel.current = { name, label: recordLabel };
     createTable.mutate({ baseId, name }, {
-      onSuccess: (t) => { setActiveTableId(t.id); setActiveViewId(null); },
+      onSuccess: (t) => {
+        setActiveTableId(t.id);
+        setActiveViewId(null);
+        const pending = pendingRecordLabel.current;
+        if (pending?.name === t.name && pending?.label) {
+          pendingRecordLabel.current = null;
+          setRecordLabels((prev) => ({ ...prev, [t.id]: pending.label }));
+        }
+      },
     });
   }
   function handleRenameView(viewId: string, name: string) {
@@ -254,6 +273,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   function handleCreateView(name: string, type: "GRID" | "KANBAN") {
     if (!currentTableId) return;
     createView.mutate({ tableId: currentTableId, name, type });
+  }
+  function handleDuplicateView(viewId: string) {
+    const v = views.find((view) => view.id === viewId);
+    if (!v || !currentTableId) return;
+    createView.mutate({ tableId: currentTableId, name: `${v.name} copy`, type: v.type });
   }
   function handleDeleteView(viewId: string) {
     deleteView.mutate({ viewId });
@@ -288,7 +312,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* ── Top nav bar ──────────────────────────────────────────────────── */}
-        <header className="h-[44px] bg-white border-b border-[#e0e0e0] flex items-center px-3 gap-0 flex-shrink-0 relative">
+        <header className="h-[56px] bg-white border-b border-[#e0e0e0] flex items-center px-3 gap-0 flex-shrink-0 relative">
 
           {/* Left: base name button */}
           <button onClick={() => setPanelOpen((p) => !p)}
@@ -363,6 +387,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
           onRenameTable={handleRenameTable}
           onDeleteTable={handleDeleteTable}
           onCreateTable={handleCreateTable}
+          currentRecordLabel={getRecordLabel(currentTableId) ?? "Record"}
         />
 
         {/* ── Toolbar ─────────────────────────────────────────────────────── */}
@@ -393,6 +418,18 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             activeViewId={activeView?.id ?? null}
             getViewConfig={getViewConfig}
             getViewDescription={getViewDescription}
+            tables={base.tables}
+            activeTableId={currentTableId}
+            favorites={viewFavorites}
+            onToggleFavorite={toggleViewFavorite}
+            onDuplicateView={handleDuplicateView}
+            canDeleteView={(viewId) => {
+              const view = views.find((v) => v.id === viewId);
+              if (!view) return false;
+              if (view.type !== "GRID") return true;
+              const gridCount = views.filter((v) => v.type === "GRID").length;
+              return gridCount > 1;
+            }}
             onSelectView={(viewId) => setActiveViewId(viewId)}
             onRenameView={handleRenameView}
             onDeleteView={handleDeleteView}
@@ -416,6 +453,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                   sorts={currentCfg.sorts}
                   groups={currentCfg.groups}
                   rowHeight={currentCfg.rowHeight}
+                  recordLabel={getRecordLabel(currentTableId) ?? "Record"}
                   onSortsChange={(sorts) => updateViewConfig(activeView.id, { sorts })}
                 />
               ) : (

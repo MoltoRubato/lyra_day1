@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function LeftSidebar() {
   return (
-    <aside className="w-[48px] flex-shrink-0 bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1 z-10">
+    <aside className="w-[56px] flex-shrink-0 bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1 z-10">
       <Link
         href="/"
         className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity mb-2"

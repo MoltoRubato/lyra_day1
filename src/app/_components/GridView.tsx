@@ -17,6 +17,7 @@ export default function GridView({
   sorts        = [],
   groups       = [],
   rowHeight    = "short",
+  recordLabel  = "Record",
   onSortsChange,
 }: {
   tableId:        string;
@@ -25,6 +26,7 @@ export default function GridView({
   sorts?:         SortRule[];
   groups?:        GroupRule[];
   rowHeight?:     RowHeight;
+  recordLabel?:   string;
   onSortsChange?: (sorts: SortRule[]) => void;
 }) {
   const utils = api.useUtils();
@@ -373,13 +375,17 @@ export default function GridView({
   const isTall   = rowHeight === "tall" || rowHeight === "extra-tall";
   const isSelect = (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT";
   const noTransform = filters.length === 0 && sorts.length === 0 && groups.length === 0;
-  const trueTotal   = (noTransform && table) ? table.rowCount : flatItems.length;
+  const rawRowCount = table?.rowCount;
+  const totalRows = Number.isFinite(rawRowCount as number)
+    ? (rawRowCount as number)
+    : (table?.rows.length ?? 0);
+  const visibleTotal = noTransform ? totalRows : flatItems.length;
   const loadedCount = flatItems.length;
   const scrollTop = scrollTopRef.current;
   const startIdx  = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN);
   const endIdx    = Math.min(loadedCount, Math.ceil((scrollTop + viewportH) / rowH) + OVERSCAN);
   const topPad    = startIdx * rowH;
-  const bottomPad = Math.max(0, (trueTotal - endIdx) * rowH);
+  const bottomPad = Math.max(0, (visibleTotal - endIdx) * rowH);
   const visItems  = flatItems.slice(startIdx, endIdx);
   if (isLoading) return <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loading...</div>;
   if (error)     return <div className="p-8 text-red-400 text-sm">Failed to load table. Please refresh.</div>;
@@ -465,6 +471,7 @@ export default function GridView({
       rowNumbers={rowNumbers} isTall={isTall} editing={editing} setEditing={setEditing}
       openSelectCell={openSelectCell} setOpenSelectCell={setOpenSelectCell} handleCellClick={handleCellClick}
       getCellValue={getCellValue} isSelect={isSelect} safeUpdateCell={safeUpdateCell} commitEdit={commitEdit}
-      deleteRow={deleteRow} addRow={addRow} tableId={tableId} chunkLoading={chunkLoading} trueTotal={trueTotal} />
+      deleteRow={deleteRow} addRow={addRow} tableId={tableId} chunkLoading={chunkLoading} trueTotal={visibleTotal} totalRows={totalRows}
+      recordLabel={recordLabel} />
   );
 }

@@ -62,6 +62,8 @@ export function GridViewTable({
   tableId,
   chunkLoading,
   trueTotal,
+  totalRows,
+  recordLabel = "record",
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -115,7 +117,12 @@ export function GridViewTable({
   tableId: string;
   chunkLoading: boolean;
   trueTotal: number;
+  totalRows: number;
+  recordLabel?: string;
 }) {
+  const label = (recordLabel || "record").trim() || "record";
+  const labelLower = label.toLowerCase();
+  const pluralLabel = (n: number) => (n === 1 ? labelLower : (labelLower.endsWith("s") ? labelLower : `${labelLower}s`));
   return (
     <div
       ref={containerRef}
@@ -184,7 +191,7 @@ export function GridViewTable({
                       <button
                         onClick={() => handleHeaderSortClick(col.id)}
                         onDoubleClick={() => setRenamingCol({ id: col.id, value: col.name })}
-                        className="flex-1 min-w-0 text-left text-[11px] font-medium text-[#4b5563] hover:text-[#1f2937] truncate"
+                        className="flex-1 min-w-0 text-left text-[13px] font-medium text-[#4b5563] hover:text-[#1f2937] truncate"
                         title="Click to sort · Double-click to rename">
                         {col.name}
                         {sortForCol && (
@@ -268,7 +275,7 @@ export function GridViewTable({
           {loadedCount === 0 && (
             <tr>
               <td colSpan={visCols.length + 2} className="px-4 py-8 text-center text-xs text-[#9ca3af]">
-                No records match the current filters.
+                No {pluralLabel(2)} match the current filters.
               </td>
             </tr>
           )}
@@ -407,7 +414,7 @@ export function GridViewTable({
           <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5">
             <path d="M6 2v8M2 6h8" strokeLinecap="round"/>
           </svg>
-          Add record
+          Add {labelLower}
           <span className="ml-auto flex items-center gap-1.5 text-[10px] text-[#ccc]">
             {chunkLoading && (
               <span className="flex items-center gap-1 text-[#f97316]">
@@ -416,10 +423,13 @@ export function GridViewTable({
               </span>
             )}
             {!chunkLoading && trueTotal > 0 && (
-              <span>{trueTotal.toLocaleString()} rows</span>
+              <span>{trueTotal.toLocaleString()} {pluralLabel(trueTotal)}</span>
             )}
           </span>
         </button>
+      </div>
+      <div className="px-4 py-1.5 text-[12px] text-[#8b8f97]">
+        {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
       </div>
     </div>
   );

@@ -51,7 +51,7 @@ export default function HomePage() {
       style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", fontSize: "13px" }}>
 
       <header className="fixed top-0 left-0 right-0 h-[56px] bg-white border-b border-[#e0e0e0] flex items-center z-30">
-        <div className={`h-full flex items-center flex-shrink-0 ${sidebarOpen ? "w-[300px] px-3 gap-2" : "w-[48px] justify-center"}`}>
+        <div className={`h-full flex items-center flex-shrink-0 ${sidebarOpen ? "w-[300px] px-3 gap-2" : "w-[56px] justify-center"}`}>
           {sidebarOpen ? (
             <>
               <button onClick={() => setSidebar(false)}
@@ -126,7 +126,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <aside className={`fixed top-[56px] left-0 bottom-0 bg-white border-r border-[#e0e0e0] flex flex-col transition-all duration-200 z-20 overflow-hidden ${sidebarOpen ? "w-[300px]" : "w-[48px]"}`}>
+      <aside className={`fixed top-[56px] left-0 bottom-0 bg-white border-r border-[#e0e0e0] flex flex-col transition-all duration-200 z-20 overflow-hidden ${sidebarOpen ? "w-[300px]" : "w-[56px]"}`}>
         <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
           <NavBtn icon={<HomeIco/>} label="Home"
             active={page === "home"} collapsed={!sidebarOpen} onClick={() => setPage("home")}/>
@@ -177,7 +177,7 @@ export default function HomePage() {
                       : "text-[#555] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
                   }`}>
                   <span className="flex-1 truncate">{ws.name}</span>
-                  {ws.starred && <span className="text-yellow-400 text-[10px]">?</span>}
+                  {ws.starred && <span className="text-yellow-400 text-[10px]"><StarIco/></span>}
                 </button>
               ))}
               <button onClick={() => open({ kind: "createWorkspace" })}
@@ -209,9 +209,9 @@ export default function HomePage() {
         </div>
       </aside>
 
-      <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[56px] ${sidebarOpen ? "ml-[300px]" : "ml-[48px]"}`}>
+      <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[56px] ${sidebarOpen ? "ml-[300px]" : "ml-[56px]"}`}>
         <div className="flex-1 px-8 py-6 max-w-[1100px] w-full">
-          <h1 className="text-[22px] font-bold text-[#172b4d] mb-4">{pageTitle}</h1>
+          <h1 className="text-[27px] font-bold text-[#172b4d] mb-4">{pageTitle}</h1>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-[13px] text-red-600">
@@ -240,7 +240,7 @@ export default function HomePage() {
           {page !== "workspaces" && (
             <>
               <div className="flex items-center justify-between mb-1">
-                <button className="flex items-center gap-1 text-[13px] text-[#374151] hover:text-[#172b4d] transition-colors py-0.5">
+                <button className="flex items-center gap-1 text-[15px] text-[#374151] hover:text-[#172b4d] transition-colors py-0.5">
                   Opened anytime
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="mt-px">
                     <path d="M2.5 4l2.5 2.5L7.5 4"/>
@@ -264,8 +264,12 @@ export default function HomePage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => toggleWsStar.mutate({ id: currentWorkspace.id, starred: !currentWorkspace.starred })}
-                      className={`text-base transition-colors ${currentWorkspace.starred ? "text-yellow-400" : "text-[#ccc] hover:text-yellow-400"}`}>?</button>
+                    <button
+                      onClick={() => toggleWsStar.mutate({ id: currentWorkspace.id, starred: !currentWorkspace.starred })}
+                      className={`text-base transition-colors ${currentWorkspace.starred ? "text-yellow-400" : "text-[#ccc] hover:text-yellow-400"}`}
+                    >
+                      <StarIco/>
+                    </button>
                     <ActionBtn title="Rename workspace" onClick={() => open({ kind: "renameWorkspace", id: currentWorkspace.id, value: currentWorkspace.name })}><PencilIco/></ActionBtn>
                     <button onClick={() => open({ kind: "editDesc", id: currentWorkspace.id, value: currentWorkspace.description ?? "" })}
                       className="text-[12px] text-[#0069ff] hover:underline px-2 py-1">Edit description</button>
@@ -286,7 +290,7 @@ export default function HomePage() {
                       onClick={() => setPage(ws.id)}>
                       <WorkspaceIcon size={24}/>
                       <span className="flex-1 text-[13px] font-medium text-[#172b4d]">{ws.name}</span>
-                      <span className="text-yellow-400">?</span>
+                      <span className="text-yellow-400"><StarIco/></span>
                       <span className="text-[12px] text-[#aaa]">{ws.bases.length} base{ws.bases.length !== 1 ? "s" : ""}</span>
                     </div>
                   ))}

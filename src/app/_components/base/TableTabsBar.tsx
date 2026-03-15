@@ -1,5 +1,4 @@
 "use client";
-"use client";
 import { useMemo, useState } from "react";
 
 function tabBarBg(hex: string): string {
@@ -20,7 +19,8 @@ type TableTabsBarProps = {
   onSelectTable: (tableId: string) => void;
   onRenameTable: (tableId: string, name: string) => void;
   onDeleteTable: (tableId: string) => void;
-  onCreateTable: (name: string) => void;
+  onCreateTable: (name: string, recordLabel?: string) => void;
+  currentRecordLabel: string;
 };
 
 type AnchorRect = { left: number; top: number; width: number; height: number };
@@ -33,11 +33,14 @@ export function TableTabsBar({
   onRenameTable,
   onDeleteTable,
   onCreateTable,
+  currentRecordLabel,
 }: TableTabsBarProps) {
   const [renamingTable, setRenamingTable] = useState<{ id: string; value: string } | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [scratchOpen, setScratchOpen] = useState(false);
   const [tableSearchOpen, setTableSearchOpen] = useState(false);
+  const [tableMenuOpen, setTableMenuOpen] = useState(false);
+  const [tableMenuAnchor, setTableMenuAnchor] = useState<AnchorRect | null>(null);
   const [tableSearchAnchor, setTableSearchAnchor] = useState<AnchorRect | null>(null);
   const [addMenuAnchor, setAddMenuAnchor] = useState<AnchorRect | null>(null);
   const [tableSearch, setTableSearch] = useState("");
@@ -61,12 +64,12 @@ export function TableTabsBar({
     setAddMenuOpen(false);
     setScratchOpen(true);
     setNewTableName(suggestedName);
-    setRecordLabel("Record");
+    setRecordLabel(currentRecordLabel || "Record");
   }
 
   function handleCreateTable() {
     if (!newTableName.trim()) return;
-    onCreateTable(newTableName.trim());
+    onCreateTable(newTableName.trim(), recordLabel);
     setScratchOpen(false);
     setNewTableName("");
   }
@@ -80,15 +83,19 @@ export function TableTabsBar({
   const searchMenuWidth = 360;
   const addMenuWidth = 280;
   const searchLeft = tableSearchAnchor
-    ? clamp(tableSearchAnchor.left, 12, viewportW - searchMenuWidth - 12)
+    ? clamp(tableSearchAnchor.left - 120, 12, viewportW - searchMenuWidth - 12)
     : 12;
   const addMenuLeft = addMenuAnchor
     ? clamp(addMenuAnchor.left + addMenuAnchor.width - addMenuWidth, 12, viewportW - addMenuWidth - 12)
     : 12;
+  const menuWidth = 280;
+  const menuLeft = tableMenuAnchor
+    ? clamp(tableMenuAnchor.left, 12, viewportW - menuWidth - 12)
+    : 12;
 
   return (
     <div
-      className="relative flex items-center px-2 flex-shrink-0 h-9 overflow-hidden"
+      className="relative flex items-center px-2 flex-shrink-0 h-8 overflow-hidden"
       style={{ background: tabBarBg(baseColor), borderBottom: `1px solid ${tabBarBorder(baseColor)}` }}
     >
       {tables.map((table) => {
@@ -97,7 +104,7 @@ export function TableTabsBar({
         return (
           <div
             key={table.id}
-            className={`group/tab relative flex items-center flex-shrink-0 h-9 transition-all ${
+            className={`group/tab relative flex items-center flex-shrink-0 h-8 transition-all ${
               isActive ? "bg-white rounded-t border-l border-t border-r border-[#d8d8d8] -mb-px z-10" : ""
             }`}
           >
@@ -114,27 +121,141 @@ export function TableTabsBar({
                 }}
               />
             ) : (
-              <button
-                onClick={() => onSelectTable(table.id)}
-                onDoubleClick={() => setRenamingTable({ id: table.id, value: table.name })}
-                className={`flex items-center gap-1 px-3 h-full text-[12px] font-medium transition-colors ${
-                  isActive ? "text-[#172b4d]" : "text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded-t"
-                }`}
-              >
-                {table.name}
-              </button>
-            )}
-            {!isRenaming && !isActive && tables.length > 1 && (
-              <button
-                onClick={() => onDeleteTable(table.id)}
-                className="opacity-0 group-hover/tab:opacity-100 mr-1 text-[#888] hover:text-red-500 transition-all text-[10px] p-0.5 rounded"
-              >
-                x
-              </button>
+              <div className="flex items-center h-full">
+                <button
+                  onClick={() => onSelectTable(table.id)}
+                  onDoubleClick={() => setRenamingTable({ id: table.id, value: table.name })}
+                  className={`flex items-center gap-1 px-3 h-full text-[12px] font-medium transition-colors ${
+                    isActive ? "text-[#172b4d]" : "text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded-t"
+                  }`}
+                >
+                  {table.name}
+                </button>
+                {isActive && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                      setTableMenuAnchor({ left: rect.left - 120, top: rect.top, width: rect.width, height: rect.height });
+                      setTableMenuOpen((p) => !p);
+                    }}
+                    className="mr-2 text-[#888] hover:text-[#555]"
+                    title="Table options"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M2.5 3.5L5 6.5L7.5 3.5" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             )}
           </div>
         );
       })}
+
+      {tableMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setTableMenuOpen(false)} />
+          <div
+            className="fixed z-30 w-[280px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden text-[13px]"
+            style={{ left: menuLeft, top: (tableMenuAnchor?.top ?? 0) + (tableMenuAnchor?.height ?? 0) + 8 }}
+          >
+            <div className="max-h-[360px] overflow-y-auto">
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <circle cx="8" cy="8" r="6" />
+                  <path d="M8 4v4l2 2" strokeLinecap="round" />
+                </svg>
+                Import data
+                <span className="ml-auto text-[#bbb]">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 2l4 3-4 3" />
+                  </svg>
+                </span>
+              </button>
+              <div className="border-t border-[#f0f0f0] my-1" />
+              <button
+                onClick={() => {
+                  const activeId = currentTableId ?? "";
+                  const active = tables.find((t) => t.id === activeId);
+                  if (active) setRenamingTable({ id: active.id, value: active.name });
+                  setTableMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <path d="M10.5 2.5L13.5 5.5L6 13H3V10L10.5 2.5Z" strokeLinejoin="round" />
+                </svg>
+                Rename table
+              </button>
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <path d="M2 8s3-4 6-4 6 4 6 4-3 4-6 4-6-4-6-4Z" />
+                  <circle cx="8" cy="8" r="1.8" />
+                  <path d="M3 3l10 10" strokeLinecap="round" />
+                </svg>
+                Hide table
+              </button>
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <path d="M3 4h10M3 8h6M3 12h8" strokeLinecap="round" />
+                  <path d="M11 7v6M9 9h4" strokeLinecap="round" />
+                </svg>
+                Manage fields
+              </button>
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <rect x="2" y="2" width="8" height="8" rx="1" />
+                  <rect x="6" y="6" width="8" height="8" rx="1" />
+                </svg>
+                Duplicate table
+              </button>
+              <div className="border-t border-[#f0f0f0] my-1" />
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <path d="M3 8h10M8 3v10" strokeLinecap="round" />
+                  <path d="M12 12l2 2" strokeLinecap="round" />
+                </svg>
+                Configure date dependencies
+              </button>
+              <div className="border-t border-[#f0f0f0] my-1" />
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <circle cx="8" cy="8" r="6" />
+                  <path d="M8 5v6M5 8h6" strokeLinecap="round" />
+                </svg>
+                Edit table description
+              </button>
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <rect x="3" y="7" width="10" height="7" rx="1.5" />
+                  <path d="M5 7V5a3 3 0 016 0v2" />
+                </svg>
+                Edit table permissions
+              </button>
+              <div className="border-t border-[#f0f0f0] my-1" />
+              <button className="w-full text-left px-4 py-2.5 hover:bg-[#f8f8f8] flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
+                </svg>
+                Clear data
+              </button>
+              <button
+                onClick={() => {
+                  if (currentTableId) onDeleteTable(currentTableId);
+                  setTableMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-red-500 hover:bg-[#fef2f2] flex items-center gap-2"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+                  <path d="M4 5l1 9h6l1-9M3 5h10M6 5V3h4v2" strokeLinecap="round" />
+                </svg>
+                Delete table
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="relative ml-1 flex-shrink-0">
         <button
@@ -257,16 +378,7 @@ export function TableTabsBar({
               className="fixed z-30 w-[280px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden text-[13px]"
               style={{ left: addMenuLeft, top: (addMenuAnchor?.top ?? 0) + (addMenuAnchor?.height ?? 0) + 8 }}
             >
-              <button
-                onClick={() => {
-                  setAddMenuOpen(false);
-                  setNewTableName(suggestedName);
-                  onCreateTable(suggestedName);
-                }}
-                className="w-full text-left px-4 py-3 hover:bg-[#f8f8f8]"
-              >
-                Add a blank table
-              </button>
+              <div className="px-4 pt-3 text-[12px] text-[#999]">Add a blank table</div>
               <button onClick={openStartFromScratch} className="w-full text-left px-4 py-3 hover:bg-[#f8f8f8] font-medium">
                 Start from scratch
               </button>
@@ -314,6 +426,7 @@ export function TableTabsBar({
               >
                 <option>Record</option>
                 <option>Item</option>
+                <option>Event</option>
                 <option>Row</option>
               </select>
               <svg
