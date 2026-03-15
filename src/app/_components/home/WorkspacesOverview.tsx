@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 import { timeAgo } from "~/app/_components/home/helpers";
 import { MoveIco, PencilIco, StarIco, TrashIco } from "~/app/_components/home/icons";
-import type { BaseItem, WsFull } from "~/app/_components/home/types";
+import type { BaseItem, WorkspaceBaseItem, WsFull } from "~/app/_components/home/types";
 import { ActionBtn, BaseIcon, WorkspaceIcon } from "~/app/_components/home/ui";
 
 export function WorkspacesOverview({
@@ -18,10 +18,10 @@ export function WorkspacesOverview({
   onEditDesc: (ws: WsFull) => void;
   onDeleteWs: (id: string) => void;
   onStarWs: (ws: WsFull) => void;
-  onRenameBase: (b: BaseItem) => void;
+  onRenameBase: (b: BaseItem | WorkspaceBaseItem) => void;
   onDeleteBase: (id: string) => void;
-  onStarBase: (b: BaseItem) => void;
-  onMoveBase: (b: BaseItem) => void;
+  onStarBase: (b: BaseItem | WorkspaceBaseItem) => void;
+  onMoveBase: (b: BaseItem | WorkspaceBaseItem) => void;
 }) {
   const unassigned = allBases.filter((b) => !b.workspaceId);
 

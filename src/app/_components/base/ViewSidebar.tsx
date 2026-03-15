@@ -5,7 +5,7 @@ import type { ViewConfig } from "~/app/_components/ViewToolbar";
 import { StarIco } from "~/app/_components/home/icons";
 import { AddViewModal, CreateViewMenu, ViewOptionsMenu } from "~/app/_components/base/ViewSidebarPanels";
 
-const VIEW_META: Record<string, { icon: React.ReactNode; color: string }> = {
+const VIEW_META: Record<ViewType, { icon: React.ReactNode; color: string }> = {
   GRID: {
     color: "#166a5b",
     icon: (

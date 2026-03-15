@@ -15,18 +15,25 @@ export type BaseItem = {
   starred: boolean;
   color: string;
   icon: string;
+  guide: string | null;
   workspaceId: string | null;
   lastOpenedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
   workspace: { id: string; name: string } | null;
   tables: { id: string; name: string; _count: { rows: number } }[];
 };
+
+export type WorkspaceBaseItem = Pick<BaseItem, "id" | "name" | "starred" | "color" | "icon" | "workspaceId" | "lastOpenedAt" | "tables">;
 
 export type WsFull = {
   id: string;
   name: string;
   description: string | null;
   starred: boolean;
-  bases: BaseItem[];
+  createdAt: Date;
+  updatedAt: Date;
+  bases: WorkspaceBaseItem[];
 };
 
 

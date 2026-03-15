@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import type { ColumnType } from "@prisma/client";
 import { api } from "~/trpc/react";
 import {
   getCellValue, applyFilters, applySorts, applyGroups, flattenGroupTree,
@@ -145,7 +146,7 @@ export default function GridView({
         return {
           ...prev,
           columns: [...prev.columns, {
-            id: tempId, name, type: (type ?? "TEXT") as string,
+            id: tempId, name, type: type ?? "TEXT",
             order: prev.columns.length, width: 180, tableId,
             createdAt: new Date(), updatedAt: new Date(),
             selectOptions: [],
@@ -230,7 +231,7 @@ export default function GridView({
               ...col,
               selectOptions: [
                 ...(col.selectOptions ?? []),
-                { id: tempId, label, color, order: (col.selectOptions ?? []).length, columnId, createdAt: new Date(), updatedAt: new Date() },
+                { id: tempId, label, color: color ?? "#166254", order: (col.selectOptions ?? []).length, columnId },
               ],
             }
           ),
@@ -265,7 +266,11 @@ export default function GridView({
         columns: prev.columns.map((col) => ({
           ...col,
           selectOptions: (col.selectOptions ?? []).map((o) =>
-            o.id !== optionId ? o : { ...o, label, color }
+            o.id !== optionId ? o : {
+              ...o,
+              ...(label !== undefined ? { label } : {}),
+              ...(color !== undefined ? { color } : {}),
+            }
           ),
         })),
       } : prev);
@@ -401,7 +406,7 @@ export default function GridView({
       onSortsChange(sorts.filter((s) => s.columnId !== colId));
     }
   }
-  function handleCellClick(row: RowWithCells, col: (typeof allCols)[0]) {
+  function handleCellClick(row: RowWithCells, col: { id: string; type: string }) {
     setHeaderPanel(null);
     setOpenSelectCell(null);
     if (editing?.rowId === row.id && editing.columnId === col.id) return;
@@ -422,7 +427,7 @@ export default function GridView({
   }
   function handleAddColumn() {
     if (!newColName.trim()) return;
-    addColumn.mutate({ tableId, name: newColName.trim(), type: newColType as any });
+    addColumn.mutate({ tableId, name: newColName.trim(), type: newColType as ColumnType });
     setNewColName(""); setNewColType("TEXT"); setAddingCol(false); setShowTypePicker(false);
   }
   function onDragEnd() {

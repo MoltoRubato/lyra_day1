@@ -2,6 +2,7 @@
 import type { Row, Cell, Column } from "@prisma/client";
 
 export type RowWithCells = Row & { cells: Cell[] };
+type ColumnLike = Pick<Column, "id" | "name" | "type">;
 
 export function getCellValue(row: RowWithCells, columnId: string): string {
   return row.cells.find((c) => c.columnId === columnId)?.value ?? "";
@@ -143,7 +144,7 @@ export function applyFilters(
 export function applySorts(
   rows: RowWithCells[],
   sorts: SortRule[],
-  columns: Column[],
+  columns: ColumnLike[],
 ): RowWithCells[] {
   if (!sorts.length) return rows;
   const colMap = new Map(columns.map((c) => [c.id, c]));
@@ -167,7 +168,7 @@ export function applySorts(
 export function sortRows(
   rows: RowWithCells[],
   sort: { columnId: string; dir: "asc" | "desc" } | null,
-  columns: Column[],
+  columns: ColumnLike[],
 ): RowWithCells[] {
   if (!sort) return rows;
   return applySorts(rows, [{ id: "legacy", ...sort }], columns);
@@ -270,9 +271,9 @@ export function groupRows(rows: RowWithCells[], groupColId: string | null): Grou
 // ── Kanban helpers ────────────────────────────────────────────────────────────
 
 export function resolveGroupColumn(
-  columns: Column[],
+  columns: ColumnLike[],
   groupByColumnId?: string | null,
-): Column | undefined {
+): ColumnLike | undefined {
   if (groupByColumnId) return columns.find((c) => c.id === groupByColumnId);
   return (
     columns.find((c) => c.name.toLowerCase() === "status") ??
@@ -280,6 +281,6 @@ export function resolveGroupColumn(
   );
 }
 
-export function resolveNameColumn(columns: Column[]): Column | undefined {
+export function resolveNameColumn(columns: ColumnLike[]): ColumnLike | undefined {
   return columns.find((c) => c.name.toLowerCase() === "name") ?? columns[0];
 }

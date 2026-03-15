@@ -29,7 +29,9 @@ export function useHomePageController() {
       const tempBase: BaseItem = {
         id: `temp-base-${Date.now()}`, name, starred: false,
         color: "#f82b60", icon: "default",
+        guide: null,
         workspaceId: workspaceId ?? null, lastOpenedAt: new Date(),
+        createdAt: new Date(), updatedAt: new Date(),
         workspace: null, tables: [],
       };
       patchBases((p) => p ? [tempBase, ...p] : [tempBase]);
@@ -105,7 +107,15 @@ export function useHomePageController() {
     onMutate: async ({ name, description }) => {
       await cancelWs();
       const snapshot = snapshotWs();
-      patchWs((p) => p ? [...p, { id: `temp-ws-${Date.now()}`, name, description: description ?? null, starred: false, bases: [] }] : undefined);
+      patchWs((p) => p ? [...p, {
+        id: `temp-ws-${Date.now()}`,
+        name,
+        description: description ?? null,
+        starred: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        bases: [],
+      }] : undefined);
       return { snapshot };
     },
     onError: (_e, _v, ctx) => patchWs(() => ctx?.snapshot),

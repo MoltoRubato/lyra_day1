@@ -13,6 +13,8 @@ export const WorkspaceOutput = z.object({
   createdAt: z.date(), updatedAt: z.date(),
   bases: z.array(z.object({
     id: z.string(), name: z.string(), starred: z.boolean(),
+    color: z.string(), icon: z.string(),
+    workspaceId: z.string().nullable(),
     lastOpenedAt: z.date().nullable(),
     tables: z.array(z.object({
       id: z.string(), name: z.string(),
@@ -77,11 +79,21 @@ export const SelectOptionUpdateInput = z.object({ optionId: z.string(), label: z
 
 // ─── Column ───────────────────────────────────────────────────────────────────
 
-export const ColumnOutput        = z.object({ id: z.string(), name: z.string(), type: z.nativeEnum(ColumnType), order: z.number(), width: z.number(), tableId: z.string(), selectOptions: z.array(SelectOptionOutput).optional() });
+export const ColumnOutput        = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.nativeEnum(ColumnType),
+  order: z.number(),
+  width: z.number(),
+  tableId: z.string(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  selectOptions: z.array(SelectOptionOutput).optional(),
+});
 export const ColumnAddInput      = z.object({ tableId: z.string(), name: z.string().min(1), type: z.nativeEnum(ColumnType).default("TEXT") });
 export const ColumnDeleteInput   = z.object({ columnId: z.string() });
 export const ColumnRenameInput   = z.object({ columnId: z.string(), name: z.string().min(1) });
-export const ColumnChangeTypeInput = z.object({ columnId: z.string(), type: z.string().min(1) });
+export const ColumnChangeTypeInput = z.object({ columnId: z.string(), type: z.nativeEnum(ColumnType) });
 export const ColumnReorderInput  = z.object({ tableId: z.string(), orderedIds: z.array(z.string()).min(1) });
 export const ColumnResizeInput   = z.object({ columnId: z.string(), width: z.number().int().min(80).max(1200) });
 
@@ -90,7 +102,11 @@ export const ColumnResizeInput   = z.object({ columnId: z.string(), width: z.num
 export const TableOutput      = z.object({ id: z.string(), name: z.string(), baseId: z.string(), createdAt: z.date(), updatedAt: z.date() });
 export const CellOutput       = z.object({ id: z.string(), value: z.string().nullable(), rowId: z.string(), columnId: z.string(), createdAt: z.date(), updatedAt: z.date() });
 export const RowOutput        = z.object({ id: z.string(), order: z.number(), tableId: z.string(), cells: z.array(CellOutput), createdAt: z.date(), updatedAt: z.date() });
-export const TableWithDataOutput = TableOutput.extend({ columns: z.array(ColumnOutput), rows: z.array(RowOutput) });
+export const TableWithDataOutput = TableOutput.extend({
+  columns: z.array(ColumnOutput),
+  rows: z.array(RowOutput),
+  rowCount: z.number().int().nonnegative(),
+});
 export const TableCreateInput = z.object({ baseId: z.string(), name: z.string().min(1) });
 export const TableRenameInput = z.object({ tableId: z.string(), name: z.string().min(1) });
 export const TableDeleteInput = z.object({ tableId: z.string() });

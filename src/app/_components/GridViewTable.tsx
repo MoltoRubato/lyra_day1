@@ -1,6 +1,6 @@
-﻿import { formatCellValue, inputTypeForField, FIELD_TYPES, type RowWithCells, type SortRule } from "~/app/_components/tableUtils";
+import { formatCellValue, inputTypeForField, FIELD_TYPES, type RowWithCells, type SortRule } from "~/app/_components/tableUtils";
 import { AttachmentCell, FieldTypePicker, OptionsPanel, SelectCell, type SelectOption } from "~/app/_components/gridViewCells";
-
+import type { ColumnType } from "@prisma/client";
 type EditingCell = { rowId: string; columnId: string; value: string };
 
 const GROUP_DEPTH_COLORS = [
@@ -82,7 +82,7 @@ export function GridViewTable({
   handleHeaderSortClick: (colId: string) => void;
   deleteColumn: { mutate: (v: { columnId: string }) => void };
   renameColumn: { mutate: (v: { columnId: string; name: string }) => void };
-  changeType: { mutate: (v: { columnId: string; type: string }) => void };
+  changeType: { mutate: (v: { columnId: string; type: ColumnType }) => void };
   addOption: { mutate: (v: { columnId: string; label: string; color: string }) => void };
   deleteOption: { mutate: (v: { optionId: string }) => void };
   updateOption: { mutate: (v: { optionId: string; label: string; color: string }) => void };
@@ -101,7 +101,7 @@ export function GridViewTable({
   bottomPad: number;
   visItems: Array<{ kind: "group"; node: { key: string; depth: number; value: string }; totalRows: number } | { kind: "row"; row: RowWithCells }>;
   startIdx: number;
-  rowNumbers: number[];
+  rowNumbers: Array<number | null>;
   isTall: boolean;
   editing: EditingCell | null;
   setEditing: (v: EditingCell | null | ((p: EditingCell | null) => EditingCell | null)) => void;
@@ -173,7 +173,7 @@ export function GridViewTable({
                         }}
                         className="text-[#9ca3af] hover:text-[#166254] text-[9px] transition-colors flex-shrink-0"
                         title="Manage options">
-                        ⚙
+                        ?
                       </button>
                     )}
 
@@ -196,7 +196,7 @@ export function GridViewTable({
                         {col.name}
                         {sortForCol && (
                           <span className="text-[#166254] ml-1 text-[10px]">
-                            {sortForCol.dir === "asc" ? "↑" : "↓"}
+                            {sortForCol.dir === "asc" ? "?" : "?"}
                           </span>
                         )}
                         {sortForCol && sorts.length > 1 && (
@@ -208,12 +208,12 @@ export function GridViewTable({
                     )}
 
                     <button onClick={() => deleteColumn.mutate({ columnId: col.id })}
-                      className="opacity-0 group-hover/col:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs flex-shrink-0 transition-all p-0.5 rounded hover:bg-red-50">✕</button>
+                      className="opacity-0 group-hover/col:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs flex-shrink-0 transition-all p-0.5 rounded hover:bg-red-50">?</button>
                   </div>
 
                   {isCurrentPanel && headerPanel?.panel === "type" && (
                     <FieldTypePicker current={col.type}
-                      onSelect={(t) => { changeType.mutate({ columnId: col.id, type: t }); setHeaderPanel(null); }}/>
+                      onSelect={(t) => { changeType.mutate({ columnId: col.id, type: t as ColumnType }); setHeaderPanel(null); }}/>
                   )}
                   {isCurrentPanel && headerPanel?.panel === "options" && (
                     <OptionsPanel
@@ -254,7 +254,7 @@ export function GridViewTable({
                   <button onClick={handleAddColumn}
                     className="px-2 py-1 bg-[#166254] text-white rounded-lg text-xs hover:bg-[#124f43] transition-colors">Add</button>
                   <button onClick={() => { setAddingCol(false); setShowTypePicker(false); }}
-                    className="text-[#9ca3af] text-xs hover:text-[#6b7280] transition-colors">✕</button>
+                    className="text-[#9ca3af] text-xs hover:text-[#6b7280] transition-colors">?</button>
                 </div>
               ) : (
                 <button onClick={() => setAddingCol(true)}
@@ -394,7 +394,7 @@ export function GridViewTable({
 
                 <td className="w-8 px-1">
                   <button onClick={() => deleteRow.mutate({ rowId: row.id })}
-                    className="opacity-0 group-hover:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs p-1 transition-all rounded hover:bg-red-50">✕</button>
+                    className="opacity-0 group-hover:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs p-1 transition-all rounded hover:bg-red-50">?</button>
                 </td>
               </tr>
             );
@@ -434,3 +434,4 @@ export function GridViewTable({
     </div>
   );
 }
+

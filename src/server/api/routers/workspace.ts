@@ -2,15 +2,16 @@
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { WorkspaceOutput, WorkspaceCreateInput, WorkspaceRenameInput, WorkspaceDescriptionInput, WorkspaceToggleStarInput, WorkspaceDeleteInput } from "~/types/schemas";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
-const INCLUDE = {
+const INCLUDE = Prisma.validator<Prisma.WorkspaceInclude>()({
   bases: {
     include: {
       tables: { include: { _count: { select: { rows: true } } } },
     },
-    orderBy: [{ lastOpenedAt: "desc" as const }, { createdAt: "desc" as const }],
+    orderBy: [{ lastOpenedAt: "desc" }, { createdAt: "desc" }],
   },
-} as const;
+});
 
 export const workspaceRouter = createTRPCRouter({
   getAll: publicProcedure
