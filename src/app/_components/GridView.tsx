@@ -150,28 +150,63 @@ export default function GridView({
     onMutate: async ({ name, type }) => {
       await cancelCache();
       const snapshot = snapshotCache();
+      const tempId = `temp-col-${Date.now()}`;
       patchCache((prev) => {
         if (!prev) return prev;
-        const tempId = `temp-col-${Date.now()}`;
+        const createdAt = new Date();
         return {
           ...prev,
           columns: [...prev.columns, {
             id: tempId, name, type: type ?? "TEXT",
             description: null,
             order: prev.columns.length, width: 180, tableId,
-            createdAt: new Date(), updatedAt: new Date(),
+            createdAt, updatedAt: createdAt,
             selectOptions: [],
           }],
           rows: prev.rows.map((r) => ({
             ...r,
             cells: [...r.cells, {
               id: `tc-${tempId}-${r.id}`, rowId: r.id, columnId: tempId,
-              value: null, createdAt: new Date(), updatedAt: new Date(),
+              value: null, createdAt, updatedAt: createdAt,
             }],
           })),
         };
       });
-      return { snapshot };
+      return { snapshot, tempId };
+    },
+    onSuccess: (realColumn, _vars, ctx) => {
+      if (!ctx?.tempId) return;
+      patchCache((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          columns: prev.columns.map((col) =>
+            col.id !== ctx.tempId
+              ? col
+              : {
+                ...col,
+                id: realColumn.id,
+                name: realColumn.name,
+                type: realColumn.type,
+                description: realColumn.description ?? null,
+                order: realColumn.order,
+                width: realColumn.width,
+                tableId: realColumn.tableId,
+                createdAt: realColumn.createdAt,
+                updatedAt: realColumn.updatedAt,
+                selectOptions: realColumn.selectOptions ?? [],
+              }
+          ),
+          rows: prev.rows.map((row) => ({
+            ...row,
+            cells: row.cells.map((cell) =>
+              cell.columnId !== ctx.tempId
+                ? cell
+                : { ...cell, columnId: realColumn.id }
+            ),
+          })),
+        };
+      });
     },
     onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
@@ -205,6 +240,21 @@ export default function GridView({
       await cancelCache();
       const snapshot = snapshotCache();
       patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, type } : c) } : p);
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+    onSettled: invalidate,
+  });
+  const bulkDeleteRows = api.table.bulkDeleteRows.useMutation({
+    onMutate: async ({ rowIds }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      const doomed = new Set(rowIds);
+      patchCache((p) => p ? {
+        ...p,
+        rows: p.rows.filter((r) => !doomed.has(r.id)),
+        rowCount: Math.max(0, p.rowCount - doomed.size),
+      } : p);
       return { snapshot };
     },
     onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
@@ -411,6 +461,28 @@ export default function GridView({
     onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
     onSettled: invalidate,
   });
+  const reorderRows = api.table.reorderRows.useMutation({
+    onMutate: async ({ orderedIds }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+      patchCache((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rows: prev.rows
+            .map((r) => ({
+              ...r,
+              order: orderMap.has(r.id) ? (orderMap.get(r.id) ?? r.order) : r.order,
+            }))
+            .sort((a, b) => a.order - b.order),
+        };
+      });
+      return { snapshot };
+    },
+    onError:   (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+    onSettled: invalidate,
+  });
   const resizeColumn = api.table.resizeColumn.useMutation({
     onMutate: ({ columnId, width }) =>
       patchCache((p) => p ? { ...p, columns: p.columns.map((c) => c.id === columnId ? { ...c, width } : c) } : p),
@@ -574,6 +646,10 @@ export default function GridView({
     let n = 0;
     return flatItems.map((item) => (item.kind === "row" ? ++n : null));
   }, [flatItems]);
+  const allRowsForSummary = useMemo(
+    () => flatItems.flatMap((item) => item.kind === "row" ? [item.row] : []),
+    [flatItems],
+  );
   const rowH     = ROW_HEIGHT_PX[rowHeight];
   const isTall   = rowHeight === "tall" || rowHeight === "extra-tall";
   const isSelect = (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT";
@@ -678,6 +754,8 @@ export default function GridView({
       openSelectCell={openSelectCell} setOpenSelectCell={setOpenSelectCell} handleCellClick={handleCellClick}
       getCellValue={getCellValue} isSelect={isSelect} safeUpdateCell={safeUpdateCell} commitEdit={commitEdit}
       deleteRow={deleteRow} addRow={addRow} tableId={tableId} chunkLoading={chunkLoading} trueTotal={visibleTotal} totalRows={totalRows}
+      bulkDeleteRows={bulkDeleteRows} reorderRows={reorderRows} canReorderRows={noTransform}
+      allRowsForSummary={allRowsForSummary}
       recordLabel={recordLabel} />
   );
 }

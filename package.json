@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.0.15",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.0",
@@ -56,5 +57,18 @@
   },
   "ct3aMetadata": {
     "initVersion": "7.40.0"
-  }
+  },
+  "description": "This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.",
+  "main": "eslint.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MoltoRubato/lyra_day1.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MoltoRubato/lyra_day1/issues"
+  },
+  "homepage": "https://github.com/MoltoRubato/lyra_day1#readme"
 }

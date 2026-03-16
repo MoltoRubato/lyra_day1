@@ -128,5 +128,6 @@ export const TableDeleteInput = z.object({ tableId: z.string() });
 export const CellUpdateInput  = z.object({ rowId: z.string(), columnId: z.string(), value: z.string().nullable() });
 export const RowAddInput      = z.object({ tableId: z.string() });
 export const RowDeleteInput   = z.object({ rowId: z.string() });
+export const RowReorderInput  = z.object({ tableId: z.string(), orderedIds: z.array(z.string()).min(1) });
 export const BulkDeleteRowsInput = z.object({ rowIds: z.array(z.string()).min(1) });
 export const TableGetByIdInput   = z.object({ id: z.string(), filterColumnId: z.string().optional(), filterValue: z.string().optional(), sortByColumnId: z.string().optional(), sortDir: z.enum(["asc", "desc"]).optional() });

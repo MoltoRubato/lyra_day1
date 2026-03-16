@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatCellValue, inputTypeForField, FIELD_TYPES, type FilterCondition, type GroupRule, type RowWithCells, type SortRule } from "~/app/_components/tableUtils";
 import { AttachmentCell, FieldTypePicker, OptionsPanel, SelectCell, type SelectOption } from "~/app/_components/gridViewCells";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import type { ColumnType } from "@prisma/client";
 
 type EditingCell = { rowId: string; columnId: string; value: string };
@@ -12,6 +13,18 @@ const GROUP_DEPTH_COLORS = [
   { bg: "#f5f3ff", text: "#5b21b6", border: "#ede9fe", dot: "#8b5cf6" },
   { bg: "#fff7ed", text: "#9a3412", border: "#fed7aa", dot: "#f97316" },
 ];
+
+const SUMMARY_OPTIONS = [
+  "None",
+  "Empty",
+  "Filled",
+  "Unique",
+  "Percent Empty",
+  "Percent Filled",
+  "Percent Unique",
+] as const;
+
+type SummaryOption = typeof SUMMARY_OPTIONS[number];
 
 function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -119,6 +132,10 @@ export function GridViewTable({
   chunkLoading,
   trueTotal,
   totalRows,
+  bulkDeleteRows,
+  reorderRows,
+  canReorderRows,
+  allRowsForSummary,
   recordLabel = "record",
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -186,6 +203,10 @@ export function GridViewTable({
   chunkLoading: boolean;
   trueTotal: number;
   totalRows: number;
+  bulkDeleteRows: { mutate: (v: { rowIds: string[] }) => void };
+  reorderRows: { mutate: (v: { tableId: string; orderedIds: string[] }) => void };
+  canReorderRows: boolean;
+  allRowsForSummary: RowWithCells[];
   recordLabel?: string;
 }) {
   const [menuForCol, setMenuForCol] = useState<string | null>(null);
@@ -194,10 +215,32 @@ export function GridViewTable({
   const [fieldTypeListOpen, setFieldTypeListOpen] = useState(false);
   const [editingField, setEditingField] = useState<{ colId: string; name: string; type: string; description: string; showDescription: boolean } | null>(null);
   const [duplicatingField, setDuplicatingField] = useState<{ colId: string; name: string; duplicateCells: boolean } | null>(null);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [dragRowId, setDragRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const [rowContextMenu, setRowContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [summaryByCol, setSummaryByCol] = useState<Record<string, SummaryOption>>({});
+  const [summaryMenu, setSummaryMenu] = useState<{ colId: string; left: number; top: number } | null>(null);
+  const [hoveredSummaryCol, setHoveredSummaryCol] = useState<string | null>(null);
 
   const label = (recordLabel || "record").trim() || "record";
   const labelLower = label.toLowerCase();
   const pluralLabel = (n: number) => (n === 1 ? labelLower : (labelLower.endsWith("s") ? labelLower : `${labelLower}s`));
+  const rowIdsInViewOrder = useMemo(
+    () => allRowsForSummary.map((r) => r.id),
+    [allRowsForSummary],
+  );
+  const hasSelectedRows = selectedRowIds.length > 0;
+  const selectedSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+
+  useEffect(() => {
+    if (!allRowsForSummary.length) {
+      setSelectedRowIds([]);
+      return;
+    }
+    const valid = new Set(allRowsForSummary.map((r) => r.id));
+    setSelectedRowIds((prev) => prev.filter((id) => valid.has(id)));
+  }, [allRowsForSummary]);
 
   function openColMenu(colId: string, e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
@@ -241,19 +284,94 @@ export function GridViewTable({
     onRequestOpenGroupPanel?.();
   }
 
+  function toggleRowSelection(rowId: string) {
+    setSelectedRowIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId],
+    );
+  }
+
+  function toggleAllRowsInView(checked: boolean) {
+    if (checked) {
+      setSelectedRowIds(rowIdsInViewOrder);
+      return;
+    }
+    setSelectedRowIds([]);
+  }
+
+  function openRowContextMenu(e: React.MouseEvent, rowId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setHeaderPanel(null);
+    setOpenSelectCell(null);
+    closeColMenu();
+    setSummaryMenu(null);
+    setSelectedRowIds((prev) => (prev.includes(rowId) ? prev : [rowId]));
+    setRowContextMenu({ x: e.clientX, y: e.clientY });
+  }
+
+  function handleRowDrop(targetRowId: string) {
+    if (!canReorderRows || !dragRowId || dragRowId === targetRowId) return;
+    const orderedIds = [...rowIdsInViewOrder];
+    const fromIdx = orderedIds.indexOf(dragRowId);
+    const toIdx = orderedIds.indexOf(targetRowId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const [moved] = orderedIds.splice(fromIdx, 1);
+    if (!moved) return;
+    orderedIds.splice(toIdx, 0, moved);
+    reorderRows.mutate({ tableId, orderedIds });
+  }
+
+  function summaryResult(colId: string): { label: string; value: string } | null {
+    const mode = summaryByCol[colId] ?? "None";
+    if (mode === "None") return null;
+    const total = allRowsForSummary.length;
+    const values = allRowsForSummary.map((row) => (getCellValue(row, colId) ?? "").trim());
+    const emptyCount = values.filter((v) => v.length === 0).length;
+    const filledCount = total - emptyCount;
+    const uniqueCount = new Set(values.filter((v) => v.length > 0)).size;
+    const percent = (count: number) => `${Math.round((count / Math.max(1, total)) * 100)}%`;
+
+    if (mode === "Empty") return { label: "Empty", value: emptyCount.toLocaleString() };
+    if (mode === "Filled") return { label: "Filled", value: filledCount.toLocaleString() };
+    if (mode === "Unique") return { label: "Unique", value: uniqueCount.toLocaleString() };
+    if (mode === "Percent Empty") return { label: "Percent Empty", value: percent(emptyCount) };
+    if (mode === "Percent Filled") return { label: "Percent Filled", value: percent(filledCount) };
+    return { label: "Percent Unique", value: percent(uniqueCount) };
+  }
+
+  const selectedInViewCount = rowIdsInViewOrder.filter((id) => selectedSet.has(id)).length;
+  const allInViewSelected = rowIdsInViewOrder.length > 0 && selectedInViewCount === rowIdsInViewOrder.length;
+  const someInViewSelected = selectedInViewCount > 0 && !allInViewSelected;
+
   return (
-    <div
-      ref={containerRef}
-      className="h-full w-full overflow-auto select-none bg-white"
-      onScroll={handleScroll}
-      onClick={() => { setHeaderPanel(null); setOpenSelectCell(null); closeColMenu(); }}
-    >
-      <table className="border-collapse text-sm" style={{ tableLayout: "fixed" }}>
+    <div className="relative h-full w-full bg-[#f6f8fc]">
+      <div
+        ref={containerRef}
+        className="h-full w-full overflow-auto select-none bg-[#f6f8fc]"
+        onScroll={handleScroll}
+        onClick={() => {
+          setHeaderPanel(null);
+          setOpenSelectCell(null);
+          closeColMenu();
+          setSummaryMenu(null);
+          setRowContextMenu(null);
+        }}
+      >
+      <table className="min-h-full border-collapse bg-white text-sm" style={{ tableLayout: "fixed" }}>
         <thead className="sticky top-0 z-20">
           <tr className="border-b border-[#e2e5e9] bg-[#f9fafb]">
             <th className="w-12 px-3 py-0 text-left bg-[#f9fafb] z-10 border-r border-[#e2e5e9]">
               <div className="flex items-center" style={{ height: rowH }}>
-                <input type="checkbox" className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 hover:opacity-100" />
+                <input
+                  type="checkbox"
+                  checked={allInViewSelected}
+                  ref={(el) => {
+                    if (!el) return;
+                    el.indeterminate = someInViewSelected;
+                  }}
+                  onChange={(e) => toggleAllRowsInView(e.currentTarget.checked)}
+                  className={`w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#1c76d2] cursor-pointer transition-opacity ${hasSelectedRows ? "opacity-100" : "opacity-0 hover:opacity-100"}`}
+                />
               </div>
             </th>
 
@@ -474,13 +592,59 @@ export function GridViewTable({
 
             const { row } = item;
             const rowNum = rowNumbers[absIdx] ?? absIdx + 1;
+            const rowSelected = selectedSet.has(row.id);
 
             return (
-              <tr key={row.id} className="border-b border-[#e2e5e9] hover:bg-[#f9fafb] group transition-colors" style={{ height: rowH }}>
-                <td className="px-3 py-0 sticky left-0 bg-white group-hover:bg-[#f9fafb] transition-colors border-r border-[#e2e5e9] z-10">
-                  <div className="flex items-center gap-1" style={{ height: rowH }}>
-                    <input type="checkbox" className="w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#166254] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <span className="text-[11px] text-[#9ca3af] select-none group-hover:hidden w-4 text-right">{rowNum}</span>
+              <tr
+                key={row.id}
+                className={`border-b border-[#e2e5e9] group transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-inset ring-[#1c76d2]" : ""}`}
+                style={{ height: rowH }}
+                onContextMenu={(e) => openRowContextMenu(e, row.id)}
+                onDragOver={(e) => {
+                  if (!canReorderRows || !dragRowId) return;
+                  e.preventDefault();
+                  setDragOverRowId(row.id);
+                }}
+                onDrop={(e) => {
+                  if (!canReorderRows || !dragRowId) return;
+                  e.preventDefault();
+                  handleRowDrop(row.id);
+                  setDragRowId(null);
+                  setDragOverRowId(null);
+                }}
+              >
+                <td className={`px-2 py-0 sticky left-0 transition-colors border-r border-[#e2e5e9] z-10 ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}>
+                  <div className="flex items-center gap-1.5" style={{ height: rowH }}>
+                    <button
+                      draggable={canReorderRows}
+                      onDragStart={(e) => {
+                        if (!canReorderRows) return;
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", row.id);
+                        setDragRowId(row.id);
+                      }}
+                      onDragEnd={() => {
+                        setDragRowId(null);
+                        setDragOverRowId(null);
+                      }}
+                      className={`w-3 h-3 grid grid-cols-2 gap-[2px] place-items-center text-[#7c8494] ${rowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"} ${canReorderRows ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-20"}`}
+                      title={canReorderRows ? "Drag to reorder row" : "Disable sort/filter/group to reorder rows"}
+                    >
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <span key={i} className="w-[2px] h-[2px] rounded-full bg-current" />
+                      ))}
+                    </button>
+                    <div className="relative h-4 w-4 flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={rowSelected}
+                        onChange={() => toggleRowSelection(row.id)}
+                        className={`absolute inset-0 m-auto h-3.5 w-3.5 rounded border-[#d1d5db] accent-[#1c76d2] cursor-pointer transition-opacity ${rowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                      />
+                      <span className={`pointer-events-none absolute inset-0 text-[11px] text-[#68707f] select-none text-right leading-4 ${rowSelected ? "opacity-0" : "opacity-100 group-hover:opacity-0"}`}>
+                        {rowNum}
+                      </span>
+                    </div>
                   </div>
                 </td>
 
@@ -488,7 +652,13 @@ export function GridViewTable({
                   const isEditing = editing?.rowId === row.id && editing.columnId === col.id;
                   const value = getCellValue(row, col.id);
                   return (
-                    <td key={col.id} style={{ width: col.width, maxWidth: col.width, height: rowH }} className="px-2 py-0 border-r border-[#e2e5e9] overflow-visible" onClick={() => handleCellClick(row, col)}>
+                    <td
+                      key={col.id}
+                      style={{ width: col.width, maxWidth: col.width, height: rowH }}
+                      className={`px-2 py-0 border-r border-[#e2e5e9] overflow-visible ${rowSelected ? "bg-[#dfe5ef]" : ""}`}
+                      onClick={() => handleCellClick(row, col)}
+                      onContextMenu={(e) => openRowContextMenu(e, row.id)}
+                    >
                       <div className={`flex ${isTall ? "items-start pt-1.5" : "items-center"}`} style={{ height: rowH }}>
                         {col.type === "CHECKBOX" ? (
                           <input type="checkbox" readOnly checked={value === "true"} className="w-3.5 h-3.5 rounded accent-[#166254] cursor-pointer" />
@@ -520,8 +690,13 @@ export function GridViewTable({
                 })}
 
                 <td className="w-8 px-1">
-                  <button onClick={() => deleteRow.mutate({ rowId: row.id })} className="opacity-0 group-hover:opacity-100 text-[#9ca3af] hover:text-red-500 text-xs p-1 transition-all rounded hover:bg-red-50" title="Delete row">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 2l8 8M10 2L2 10" strokeLinecap="round" /></svg>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 text-[#6d7480] text-xs p-1.5 transition-all rounded-md bg-[#f3f4f6] border border-[#d4d7dc]"
+                    title="Expand row"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
+                      <path d="M4.2 1.8H1.8v2.4M7.8 10.2h2.4V7.8M10.2 4.2V1.8H7.8M1.8 7.8v2.4h2.4" strokeLinecap="round" />
+                    </svg>
                   </button>
                 </td>
               </tr>
@@ -531,29 +706,148 @@ export function GridViewTable({
           {bottomPad > 0 && (
             <tr aria-hidden="true" style={{ height: bottomPad }}><td colSpan={visCols.length + 2} style={{ padding: 0, border: "none" }} /></tr>
           )}
+
+          <tr className="border-t border-[#e2e5e9] bg-white" style={{ height: rowH }}>
+            <td colSpan={visCols.length + 2} className="px-0 py-0">
+              <button onClick={() => addRow.mutate({ tableId })} className="flex h-full items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-xs" title={`Add ${labelLower}`}>
+                <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v8M2 6h8" strokeLinecap="round" /></svg>
+                <span className="ml-auto flex items-center gap-1.5 text-[10px] text-[#ccc]">
+                  {chunkLoading && (
+                    <span className="flex items-center gap-1 text-[#f97316]">
+                      <span className="w-2 h-2 border border-[#f97316] border-t-transparent rounded-full animate-spin inline-block" />
+                      Loading {loadedCount.toLocaleString()} / {(table?.rowCount ?? 0).toLocaleString()}...
+                    </span>
+                  )}
+                </span>
+              </button>
+            </td>
+          </tr>
+
+          <tr aria-hidden="true" className="bg-[#f6f8fc]">
+            <td colSpan={visCols.length + 2} style={{ padding: 0, height: "100%" }} />
+          </tr>
         </tbody>
+
+        <tfoot className="sticky bottom-0 z-10 bg-white shadow-[inset_0_1px_0_0_#e2e5e9]">
+          <tr className="h-[24px] bg-white">
+            <td className="w-12 px-0 py-0 sticky left-0 z-20 border-r border-[#e2e5e9] bg-white overflow-visible">
+              <div className="relative h-[24px]">
+                <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[12px] text-[#2f343c]">
+                  {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
+                </div>
+              </div>
+            </td>
+
+            {visCols.map((col) => {
+              const result = summaryResult(col.id);
+              const mode = summaryByCol[col.id] ?? "None";
+              const shouldShowPrompt = hoveredSummaryCol === col.id && mode === "None";
+              const isSummaryCellHoverOrOpen = hoveredSummaryCol === col.id || summaryMenu?.colId === col.id;
+              return (
+                <td
+                  key={`summary-${col.id}`}
+                  className="relative box-border border-r border-[#e2e5e9] px-0 py-0"
+                  style={{ width: col.width, minWidth: col.width }}
+                >
+                  <button
+                    className={`h-[24px] w-full px-3 flex items-center justify-end gap-1.5 text-[#6b7280] ${isSummaryCellHoverOrOpen ? "bg-[#eeeff1]" : "bg-white hover:bg-[#eeeff1]"}`}
+                    onMouseEnter={() => setHoveredSummaryCol(col.id)}
+                    onMouseLeave={() => setHoveredSummaryCol((prev) => prev === col.id ? null : prev)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setSummaryMenu((prev) => (
+                        prev?.colId === col.id
+                          ? null
+                          : { colId: col.id, left: rect.right - 140, top: rect.top - 4 }
+                      ));
+                      setRowContextMenu(null);
+                    }}
+                  >
+                    {result ? (
+                      <>
+                        <span className="text-[11px] leading-none">{result.label}</span>
+                        <span className="text-[13px] leading-none text-[#374151]">{result.value}</span>
+                      </>
+                    ) : shouldShowPrompt ? (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M2.5 4.5L6 8l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span className="text-[12px]">Summary</span>
+                      </>
+                    ) : null}
+                  </button>
+                </td>
+              );
+            })}
+
+            <td className="w-24 bg-white px-0 py-0" />
+          </tr>
+        </tfoot>
       </table>
 
-      <div className="border-b border-[#e2e5e9]">
-        <button onClick={() => addRow.mutate({ tableId })} className="flex items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-xs" title={`Add ${labelLower}`}>
-          <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5"><path d="M6 2v8M2 6h8" strokeLinecap="round" /></svg>
-          <span className="ml-auto flex items-center gap-1.5 text-[10px] text-[#ccc]">
-            {chunkLoading && (
-              <span className="flex items-center gap-1 text-[#f97316]">
-                <span className="w-2 h-2 border border-[#f97316] border-t-transparent rounded-full animate-spin inline-block" />
-                Loading {loadedCount.toLocaleString()} / {(table?.rowCount ?? 0).toLocaleString()}...
-              </span>
-            )}
-            {!chunkLoading && trueTotal > 0 && <span>{trueTotal.toLocaleString()} {pluralLabel(trueTotal)}</span>}
-          </span>
-        </button>
       </div>
 
-      <div className="sticky bottom-0 left-0 z-10 w-fit px-2 py-1 pointer-events-none">
-        <span className="inline-flex items-center rounded-sm bg-[#d9edd9] text-[#1d1f25] text-[11px] leading-[1] px-[8px] py-[3px]">
-          {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
-        </span>
-      </div>
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[9] h-[24px] bg-white" />
+      <div className="pointer-events-none absolute bottom-[24px] left-0 right-0 z-[25] h-px bg-[#e2e5e9]" />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-[2px] bg-white" />
+
+      {summaryMenu && (
+        <div
+          className="fixed z-[90] w-[140px] overflow-hidden rounded-[4px] bg-[#31353e] shadow-xl"
+          style={{ left: summaryMenu.left, top: summaryMenu.top, transform: "translateY(-100%)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {SUMMARY_OPTIONS.map((opt) => {
+            const mode = summaryByCol[summaryMenu.colId] ?? "None";
+            return (
+              <button
+                key={`${summaryMenu.colId}-${opt}`}
+                className={`w-full h-[34px] px-3 text-left text-[13px] text-white hover:bg-[#434955] ${opt === mode ? "bg-[#434955]" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSummaryByCol((prev) => ({ ...prev, [summaryMenu.colId]: opt }));
+                  setSummaryMenu(null);
+                }}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {rowContextMenu && hasSelectedRows && (
+        <div
+          className="fixed z-[70] w-[360px] rounded-[12px] border border-[#d9dce2] bg-white shadow-xl px-0 py-3"
+          style={{ left: rowContextMenu.x, top: rowContextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="mx-5 h-[48px] w-[calc(100%-40px)] rounded-[8px] text-left px-4 text-[13px] text-[#2d3138] hover:bg-[#f4f5f7]">
+            Ask Omni about {selectedRowIds.length} {pluralLabel(selectedRowIds.length)}
+          </button>
+          <div className="mx-5 my-2 h-px bg-[#eceff3]" />
+          <button className="mx-5 h-[48px] w-[calc(100%-40px)] rounded-[8px] text-left px-4 text-[13px] text-[#2d3138] hover:bg-[#f4f5f7] inline-flex items-center gap-3">
+            <AirtableAssetIcon asset={289} size={18} />
+            <span>Send all selected records</span>
+          </button>
+          <div className="mx-5 my-2 h-px bg-[#eceff3]" />
+          <button
+            className="mx-5 h-[48px] w-[calc(100%-40px)] rounded-[8px] text-left px-4 text-[13px] text-[#c91f4a] hover:bg-[#fff1f5] inline-flex items-center gap-3"
+            onClick={() => {
+              const ids = [...selectedRowIds];
+              if (ids.length === 0) return;
+              bulkDeleteRows.mutate({ rowIds: ids });
+              setSelectedRowIds([]);
+              setRowContextMenu(null);
+            }}
+          >
+            <AirtableAssetIcon asset={32} size={18} />
+            <span>Delete all selected records</span>
+          </button>
+        </div>
+      )}
 
       {editingField && (
         <>

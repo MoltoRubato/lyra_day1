@@ -16,6 +16,7 @@ import {
   CellUpdateInput,
   RowAddInput,
   RowDeleteInput,
+  RowReorderInput,
   BulkDeleteRowsInput,
   TableGetByIdInput,
   ColumnChangeTypeInput,
@@ -400,6 +401,25 @@ export const tableRouter = createTRPCRouter({
       }
       return ctx.db.row.delete({
         where: { id: input.rowId },
+        include: { cells: true },
+      });
+    }),
+
+  reorderRows: publicProcedure
+    .input(RowReorderInput)
+    .output(z.array(RowOutput))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.$transaction(
+        input.orderedIds.map((id, index) =>
+          ctx.db.row.update({
+            where: { id },
+            data: { order: index },
+          }),
+        ),
+      );
+      return ctx.db.row.findMany({
+        where: { tableId: input.tableId },
+        orderBy: { order: "asc" },
         include: { cells: true },
       });
     }),
