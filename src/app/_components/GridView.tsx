@@ -650,8 +650,9 @@ export default function GridView({
     () => flatItems.flatMap((item) => item.kind === "row" ? [item.row] : []),
     [flatItems],
   );
-  const rowH     = ROW_HEIGHT_PX[rowHeight];
-  const isTall   = rowHeight === "tall" || rowHeight === "extra-tall";
+  const resolvedRowHeight = (rowHeight in ROW_HEIGHT_PX ? rowHeight : "short") as RowHeight;
+  const rowH     = ROW_HEIGHT_PX[resolvedRowHeight];
+  const isTall   = resolvedRowHeight === "tall" || resolvedRowHeight === "extra-tall";
   const isSelect = (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT";
   const noTransform = filters.length === 0 && sorts.length === 0 && groups.length === 0;
   const rawRowCount = table?.rowCount;

@@ -222,6 +222,8 @@ export function GridViewTable({
   const [summaryByCol, setSummaryByCol] = useState<Record<string, SummaryOption>>({});
   const [summaryMenu, setSummaryMenu] = useState<{ colId: string; left: number; top: number } | null>(null);
   const [hoveredSummaryCol, setHoveredSummaryCol] = useState<string | null>(null);
+  const [horizontalScrollbarHeight, setHorizontalScrollbarHeight] = useState(0);
+  const [verticalScrollbarWidth, setVerticalScrollbarWidth] = useState(0);
 
   const label = (recordLabel || "record").trim() || "record";
   const labelLower = label.toLowerCase();
@@ -241,6 +243,29 @@ export function GridViewTable({
     const valid = new Set(allRowsForSummary.map((r) => r.id));
     setSelectedRowIds((prev) => prev.filter((id) => valid.has(id)));
   }, [allRowsForSummary]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateScrollbarHeight = () => {
+      const nextHorizontal = Math.max(0, el.offsetHeight - el.clientHeight);
+      const nextVertical = Math.max(0, el.offsetWidth - el.clientWidth);
+      setHorizontalScrollbarHeight((prev) => (Math.abs(prev - nextHorizontal) < 0.5 ? prev : nextHorizontal));
+      setVerticalScrollbarWidth((prev) => (Math.abs(prev - nextVertical) < 0.5 ? prev : nextVertical));
+    };
+
+    updateScrollbarHeight();
+    const ro = new ResizeObserver(updateScrollbarHeight);
+    ro.observe(el);
+    const tableEl = el.firstElementChild;
+    if (tableEl instanceof Element) ro.observe(tableEl);
+    window.addEventListener("resize", updateScrollbarHeight);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateScrollbarHeight);
+    };
+  }, [containerRef]);
 
   function openColMenu(colId: string, e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
@@ -342,6 +367,12 @@ export function GridViewTable({
   const selectedInViewCount = rowIdsInViewOrder.filter((id) => selectedSet.has(id)).length;
   const allInViewSelected = rowIdsInViewOrder.length > 0 && selectedInViewCount === rowIdsInViewOrder.length;
   const someInViewSelected = selectedInViewCount > 0 && !allInViewSelected;
+  const summaryRowHeightPx = 21.5;
+  const summaryBarHeightPx = 34;
+  const summaryScrollbarLanePx = summaryBarHeightPx - summaryRowHeightPx;
+  const summaryBottomOffsetPx = Math.max(0, summaryScrollbarLanePx - horizontalScrollbarHeight);
+  const summarySolidFillHeightPx = summaryBottomOffsetPx + summaryRowHeightPx;
+  const summaryTopBorderBottomPx = summaryBottomOffsetPx + summaryRowHeightPx + horizontalScrollbarHeight;
 
   return (
     <div className="relative h-full w-full bg-[#f6f8fc]">
@@ -723,15 +754,24 @@ export function GridViewTable({
             </td>
           </tr>
 
+          {summaryBottomOffsetPx > 0 && (
+            <tr aria-hidden="true" className="bg-[#f6f8fc]">
+              <td colSpan={visCols.length + 2} style={{ padding: 0, border: "none", height: summaryBottomOffsetPx }} />
+            </tr>
+          )}
+
           <tr aria-hidden="true" className="bg-[#f6f8fc]">
             <td colSpan={visCols.length + 2} style={{ padding: 0, height: "100%" }} />
           </tr>
         </tbody>
 
-        <tfoot className="sticky bottom-0 z-10 bg-white shadow-[inset_0_1px_0_0_#e2e5e9]">
-          <tr className="h-[24px] bg-white">
-            <td className="w-12 px-0 py-0 sticky left-0 z-20 border-r border-[#e2e5e9] bg-white overflow-visible">
-              <div className="relative h-[24px]">
+        <tfoot
+          className="sticky z-[20] bg-white"
+          style={{ bottom: summaryBottomOffsetPx }}
+        >
+          <tr className="bg-white" style={{ height: summaryRowHeightPx }}>
+            <td className="w-12 px-0 py-0 sticky left-0 z-20 bg-white overflow-visible">
+              <div className="relative" style={{ height: summaryRowHeightPx }}>
                 <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[12px] text-[#2f343c]">
                   {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
                 </div>
@@ -746,11 +786,12 @@ export function GridViewTable({
               return (
                 <td
                   key={`summary-${col.id}`}
-                  className="relative box-border border-r border-[#e2e5e9] px-0 py-0"
+                  className="relative box-border px-0 py-0"
                   style={{ width: col.width, minWidth: col.width }}
                 >
                   <button
-                    className={`h-[24px] w-full px-3 flex items-center justify-end gap-1.5 text-[#6b7280] ${isSummaryCellHoverOrOpen ? "bg-[#eeeff1]" : "bg-white hover:bg-[#eeeff1]"}`}
+                    className={`w-full px-3 flex items-center justify-end gap-1.5 text-[#6b7280] ${isSummaryCellHoverOrOpen ? "bg-[#eeeff1]" : "bg-white hover:bg-[#eeeff1]"}`}
+                    style={{ height: summaryRowHeightPx }}
                     onMouseEnter={() => setHoveredSummaryCol(col.id)}
                     onMouseLeave={() => setHoveredSummaryCol((prev) => prev === col.id ? null : prev)}
                     onClick={(e) => {
@@ -789,9 +830,14 @@ export function GridViewTable({
 
       </div>
 
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[9] h-[24px] bg-white" />
-      <div className="pointer-events-none absolute bottom-[24px] left-0 right-0 z-[25] h-px bg-[#e2e5e9]" />
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-[2px] bg-white" />
+      <div
+        className="pointer-events-none absolute bottom-0 left-0 right-0 z-[18] bg-white"
+        style={{ bottom: horizontalScrollbarHeight, height: summarySolidFillHeightPx }}
+      />
+      <div
+        className="pointer-events-none absolute left-0 right-0 z-[25] h-px bg-[#e2e5e9]"
+        style={{ bottom: summaryTopBorderBottomPx, right: verticalScrollbarWidth }}
+      />
 
       {summaryMenu && (
         <div
