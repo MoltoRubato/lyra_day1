@@ -1,11 +1,64 @@
-﻿export const HomeIco = () => <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"><path d="M2 7.5L8 2L14 7.5V14H10V10H6V14H2V7.5Z"/></svg>;
-export const StarIco = () => <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2L9.8 6.2L14 6.5L10.8 9.3L11.8 13.5L8 11.2L4.2 13.5L5.2 9.3L2 6.5L6.2 6.2L8 2Z"/></svg>;
-export const SharedIco = () => <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35"><circle cx="11" cy="3" r="2"/><circle cx="4" cy="8" r="2"/><circle cx="11" cy="13" r="2"/><path d="M5.8 7l3.4-3M5.8 9l3.4 3" strokeLinecap="round"/></svg>;
-export const WsIco = () => <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.35"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>;
-export const PencilIco = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" strokeLinejoin="round"/></svg>;
-export const MoveIco = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1.5" y="2" width="4" height="8" rx="0.5"/><rect x="6.5" y="2" width="4" height="8" rx="0.5"/></svg>;
-export const TrashIco = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 2L10 10M10 2L2 10" strokeLinecap="round"/></svg>;
-export const ChevronRight = ({ className = "" }: { className?: string }) => <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className={className}><path d="M3.5 2l3 3-3 3"/></svg>;
-export const ListIco = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M2 4h10M2 7h10M2 10h10" strokeLinecap="round"/></svg>;
-export const GridIco = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="2" y="2" width="4" height="4" rx="0.5"/><rect x="8" y="2" width="4" height="4" rx="0.5"/><rect x="2" y="8" width="4" height="4" rx="0.5"/><rect x="8" y="8" width="4" height="4" rx="0.5"/></svg>;
+function AssetIco({
+  asset,
+  size = 15,
+  width,
+  height,
+  className = "",
+  style,
+}: {
+  asset: number;
+  size?: number;
+  width?: number;
+  height?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const fileName = `Asset ${asset}Airtable.svg`;
+  const src = `/airtable_assets/${encodeURIComponent(fileName)}`;
+  return (
+    <img
+      src={src}
+      alt=""
+      width={width ?? size}
+      height={height ?? size}
+      className={className}
+      style={style}
+      draggable={false}
+    />
+  );
+}
 
+export const HomeIco = () => <AssetIco asset={217} size={15} />;
+export const SidebarStarIco = ({ size = 15, className = "" }: { size?: number; className?: string }) => (
+  <AssetIco asset={70} size={size} className={className} />
+);
+export const StarIco = ({ size = 15, active = false, className = "" }: { size?: number; active?: boolean; className?: string }) => (
+  active ? (
+    <svg viewBox="0 0 16 16" width={size} height={size} className={className} fill="#f7b500" aria-hidden="true">
+      <path d="M8 1.9l1.8 3.66 4.04.59-2.92 2.84.69 4.01L8 11.18l-3.61 1.9.69-4.01L2.16 6.15l4.04-.59L8 1.9z" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 16 16" width={size} height={size} className={className} fill="none" stroke="#838A95" strokeWidth="1.35" aria-hidden="true">
+      <path d="M8 2.3l1.72 3.5 3.86.56-2.79 2.72.66 3.84L8 11.1l-3.45 1.82.66-3.84L2.42 6.36l3.86-.56L8 2.3z" />
+    </svg>
+  )
+);
+export const SharedIco = () => <AssetIco asset={96} size={15} />;
+export const WsIco = ({ size = 15 }: { size?: number } = {}) => <AssetIco asset={14} size={size} />;
+export const PencilIco = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" strokeLinejoin="round"/></svg>;
+export const MoveIco = ({ size = 11 }: { size?: number }) => <AssetIco asset={152} size={size + 4} />;
+export const TrashIco = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 2L10 10M10 2L2 10" strokeLinecap="round"/></svg>;
+export const ChevronRight = ({ className = "" }: { className?: string }) => (
+  <AssetIco asset={345} width={5} height={9} className={`opacity-45 ${className}`} />
+);
+export const ListIco = () => <AssetIco asset={187} size={14} />;
+export const GridIco = () => <AssetIco asset={234} size={14} />;
+export const ThreeDotsIco = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
+  <AssetIco asset={152} size={size} className={className} />
+);
+export const RenameMenuIco = ({ size = 14 }: { size?: number }) => <AssetIco asset={141} size={size} />;
+export const DuplicateMenuIco = ({ size = 14 }: { size?: number }) => <AssetIco asset={320} size={size} />;
+export const MoveMenuIco = ({ size = 14 }: { size?: number }) => <AssetIco asset={434} size={size} />;
+export const GoToWorkspaceMenuIco = ({ size = 14 }: { size?: number }) => <AssetIco asset={14} size={size} />;
+export const CustomizeMenuIco = ({ size = 14 }: { size?: number }) => <AssetIco asset={150} size={size} />;
+export const DeleteMenuIco = ({ size = 14 }: { size?: number }) => <AssetIco asset={32} size={size} />;

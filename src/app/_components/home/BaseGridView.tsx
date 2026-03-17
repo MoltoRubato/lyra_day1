@@ -38,7 +38,7 @@ export function BaseGridView({ bases, onRename, onDelete, onStar, onMove }: {
               <button onClick={() => onStar(base)}
                 className={`text-[14px] flex-shrink-0 mt-0.5 transition-all ${
                   base.starred ? "text-yellow-400" : "opacity-0 group-hover:opacity-100 text-[#ddd] hover:text-yellow-400"
-                }`}><StarIco/></button>
+                }`}><StarIco size={16} active={base.starred} /></button>
             </div>
             <div className="flex items-center justify-end border-t border-[#eceff3] pt-3">
               <div className="flex items-center gap-0 opacity-0 transition-opacity group-hover:opacity-100">

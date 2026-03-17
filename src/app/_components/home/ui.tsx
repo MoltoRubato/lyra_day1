@@ -5,15 +5,30 @@ import type { BaseItem } from "~/app/_components/home/types";
 export function BaseIcon({ base, size = 28 }: { base: Pick<BaseItem, "id" | "name" | "color" | "icon">; size?: number }) {
   const color = base.color ?? fallbackColor(base.id);
   const def = base.icon && base.icon !== "default" ? BASE_ICONS.find((i) => i.id === base.icon) : null;
+  const hex = color.replace("#", "");
+  const normalized =
+    hex.length === 3
+      ? hex
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : hex;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const textColor = luminance > 0.72 ? "#1d1f25" : "#ffffff";
   const abbrev = base.name.length >= 2
     ? base.name[0]!.toUpperCase() + base.name[1]!.toLowerCase()
     : (base.name[0]?.toUpperCase() ?? "?");
   return (
-    <div className="rounded flex items-center justify-center text-white font-semibold flex-shrink-0"
-      style={{ width: size, height: size, background: color, fontSize: Math.round(size * 0.38) }}>
+    <div
+      className="flex flex-shrink-0 items-center justify-center rounded-[6px] border border-black/30 font-semibold"
+      style={{ width: size, height: size, background: color, color: textColor, fontSize: Math.round(size * 0.36), lineHeight: 1 }}
+    >
       {def?.path ? (
         <svg width={Math.round(size * 0.58)} height={Math.round(size * 0.58)}
-          viewBox="0 0 16 16" fill="none" stroke="white"
+          viewBox="0 0 16 16" fill="none" stroke="#1d1f25"
           strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
           <path d={def.path}/>
         </svg>
@@ -46,11 +61,11 @@ export function NavBtn({ icon, label, active, collapsed, onClick, children }: {
 }) {
   return (
     <button onClick={onClick}
-    className={`w-full flex items-center gap-2 px-3 py-[8px] rounded text-[16px] transition-colors ${
-        active ? "bg-[#f0f0ef] text-[#172b4d] font-medium" : "text-[#374151] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
+    className={`flex h-10 w-full items-center gap-2 rounded px-3 text-[13px] leading-[18px] transition-colors ${
+        active ? "bg-[#f2f4f8] text-[#172b4d] font-medium" : "text-[#374151] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
       } ${collapsed ? "justify-center" : ""}`}>
       <span className={`flex-shrink-0 ${active ? "text-[#172b4d]" : "text-[#6b7280]"}`}>{icon}</span>
-      {!collapsed && <span className="flex-1 text-left text-[16px]">{label}</span>}
+      {!collapsed && <span className="flex-1 text-left text-[13px] leading-[18px]">{label}</span>}
       {!collapsed && children}
     </button>
   );

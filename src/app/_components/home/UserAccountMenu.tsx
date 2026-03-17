@@ -3,6 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
 type UserAccountMenuProps = {
   showBell?: boolean;
@@ -41,25 +42,6 @@ function Row({
 
 function MenuDivider() {
   return <div className="mx-5 h-px bg-[#e8e9ed]" />;
-}
-
-function HelpIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="8" cy="8" r="6.4" />
-      <path d="M6.55 6.25a1.7 1.7 0 013.2.82c0 1.1-1.5 1.34-1.72 2.5" strokeLinecap="round" />
-      <circle cx="8" cy="11.6" r=".5" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.3">
-      <path d="M8 2.4a4.2 4.2 0 00-4.2 4.2v1.5L2.4 10h11.2L12.2 8V6.6A4.2 4.2 0 008 2.4z" />
-      <path d="M6.4 11.8a1.6 1.6 0 003.2 0" />
-    </svg>
-  );
 }
 
 function UserIcon() {
@@ -270,20 +252,20 @@ export function UserAccountMenu({ showBell = true }: UserAccountMenuProps) {
   return (
     <div className="relative flex items-center gap-2" ref={wrapRef}>
       <button
-        className="flex h-[28px] items-center gap-1.5 rounded-full px-2 text-[17px] text-[#3c4045] transition-colors hover:bg-[#f5f6f8]"
+        className="flex h-[28px] items-center gap-1.5 rounded-full px-3 text-[13px] font-normal text-[#3c4045] transition-colors hover:bg-[#f5f6f8]"
         title="Help"
         type="button"
       >
-        <HelpIcon />
-        <span className="font-medium">Help</span>
+        <AirtableAssetIcon asset={118} alt="" size={14} />
+        <span>Help</span>
       </button>
 
       {showBell ? (
         <button
-          className="flex h-[36px] w-[36px] items-center justify-center rounded-full border border-[#dbdde1] text-[#454a51] transition-colors hover:bg-[#f5f6f8]"
+          className="flex h-[28px] w-[28px] items-center justify-center rounded-full border border-[#dbdde1] text-[#454a51] transition-colors hover:bg-[#f5f6f8]"
           type="button"
         >
-          <BellIcon />
+          <AirtableAssetIcon asset={402} alt="" size={14} />
         </button>
       ) : null}
 
@@ -291,7 +273,7 @@ export function UserAccountMenu({ showBell = true }: UserAccountMenuProps) {
         type="button"
         title="Account"
         onClick={() => setOpen((p) => !p)}
-        className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-[#1f73d8] text-[20px] font-medium text-white"
+        className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#ef0a50] text-[13px] font-medium text-white"
       >
         {avatarLetter}
       </button>
