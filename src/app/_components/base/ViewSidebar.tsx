@@ -2,30 +2,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewType } from "@prisma/client";
 import type { ViewConfig } from "~/app/_components/ViewToolbar";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { StarIco } from "~/app/_components/home/icons";
 import { AddViewModal, CreateViewMenu, ViewOptionsMenu } from "~/app/_components/base/ViewSidebarPanels";
 
 const VIEW_META: Record<ViewType, { icon: React.ReactNode; color: string }> = {
   GRID: {
     color: "#166a5b",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <rect x="1" y="1" width="5" height="5" rx="0.5" />
-        <rect x="8" y="1" width="5" height="5" rx="0.5" />
-        <rect x="1" y="8" width="5" height="5" rx="0.5" />
-        <rect x="8" y="8" width="5" height="5" rx="0.5" />
-      </svg>
-    ),
+    icon: <AirtableAssetIcon asset={236} alt="" size={16} />,
   },
   KANBAN: {
     color: "#9b59b6",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <rect x="1" y="1" width="3.5" height="12" rx="0.5" />
-        <rect x="5.25" y="1" width="3.5" height="8" rx="0.5" />
-        <rect x="9.5" y="1" width="3.5" height="10" rx="0.5" />
-      </svg>
-    ),
+    icon: <AirtableAssetIcon asset={207} alt="" size={16} />,
   },
 };
 const HollowStar = ({ size = 14 }: { size?: number }) => (

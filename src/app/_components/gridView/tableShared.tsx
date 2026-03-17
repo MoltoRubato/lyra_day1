@@ -1,4 +1,5 @@
 import type { SummaryOption } from "./tableTypes";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
 export const GROUP_DEPTH_COLORS = [
   { bg: "#f0f4f8", text: "#374151", border: "#e2e8f0", dot: "#6b7280" },
@@ -27,6 +28,22 @@ export function FieldTypeIcon({
   type: string;
   className?: string;
 }) {
+  const assetByType: Record<string, number> = {
+    TEXT: 53,
+    DATE: 375,
+    PHONE: 137,
+    EMAIL: 289,
+    URL: 190,
+    NUMBER: 228,
+    CURRENCY: 313,
+    PERCENT: 140,
+    DURATION: 335,
+  };
+
+  if (assetByType[type]) {
+    return <AirtableAssetIcon asset={assetByType[type]} alt="" size={14} className={className} />;
+  }
+
   const common = { width: 14, height: 14, viewBox: "0 0 14 14", fill: "none" } as const;
   if (type === "CHECKBOX") {
     return (

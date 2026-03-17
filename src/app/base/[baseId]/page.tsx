@@ -16,6 +16,7 @@ import { LeftSidebar } from "~/app/_components/base/LeftSidebar";
 import { SyncIndicator } from "~/app/_components/base/SyncIndicator";
 import { TableTabsBar } from "~/app/_components/base/TableTabsBar";
 import { ViewSidebar } from "~/app/_components/base/ViewSidebar";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
@@ -337,40 +338,31 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             ))}
           </div>
 
-          {/* Right: actions */}
           <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
             <SyncIndicator/>
-            {/* History / revision */}
-            <button className="p-1.5 rounded text-[#555] hover:bg-[#f0f0ef] hover:text-[#172b4d] transition-colors" title="Revision history">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2" strokeLinecap="round"/>
-              </svg>
+            <button
+              className="h-7 w-7 inline-flex items-center justify-center rounded-full text-[#4d5158] hover:bg-[#f0f0ef] transition-colors"
+              title="Revision history"
+            >
+              <AirtableAssetIcon asset={334} alt="Base history" size={16} />
             </button>
-            {/* Upgrade */}
-            <button className="flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium text-[#172b4d] border border-[#d8d8d8] rounded hover:bg-[#f5f5f4] transition-colors">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11l-3-1.5L3 11l.5-3.5L1 5l3.5-.5L6 1z"/>
-              </svg>
+            <button className="h-8 inline-flex items-center justify-center gap-1.5 px-3 text-[13px] text-[#1d1f25] border border-[#d8dbe1] rounded-full hover:bg-[#f5f5f4] transition-colors">
+              <AirtableAssetIcon asset={452} alt="" size={16} />
               Upgrade
             </button>
-            {/* Launch */}
-            <button className="flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium text-[#172b4d] border border-[#d8d8d8] rounded hover:bg-[#f5f5f4] transition-colors">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M10 2L6 6M10 2H7M10 2v3" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M5 3H3a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V7"/>
-              </svg>
+            <button className="h-7 inline-flex items-center justify-center gap-1.5 px-2 text-[13px] text-[#1d1f25] border border-[#d8dbe1] rounded-[8px] hover:bg-[#f5f5f4] transition-colors">
+              <span className="relative inline-flex h-4 w-4 items-center justify-center">
+                <AirtableAssetIcon asset={87} alt="" size={16} />
+                <span className="absolute -bottom-[1px] -right-[1px] border-l-[4px] border-l-transparent border-t-[4px] border-t-[#1d1f25]" />
+              </span>
               Launch
             </button>
-            {/* Link icon */}
-            <button className="p-1.5 rounded text-[#555] hover:bg-[#f0f0ef] hover:text-[#172b4d] transition-colors">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <path d="M7 9a3 3 0 004.5.5l2-2a3 3 0 00-4.25-4.25L8 4.5M9 7a3 3 0 00-4.5-.5l-2 2A3 3 0 006.75 12.75L8 11.5" strokeLinecap="round"/>
-              </svg>
+            <button className="h-7 w-7 inline-flex items-center justify-center rounded-[8px] border border-[#d8dbe1] hover:bg-[#f5f5f4] transition-colors">
+              <AirtableAssetIcon asset={190} alt="Copy link" size={16} />
             </button>
-            {/* Share */}
             <button
-              className="px-3 py-1 text-white text-[13px] font-medium rounded transition-colors hover:brightness-95"
-              style={{ background: baseColor }}
+              className="h-7 px-3 text-[#1d1f25] text-[13px] font-medium rounded-[8px] transition-colors hover:brightness-95"
+              style={{ background: "#ffba05" }}
             >
               Share
             </button>
