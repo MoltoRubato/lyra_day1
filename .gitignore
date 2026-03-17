@@ -46,4 +46,4 @@ yarn-error.log*
 .idea
 
 public/uploads/
-*.png
+.local/

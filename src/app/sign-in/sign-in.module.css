@@ -1,0 +1,248 @@
+.authSignInPage {
+  min-height: 100vh;
+  background: #fff;
+  font-family:
+    HaasText,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+.pageShell {
+  margin: 0 auto;
+  display: flex;
+  min-height: 100vh;
+  max-width: 1700px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 56px;
+  padding: 14px 44px 28px;
+}
+
+.leftSection {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+}
+
+.rightSection {
+  margin-top: 48px;
+  display: none;
+  width: 632px;
+  flex: 0 0 632px;
+}
+
+.heroFocusWrap {
+  outline: none;
+}
+
+.inlineMessage {
+  margin-top: 20px;
+  border-radius: 8px;
+  border: 1px solid #f0dca2;
+  background: #fff9e7;
+  color: #7f5c00;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.authSignInPage :global(.css-1pxgmwj) {
+  width: min(100%, 632.33px);
+}
+
+.authSignInPage :global(.css-j12dl9) {
+  width: min(100%, 500px);
+}
+
+.authSignInPage :global(.css-1p4pfxa) {
+  width: 42px;
+  height: 35.7px;
+}
+
+.authSignInPage :global(.css-2k51sp) {
+  margin: 48px 0 0;
+  color: #1d1f25;
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 400;
+}
+
+.authSignInPage :global(.authWrapper) {
+  margin-top: 0;
+}
+
+.authSignInPage :global(#signInEmailForm) {
+  margin-top: 48px;
+}
+
+.authSignInPage :global(#sign-in-form-fields-root) {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+}
+
+.authSignInPage :global(.mb2-and-half) {
+  margin-bottom: 24px;
+}
+
+.authSignInPage :global(.p-quarter) {
+  padding: 2px;
+}
+
+.authSignInPage :global(.heading-size-xsmall) {
+  color: #1d1f25;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.authSignInPage :global(.mt1) {
+  margin-top: 8px;
+}
+
+.authSignInPage :global(.css-1bdipsb) {
+  height: 40px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #d6d8db;
+  background: #fff;
+  padding: 0 14px;
+  color: #1d1f25;
+  font-size: 16px;
+  line-height: 22px;
+  outline: none;
+}
+
+.authSignInPage :global(.css-1bdipsb::placeholder) {
+  color: #8d8f97;
+}
+
+.authSignInPage :global(.css-1bdipsb:focus) {
+  border-color: #2e7dd7;
+  box-shadow: 0 0 0 2px rgba(46, 125, 215, 0.15);
+}
+
+.authSignInPage :global(.css-1qd8c56) {
+  height: 40px;
+  width: 100%;
+  border-radius: 8px;
+  background: #89ace0;
+  color: #fff;
+  font-size: 17px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.authSignInPage :global(.css-1qd8c56[aria-disabled="false"]) {
+  background: #1f7ad6;
+}
+
+.authSignInPage :global(.css-1qd8c56[aria-disabled="false"]:hover) {
+  background: #1b6ec1;
+}
+
+.authSignInPage :global(.my2-and-half) {
+  margin: 40px 0;
+}
+
+.authSignInPage :global(.huge) {
+  color: #616670;
+  font-size: 16px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.authSignInPage :global(.css-1v3caum) {
+  margin-top: 12px;
+}
+
+.authSignInPage :global(.button-size-default) {
+  height: 40px;
+}
+
+.authSignInPage :global(.width-full) {
+  width: 100%;
+}
+
+.authSignInPage
+  :global(
+    .pointer.items-center.justify-center.border-box.text-decoration-none.print-color-exact.focus-visible.rounded-big.ignore-baymax-defaults.border-none.colors-foreground-default.colors-background-raised-control.shadow-elevation-low.shadow-elevation-low-hover.px1-and-half.button-size-default.flex-inline.width-full
+  ) {
+  border: 1px solid #d6d8db;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.authSignInPage
+  :global(
+    .font-family-default.text-size-large.text-color-default.line-height-4.font-weight-default
+  ),
+.authSignInPage
+  :global(
+    .font-family-default.text-size-large.text-color-default.line-height-4.font-weight-default.ml1
+  ) {
+  color: #20242d;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 400;
+}
+
+.authSignInPage :global(.css-35ezg3) {
+  font-weight: 600;
+}
+
+.authSignInPage :global(.css-wenr2e) {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+.authSignInPage :global(.gap1-and-quarter) {
+  gap: 12px;
+}
+
+.authSignInPage :global(.css-1ibshur) {
+  margin: 72px 0 0;
+  color: #616670;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.authSignInPage :global(.css-1mxpef6),
+.authSignInPage :global(.css-1xm46ll) {
+  color: #2e7dd7;
+  text-decoration: none;
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.authSignInPage :global(.css-1v9h1jy) {
+  display: flex;
+  justify-content: center;
+}
+
+@media (min-width: 1200px) {
+  .rightSection {
+    display: flex;
+  }
+}
+
+@media (max-width: 1199px) {
+  .pageShell {
+    max-width: 760px;
+    justify-content: center;
+    padding: 14px 24px 24px;
+  }
+
+  .leftSection {
+    width: 100%;
+  }
+}
