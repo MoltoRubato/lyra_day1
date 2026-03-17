@@ -48,18 +48,18 @@ const promoCards: PromoCard[] = [
 
 export function PromoCards() {
   return (
-    <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {promoCards.map((card) => (
         <button
           key={card.title}
           type="button"
-          className="min-h-[108px] rounded-[10px] border border-[#e0e0e0] bg-white px-5 py-4 text-left transition-colors hover:bg-[#fbfbfb]"
+          className="min-h-[144px] rounded-[10px] border border-[#d8dadd] bg-white px-6 py-5 text-left transition-colors hover:bg-[#fbfbfb]"
         >
           <div className="flex items-center gap-3 text-[#172b4d]">
-            <span className="flex h-5 w-5 items-center justify-center">{card.icon}</span>
-            <span className="text-[16px] font-semibold leading-none">{card.title}</span>
+            <span className="flex h-6 w-6 items-center justify-center">{card.icon}</span>
+            <span className="text-[17px] font-semibold leading-none">{card.title}</span>
           </div>
-          <p className="mt-3 text-[13px] leading-[1.4] text-[#5f6b7c]">{card.description}</p>
+          <p className="mt-3 text-[15px] leading-[1.45] text-[#5f6b7c]">{card.description}</p>
         </button>
       ))}
     </div>

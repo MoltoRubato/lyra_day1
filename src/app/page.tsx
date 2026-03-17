@@ -4,6 +4,7 @@ import { BaseGridView } from "~/app/_components/home/BaseGridView";
 import { BaseListView } from "~/app/_components/home/BaseListView";
 import { PromoCards } from "~/app/_components/home/PromoCards";
 import { SearchModal } from "~/app/_components/home/SearchModal";
+import { UserAccountMenu } from "~/app/_components/home/UserAccountMenu";
 import { WorkspacesOverview } from "~/app/_components/home/WorkspacesOverview";
 import { ChevronRight, GridIco, HomeIco, ListIco, PencilIco, SharedIco, StarIco, WsIco } from "~/app/_components/home/icons";
 import type { BaseItem, WsFull } from "~/app/_components/home/types";
@@ -48,16 +49,18 @@ export default function HomePage() {
   } = useHomePageController();
 
   return (
-    <div className="min-h-screen flex bg-[#f9fafb]"
-      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", fontSize: "13px" }}>
+    <div
+      className="flex min-h-screen bg-[#f6f7f9]"
+      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" }}
+    >
 
-      <header className="fixed top-0 left-0 right-0 h-[56px] bg-white border-b border-[#e0e0e0] flex items-center z-30">
-        <div className="h-full flex items-center flex-shrink-0 w-[300px] px-3 gap-2">
+      <header className="fixed left-0 right-0 top-0 z-30 flex h-[68px] items-center border-b border-[#d8dbe1] bg-white">
+        <div className="flex h-full w-[436px] flex-shrink-0 items-center gap-2 px-3">
           <button
             onClick={() => setSidebar((prev) => !prev)}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#f0f0ef] text-[#555] transition-colors flex-shrink-0"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-[#555] transition-colors hover:bg-[#f0f0ef]"
           >
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <svg width="16" height="16" viewBox="0 0 15 15" fill="none">
               <path d="M2 3.5h11M2 7.5h11M2 11.5h11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
             </svg>
           </button>
@@ -71,37 +74,22 @@ export default function HomePage() {
             />
           </button>
         </div>
-        <div className="h-full flex-1 flex items-center px-6 gap-3">
+        <div className="flex h-full flex-1 items-center gap-3 px-6">
           <div className="flex-1 flex justify-center">
             <button onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 bg-white border border-[#d8d8d8] rounded-full px-3.5 w-full max-w-[420px] shadow-sm hover:border-[#bbb] transition-colors"
-              style={{ height: 32 }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#999] flex-shrink-0" stroke="currentColor" strokeWidth="1.5">
+              className="flex h-[40px] w-full max-w-[460px] items-center gap-2 rounded-full border border-[#d8d8d8] bg-white px-4 shadow-sm transition-colors hover:border-[#bbb]">
+              <svg width="14" height="14" viewBox="0 0 12 12" fill="none" className="flex-shrink-0 text-[#999]" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/>
               </svg>
-              <span className="flex-1 text-left text-[13px] text-[#aaa]">Search...</span>
-              <span className="text-[11px] text-[#bbb] border border-[#e0e0e0] rounded px-1.5 py-0.5 leading-none flex-shrink-0">ctrl K</span>
+              <span className="flex-1 text-left text-[14px] text-[#8f96a3]">Search...</span>
+              <span className="flex-shrink-0 rounded border border-[#e0e0e0] px-1.5 py-0.5 text-[12px] leading-none text-[#a0a7b2]">ctrl K</span>
             </button>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              className="w-[28px] h-[28px] rounded-full border border-[#d8d8d8] flex items-center justify-center text-[#555] hover:bg-[#f5f5f4] hover:border-[#bbb] transition-colors"
-              title="Help">
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M5.2 5.2a2 2 0 113.2 1.6C8 7.2 7 7.8 7 9M7 11v.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            <button className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#555] hover:bg-[#f5f5f4] transition-colors">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
-                <path d="M8 2a5 5 0 0 1 4.33 7.5L14 12H2l1.67-2.5A5 5 0 0 1 8 2z M6 12a2 2 0 0 0 4 0"/>
-              </svg>
-            </button>
-            <div className="w-[28px] h-[28px] rounded-full bg-[#c0392b] flex items-center justify-center text-white text-[12px] font-bold cursor-pointer select-none">R</div>
-          </div>
+          <UserAccountMenu />
         </div>
       </header>
 
-      <aside className={`fixed top-[56px] left-0 bottom-0 bg-white border-r border-[#e0e0e0] flex flex-col transition-all duration-200 z-20 overflow-hidden ${sidebarOpen ? "w-[300px]" : "w-[56px]"}`}>
+      <aside className={`fixed top-[68px] left-0 bottom-0 bg-white border-r border-[#e0e0e0] flex flex-col transition-all duration-200 z-20 overflow-hidden ${sidebarOpen ? "w-[436px]" : "w-[56px]"}`}>
         <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
           <NavBtn icon={<HomeIco/>} label="Home"
             active={page === "home"} collapsed={!sidebarOpen} onClick={() => setPage("home")}/>
@@ -184,9 +172,9 @@ export default function HomePage() {
         </div>
       </aside>
 
-      <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[56px] ${sidebarOpen ? "ml-[300px]" : "ml-[56px]"}`}>
-        <div className="flex-1 px-12 py-8 max-w-[1100px] w-full">
-          <h1 className="text-[27px] font-bold text-[#172b4d] mb-4">{pageTitle}</h1>
+      <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[68px] ${sidebarOpen ? "ml-[436px]" : "ml-[56px]"}`}>
+        <div className="w-full max-w-[1320px] flex-1 px-12 py-8">
+          <h1 className="mb-6 text-[50px] font-semibold leading-[1.02] text-[#172b4d]">{pageTitle}</h1>
 
           {page === "home" && <PromoCards />}
 
@@ -216,19 +204,27 @@ export default function HomePage() {
 
           {page !== "workspaces" && (
             <>
-              <div className="flex items-center justify-between mb-1">
-                <button className="flex items-center gap-1 text-[15px] text-[#374151] hover:text-[#172b4d] transition-colors py-0.5">
+              <div className="mb-2 flex items-center justify-between">
+                <button className="flex items-center gap-1 py-0.5 text-[16px] text-[#4b535f] transition-colors hover:text-[#172b4d]">
                   Opened anytime
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="mt-px">
                     <path d="M2.5 4l2.5 2.5L7.5 4"/>
                   </svg>
                 </button>
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   <button onClick={() => setDispMode("list")}
-                    className={`p-1.5 rounded transition-colors ${dispMode === "list" ? "text-[#172b4d] bg-[#e8e8e8]" : "text-[#999] hover:text-[#555]"}`}
+                    className={`rounded-full p-2 transition-colors ${
+                      dispMode === "list"
+                        ? "bg-[#e8e9ec] text-[#172b4d]"
+                        : "text-[#999] hover:bg-[#eceef2] hover:text-[#555]"
+                    }`}
                     title="List view"><ListIco/></button>
                   <button onClick={() => setDispMode("grid")}
-                    className={`p-1.5 rounded transition-colors ${dispMode === "grid" ? "text-[#172b4d] bg-[#e8e8e8]" : "text-[#999] hover:text-[#555]"}`}
+                    className={`rounded-full p-2 transition-colors ${
+                      dispMode === "grid"
+                        ? "border-2 border-[#1f73d8] text-[#172b4d]"
+                        : "text-[#999] hover:bg-[#eceef2] hover:text-[#555]"
+                    }`}
                     title="Grid view"><GridIco/></button>
                 </div>
               </div>

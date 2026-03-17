@@ -24,6 +24,18 @@ export default function PasswordSignInPage() {
     setReady(true);
   }, []);
 
+  function normalizeRedirectUrl(url: string | null | undefined, fallback: string) {
+    if (!url) return fallback;
+
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (parsed.origin !== window.location.origin) return fallback;
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -43,7 +55,7 @@ export default function PasswordSignInPage() {
       return;
     }
 
-    router.push(result.url ?? callbackUrl);
+    router.push(normalizeRedirectUrl(result.url, callbackUrl));
   }
 
   if (!ready) return null;

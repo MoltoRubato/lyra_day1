@@ -25,6 +25,18 @@ export default function ProfileSetupPage() {
     setReady(true);
   }, []);
 
+  function normalizeRedirectUrl(url: string | null | undefined, fallback: string) {
+    if (!url) return fallback;
+
+    try {
+      const parsed = new URL(url, window.location.origin);
+      if (parsed.origin !== window.location.origin) return fallback;
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   async function handleSignUp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -59,7 +71,7 @@ export default function ProfileSetupPage() {
         return;
       }
 
-      router.push(signInResult.url ?? callbackUrl);
+      router.push(normalizeRedirectUrl(signInResult.url, callbackUrl));
     } catch {
       setError("Something went wrong. Please try again.");
       setBusy(false);
