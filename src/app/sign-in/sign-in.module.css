@@ -1,6 +1,6 @@
 .authSignInPage {
   min-height: 100vh;
-  background: #fff;
+  background: #ffffff;
   font-family:
     HaasText,
     -apple-system,
@@ -15,24 +15,26 @@
   margin: 0 auto;
   display: flex;
   min-height: 100vh;
-  max-width: 1700px;
+  max-width: 1536px;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 56px;
-  padding: 14px 44px 28px;
+  gap: 0;
+  padding: 0;
 }
 
 .leftSection {
   display: flex;
-  flex: 1;
+  flex: 0 0 760px;
   justify-content: center;
 }
 
 .rightSection {
   margin-top: 48px;
   display: none;
-  width: 632px;
-  flex: 0 0 632px;
+  min-height: calc(100vh - 48px);
+  width: 768px;
+  flex: 0 0 768px;
+  justify-content: center;
 }
 
 .heroFocusWrap {
@@ -51,24 +53,68 @@
 }
 
 .authSignInPage :global(.css-1pxgmwj) {
-  width: min(100%, 632.33px);
+  width: 760px;
+  min-height: 945px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .authSignInPage :global(.css-j12dl9) {
-  width: min(100%, 500px);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+  margin-left: 0;
+}
+
+@media (min-width: 52em) {
+  .authSignInPage :global(.css-j12dl9) {
+    max-width: 500px;
+  }
+}
+
+@media (min-width: 72em) {
+  .authSignInPage :global(.css-j12dl9) {
+    max-width: 500px;
+  }
 }
 
 .authSignInPage :global(.css-1p4pfxa) {
-  width: 42px;
-  height: 35.7px;
+  width: 41.5px;
+  height: 35.5px;
 }
 
 .authSignInPage :global(.css-2k51sp) {
-  margin: 48px 0 0;
+  margin-top: 48px;
+  margin-bottom: 48px;
   color: #1d1f25;
-  font-size: 32px;
-  line-height: 40px;
-  font-weight: 400;
+  text-align: start;
+  font-family:
+    "HaasText",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
+  font-size: 24px !important;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 125%;
+}
+
+@media (min-width: 72em) {
+  .authSignInPage :global(.css-2k51sp) {
+    font-size: 32px !important;
+  }
 }
 
 .authSignInPage :global(.authWrapper) {
@@ -76,7 +122,7 @@
 }
 
 .authSignInPage :global(#signInEmailForm) {
-  margin-top: 48px;
+  margin-top: 0;
 }
 
 .authSignInPage :global(#sign-in-form-fields-root) {
@@ -98,6 +144,19 @@
   font-size: 13px;
   line-height: 20px;
   font-weight: 400;
+  font-family:
+    "HaasText",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
 }
 
 .authSignInPage :global(.mt1) {
@@ -110,7 +169,7 @@
   border-radius: 8px;
   border: 1px solid #d6d8db;
   background: #fff;
-  padding: 0 14px;
+  padding: 4px 8px;
   color: #1d1f25;
   font-size: 16px;
   line-height: 22px;
@@ -132,9 +191,21 @@
   border-radius: 8px;
   background: #89ace0;
   color: #fff;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 20px;
-  font-weight: 600;
+  font-weight: 500;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
 }
 
 .authSignInPage :global(.css-1qd8c56[aria-disabled="false"]) {
@@ -146,7 +217,7 @@
 }
 
 .authSignInPage :global(.my2-and-half) {
-  margin: 40px 0;
+  margin: 24px 0;
 }
 
 .authSignInPage :global(.huge) {
@@ -157,7 +228,7 @@
 }
 
 .authSignInPage :global(.css-1v3caum) {
-  margin-top: 12px;
+  padding-top: 16px;
 }
 
 .authSignInPage :global(.button-size-default) {
@@ -173,7 +244,7 @@
     .pointer.items-center.justify-center.border-box.text-decoration-none.print-color-exact.focus-visible.rounded-big.ignore-baymax-defaults.border-none.colors-foreground-default.colors-background-raised-control.shadow-elevation-low.shadow-elevation-low-hover.px1-and-half.button-size-default.flex-inline.width-full
   ) {
   border: 1px solid #d6d8db;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
 }
 
@@ -188,7 +259,19 @@
   color: #20242d;
   font-size: 16px;
   line-height: 22px;
-  font-weight: 400;
+  font-weight: 500;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
 }
 
 .authSignInPage :global(.css-35ezg3) {
@@ -205,6 +288,8 @@
 
 .authSignInPage :global(.gap1-and-quarter) {
   gap: 12px;
+  width: 100%;
+  justify-content: center;
 }
 
 .authSignInPage :global(.css-1ibshur) {
@@ -227,6 +312,7 @@
 .authSignInPage :global(.css-1v9h1jy) {
   display: flex;
   justify-content: center;
+  margin-top: -36px;
 }
 
 @media (min-width: 1200px) {
