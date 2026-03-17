@@ -34,22 +34,22 @@ export function CreateViewMenu({
       >
         <div className="py-2">
           {[
-            { id: "GRID", label: "Grid", asset: 236 },
-            { id: "CAL", label: "Calendar", asset: 375 },
-            { id: "GAL", label: "Gallery", asset: 233 },
-            { id: "KANBAN", label: "Kanban", asset: 207 },
-            { id: "TIMELINE", label: "Timeline", asset: 39, team: true },
-            { id: "LIST", label: "List", asset: 184 },
-            { id: "GANTT", label: "Gantt", asset: 252, team: true, dividerAfter: true },
-            { id: "FORM", label: "Form", asset: 259, dividerAfter: true },
-            { id: "SECTION", label: "Section", asset: 63, team: true },
+            { id: "GRID", label: "Grid", asset: 236, color: "#2d7ff9" },
+            { id: "CAL", label: "Calendar", asset: 375, color: "#f97316" },
+            { id: "GAL", label: "Gallery", asset: 233, color: "#8b5cf6" },
+            { id: "KANBAN", label: "Kanban", asset: 207, color: "#22c55e" },
+            { id: "TIMELINE", label: "Timeline", asset: 39, color: "#ef4444", team: true },
+            { id: "LIST", label: "List", asset: 184, color: "#3b82f6" },
+            { id: "GANTT", label: "Gantt", asset: 252, color: "#14b8a6", team: true, dividerAfter: true },
+            { id: "FORM", label: "Form", asset: 259, color: "#ec4899", dividerAfter: true },
+            { id: "SECTION", label: "Section", asset: 63, color: "#111827", team: true },
           ].map((item) => (
             <div key={item.id}>
               <button
                 onClick={() => onSelectType(item.id as ViewType)}
                 className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[#f8f8f8] text-left"
               >
-                <AirtableAssetIcon asset={item.asset} alt="" size={16} />
+                <AirtableAssetIcon asset={item.asset} alt="" size={16} tintColor={item.color} />
                 <span>{item.label}</span>
                 {item.team && (
                   <span className="ml-auto text-[10px] text-[#1d4ed8] bg-[#e0f2fe] px-2 py-0.5 rounded-full">Team</span>

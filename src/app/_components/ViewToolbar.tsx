@@ -129,14 +129,6 @@ export default function ViewToolbar({
         <AirtableAssetIcon asset={423} alt="" size={16} />
       ),
     },
-    {
-      id: "height",
-      label: "Row height",
-      active: open === "height",
-      icon: (
-        <AirtableAssetIcon asset={105} alt="" size={16} />
-      ),
-    },
   ];
 
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
@@ -261,6 +253,27 @@ export default function ViewToolbar({
         <AirtableAssetIcon asset={149} alt="" size={16} />
         Color
       </button>
+      <div className="relative">
+        <button
+          onClick={() => toggle("height")}
+          className={`h-7 w-7 inline-flex items-center justify-center rounded transition-colors ${
+            open === "height"
+              ? "bg-[#ebf5ff] text-[#0069ff]"
+              : "text-[#666] hover:text-[#172b4d] hover:bg-[#f5f5f4]"
+          }`}
+          title="Row height"
+        >
+          <AirtableAssetIcon asset={105} alt="" size={16} />
+        </button>
+        {open === "height" && (
+          <PanelWrapper onClose={() => setOpen(null)}>
+            <RowHeightPanel
+              rowHeight={config.rowHeight}
+              onChange={(h) => onConfigChange({ rowHeight: h })}
+            />
+          </PanelWrapper>
+        )}
+      </div>
       <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#666] hover:text-[#172b4d] hover:bg-[#f5f5f4] transition-colors">
         <AirtableAssetIcon asset={430} alt="" size={16} />
         Share and sync

@@ -8,12 +8,12 @@ import { AddViewModal, CreateViewMenu, ViewOptionsMenu } from "~/app/_components
 
 const VIEW_META: Record<ViewType, { icon: React.ReactNode; color: string }> = {
   GRID: {
-    color: "#166a5b",
-    icon: <AirtableAssetIcon asset={236} alt="" size={16} />,
+    color: "#2d7ff9",
+    icon: <AirtableAssetIcon asset={236} alt="" size={16} tintColor="#2d7ff9" />,
   },
   KANBAN: {
-    color: "#9b59b6",
-    icon: <AirtableAssetIcon asset={207} alt="" size={16} />,
+    color: "#22c55e",
+    icon: <AirtableAssetIcon asset={207} alt="" size={16} tintColor="#22c55e" />,
   },
 };
 const HollowStar = ({ size = 14 }: { size?: number }) => (

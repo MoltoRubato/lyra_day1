@@ -320,7 +320,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
           {/* Left: base name button */}
           <button onClick={() => setPanelOpen((p) => !p)}
             className="flex items-center gap-1.5 group rounded hover:bg-[#f0f0ef] px-2 py-1 transition-colors mr-2 flex-shrink-0">
-            <BaseIconSVG iconId={baseIcon} color={baseColor} size={22}/>
+            <BaseIconSVG iconId={baseIcon} color={baseColor} size={32}/>
             <span className="text-[13px] font-semibold text-[#172b4d] max-w-[160px] truncate">{base.name}</span>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-[#999] group-hover:text-[#555] transition-colors flex-shrink-0">
               <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -346,7 +346,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             >
               <AirtableAssetIcon asset={334} alt="Base history" size={16} />
             </button>
-            <button className="h-8 inline-flex items-center justify-center gap-1.5 px-3 text-[13px] text-[#1d1f25] border border-[#d8dbe1] rounded-full hover:bg-[#f5f5f4] transition-colors">
+            <button className="h-8 inline-flex items-center justify-center gap-1.5 px-3 text-[13px] text-[#1d1f25] bg-[#efefef] rounded-full hover:bg-[#e7e7e7] transition-colors">
               <AirtableAssetIcon asset={452} alt="" size={16} />
               Upgrade
             </button>

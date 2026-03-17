@@ -1,15 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
 function tabBarBg(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-  const m = (c: number) => Math.round(c + (255 - c) * 0.88);
-  return `rgb(${m(r)},${m(g)},${m(b)})`;
+  void hex;
+  return "#f3ecd7";
 }
 function tabBarBorder(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-  const m = (c: number) => Math.round(c + (255 - c) * 0.72);
-  return `rgb(${m(r)},${m(g)},${m(b)})`;
+  void hex;
+  return "#e2d8be";
 }
 
 type TableTabsBarProps = {
@@ -24,6 +23,14 @@ type TableTabsBarProps = {
 };
 
 type AnchorRect = { left: number; top: number; width: number; height: number };
+
+function DownArrowIcon() {
+  return (
+    <span className="inline-flex h-4 w-4 items-center justify-center">
+      <AirtableAssetIcon asset={349} alt="" style={{ width: 9, height: 5 }} />
+    </span>
+  );
+}
 
 export function TableTabsBar({
   baseColor,
@@ -105,7 +112,9 @@ export function TableTabsBar({
           <div
             key={table.id}
             className={`group/tab relative flex items-center flex-shrink-0 h-8 transition-all ${
-              isActive ? "bg-white rounded-t border-l border-t border-r border-[#d8d8d8] -mb-px z-10" : ""
+              isActive
+                ? "bg-white rounded-t border-l border-t border-r border-[#d8d8d8] -mb-px z-10"
+                : "border-r border-[#d8cfb7]"
             }`}
           >
             {isRenaming ? (
@@ -139,12 +148,10 @@ export function TableTabsBar({
                       setTableMenuAnchor({ left: rect.left - 120, top: rect.top, width: rect.width, height: rect.height });
                       setTableMenuOpen((p) => !p);
                     }}
-                    className="mr-2 text-[#888] hover:text-[#555]"
+                    className="mr-2 inline-flex h-4 w-4 items-center justify-center text-[#6b6b6b] hover:text-[#444]"
                     title="Table options"
                   >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M2.5 3.5L5 6.5L7.5 3.5" />
-                    </svg>
+                    <DownArrowIcon />
                   </button>
                 )}
               </div>
@@ -264,12 +271,10 @@ export function TableTabsBar({
             setTableSearchAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
             setTableSearchOpen((p) => !p);
           }}
-          className="p-1.5 rounded hover:bg-black/10 text-[#444] transition-colors"
+          className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-black/10 text-[#444] transition-colors"
           title="Switch table"
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M2.5 3.5L5 6.5L7.5 3.5" />
-          </svg>
+          <DownArrowIcon />
         </button>
 
         {tableSearchOpen && (
@@ -397,9 +402,7 @@ export function TableTabsBar({
       <div className="ml-auto flex-shrink-0">
         <button className="flex items-center gap-1 px-2 py-1 text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded text-[12px] transition-colors">
           Tools
-          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M3 2l4 3-4 3" />
-          </svg>
+          <DownArrowIcon />
         </button>
       </div>
 
