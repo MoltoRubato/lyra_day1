@@ -2,6 +2,7 @@
 
 import { BaseGridView } from "~/app/_components/home/BaseGridView";
 import { BaseListView } from "~/app/_components/home/BaseListView";
+import { PromoCards } from "~/app/_components/home/PromoCards";
 import { SearchModal } from "~/app/_components/home/SearchModal";
 import { WorkspacesOverview } from "~/app/_components/home/WorkspacesOverview";
 import { ChevronRight, GridIco, HomeIco, ListIco, PencilIco, SharedIco, StarIco, WsIco } from "~/app/_components/home/icons";
@@ -186,6 +187,8 @@ export default function HomePage() {
       <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[56px] ${sidebarOpen ? "ml-[300px]" : "ml-[56px]"}`}>
         <div className="flex-1 px-12 py-8 max-w-[1100px] w-full">
           <h1 className="text-[27px] font-bold text-[#172b4d] mb-4">{pageTitle}</h1>
+
+          {page === "home" && <PromoCards />}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-[13px] text-red-600">
