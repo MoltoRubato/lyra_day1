@@ -2,30 +2,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewType } from "@prisma/client";
 import type { ViewConfig } from "~/app/_components/ViewToolbar";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { StarIco } from "~/app/_components/home/icons";
 import { AddViewModal, CreateViewMenu, ViewOptionsMenu } from "~/app/_components/base/ViewSidebarPanels";
 
 const VIEW_META: Record<ViewType, { icon: React.ReactNode; color: string }> = {
   GRID: {
-    color: "#166a5b",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <rect x="1" y="1" width="5" height="5" rx="0.5" />
-        <rect x="8" y="1" width="5" height="5" rx="0.5" />
-        <rect x="1" y="8" width="5" height="5" rx="0.5" />
-        <rect x="8" y="8" width="5" height="5" rx="0.5" />
-      </svg>
-    ),
+    color: "#2d7ff9",
+    icon: <AirtableAssetIcon asset={236} alt="" size={16} tintColor="#2d7ff9" />,
   },
   KANBAN: {
-    color: "#9b59b6",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-        <rect x="1" y="1" width="3.5" height="12" rx="0.5" />
-        <rect x="5.25" y="1" width="3.5" height="8" rx="0.5" />
-        <rect x="9.5" y="1" width="3.5" height="10" rx="0.5" />
-      </svg>
-    ),
+    color: "#22c55e",
+    icon: <AirtableAssetIcon asset={207} alt="" size={16} tintColor="#22c55e" />,
   },
 };
 const HollowStar = ({ size = 14 }: { size?: number }) => (
@@ -126,10 +114,16 @@ export function ViewSidebar({
     .map((t) => ({ id: `other-${t.id}`, name: `Grid view in ${t.name}` }))
     .filter((v) => !q || v.name.toLowerCase().includes(q));
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const createMenuLeft = createMenuAnchor ? Math.min(createMenuAnchor.left + 200, viewportW - 260) : 260;
+  const minMenuLeft = 68;
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+  const createMenuLeft = createMenuAnchor
+    ? clamp(createMenuAnchor.left + 200, minMenuLeft, viewportW - 260)
+    : 260;
   const createMenuTop = createMenuAnchor ? createMenuAnchor.top + createMenuAnchor.height + 6 : 120;
   const menuWidth = 240;
-  const viewMenuLeft = viewMenuOpen ? Math.min(viewMenuOpen.left, viewportW - menuWidth - 12) : 12;
+  const viewMenuLeft = viewMenuOpen
+    ? clamp(viewMenuOpen.left, minMenuLeft, viewportW - menuWidth - 12)
+    : minMenuLeft;
 
   useEffect(() => {
     if (!resizing) return;
@@ -251,9 +245,8 @@ export function ViewSidebar({
             <div
               key={view.id}
               className={`group/view flex items-center gap-2 mx-1 px-2 py-1.5 rounded cursor-pointer transition-colors ${
-                isActive ? "bg-[#eaf3f1] border-l-2 border-[#166a5b]" : "hover:bg-[#f5f5f4]"
+                isActive ? "bg-[#f2f3f5]" : "hover:bg-[#f2f3f5]"
               }`}
-              style={isActive ? { borderRadius: "0 6px 6px 0" } : {}}
               onClick={() => onSelectView(view.id)}
               onMouseEnter={() => setHoveredViewId(view.id)}
               onMouseLeave={() => setHoveredViewId((prev) => (prev === view.id ? null : prev))}

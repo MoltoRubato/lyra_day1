@@ -49,7 +49,7 @@ export function WorkspacesOverview({
                 <button onClick={() => onStarWs(ws)}
                   className={`text-sm transition-all ${
                     ws.starred ? "text-yellow-400" : "opacity-0 group-hover:opacity-100 text-[#ddd] hover:text-yellow-400"
-                  }`}><StarIco/></button>
+                  }`}><StarIco size={16} active={ws.starred} /></button>
               </div>
               {ws.description && <p className="text-[12px] text-[#888] mt-0.5">{ws.description}</p>}
             </div>
@@ -95,7 +95,7 @@ export function WorkspacesOverview({
                   <span className="text-[11px] text-[#bbb] flex-shrink-0">{timeAgo(base.lastOpenedAt)}</span>
                   <div className="flex items-center gap-0 opacity-0 group-hover/row:opacity-100 transition-opacity flex-shrink-0">
                     <button onClick={() => onStarBase(base)}
-                      className={`px-1 text-sm transition-colors ${base.starred ? "text-yellow-400" : "text-[#ddd] hover:text-yellow-400"}`}><StarIco/></button>
+                      className={`px-1 text-sm transition-colors ${base.starred ? "text-yellow-400" : "text-[#ddd] hover:text-yellow-400"}`}><StarIco size={16} active={base.starred} /></button>
                     <ActionBtn title="Rename" onClick={() => onRenameBase(base)}><PencilIco size={10}/></ActionBtn>
                     <ActionBtn title="Move workspace" onClick={() => onMoveBase(base)}><MoveIco size={10}/></ActionBtn>
                     <ActionBtn title="Delete" danger onClick={() => onDeleteBase(base.id)}><TrashIco size={10}/></ActionBtn>

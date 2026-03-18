@@ -16,6 +16,8 @@ import { LeftSidebar } from "~/app/_components/base/LeftSidebar";
 import { SyncIndicator } from "~/app/_components/base/SyncIndicator";
 import { TableTabsBar } from "~/app/_components/base/TableTabsBar";
 import { ViewSidebar } from "~/app/_components/base/ViewSidebar";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
+import { getContrastTextColor } from "~/app/_components/baseAppearanceColors";
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
@@ -168,6 +170,17 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     onSettled: invalidateBase,
   });
 
+  const renameBase = api.base.rename.useMutation({
+    onMutate: async ({ name }) => {
+      await cancelBase();
+      const snapshot = snapshotBase();
+      patchBase((prev) => (prev ? { ...prev, name } : prev));
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => restoreBase(ctx?.snapshot),
+    onSettled: invalidateBase,
+  });
+
   const toggleStar = api.base.toggleStar.useMutation({
     onMutate: async ({ starred }) => {
       await cancelBase();
@@ -302,8 +315,10 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     </div>
   );
 
-  const baseColor = base.color ?? "#f82b60";
+  const baseColor = base.color ?? "#dc043b";
   const baseIcon  = base.icon  ?? "default";
+  const toolbarIconSubtle = "rgb(97, 102, 112)";
+  const shareTextColor = getContrastTextColor(baseColor);
 
   return (
     <div className="h-screen flex overflow-hidden"
@@ -318,8 +333,12 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
           {/* Left: base name button */}
           <button onClick={() => setPanelOpen((p) => !p)}
-            className="flex items-center gap-1.5 group rounded hover:bg-[#f0f0ef] px-2 py-1 transition-colors mr-2 flex-shrink-0">
-            <BaseIconSVG iconId={baseIcon} color={baseColor} size={22}/>
+            className={`group mr-2 flex flex-shrink-0 items-center gap-1.5 rounded transition-colors ${
+              panelOpen
+                ? "border-2 border-[#2d323a] bg-white px-1.5 py-0.5"
+                : "px-2 py-1 hover:bg-[#f0f0ef]"
+            }`}>
+            <BaseIconSVG iconId={baseIcon} color={baseColor} size={32}/>
             <span className="text-[13px] font-semibold text-[#172b4d] max-w-[160px] truncate">{base.name}</span>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-[#999] group-hover:text-[#555] transition-colors flex-shrink-0">
               <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -337,40 +356,31 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             ))}
           </div>
 
-          {/* Right: actions */}
           <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
             <SyncIndicator/>
-            {/* History / revision */}
-            <button className="p-1.5 rounded text-[#555] hover:bg-[#f0f0ef] hover:text-[#172b4d] transition-colors" title="Revision history">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2" strokeLinecap="round"/>
-              </svg>
+            <button
+              className="h-7 w-7 inline-flex items-center justify-center rounded-full text-[#616670] hover:bg-[#f0f0ef] transition-colors"
+              title="Revision history"
+            >
+              <AirtableAssetIcon asset={334} alt="Base history" size={16} tintColor={toolbarIconSubtle} />
             </button>
-            {/* Upgrade */}
-            <button className="flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium text-[#172b4d] border border-[#d8d8d8] rounded hover:bg-[#f5f5f4] transition-colors">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11l-3-1.5L3 11l.5-3.5L1 5l3.5-.5L6 1z"/>
-              </svg>
+            <button className="h-8 inline-flex items-center justify-center gap-1.5 px-3 text-[13px] text-[#1d1f25] bg-[#efefef] rounded-full hover:bg-[#e7e7e7] transition-colors">
+              <AirtableAssetIcon asset={452} alt="" size={16} tintColor={toolbarIconSubtle} />
               Upgrade
             </button>
-            {/* Launch */}
-            <button className="flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium text-[#172b4d] border border-[#d8d8d8] rounded hover:bg-[#f5f5f4] transition-colors">
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M10 2L6 6M10 2H7M10 2v3" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M5 3H3a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V7"/>
-              </svg>
+            <button className="h-7 inline-flex items-center justify-center gap-1.5 px-2 text-[13px] text-[#1d1f25] border border-[#d8dbe1] rounded-[8px] hover:bg-[#f5f5f4] transition-colors">
+              <span className="relative inline-flex h-4 w-4 items-center justify-center">
+                <AirtableAssetIcon asset={87} alt="" size={16} tintColor={toolbarIconSubtle} />
+                <span className="absolute -bottom-[1px] -right-[1px] border-l-[4px] border-l-transparent border-t-[4px] border-t-[#616670]" />
+              </span>
               Launch
             </button>
-            {/* Link icon */}
-            <button className="p-1.5 rounded text-[#555] hover:bg-[#f0f0ef] hover:text-[#172b4d] transition-colors">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <path d="M7 9a3 3 0 004.5.5l2-2a3 3 0 00-4.25-4.25L8 4.5M9 7a3 3 0 00-4.5-.5l-2 2A3 3 0 006.75 12.75L8 11.5" strokeLinecap="round"/>
-              </svg>
+            <button className="h-7 w-7 inline-flex items-center justify-center rounded-[8px] border border-[#d8dbe1] hover:bg-[#f5f5f4] transition-colors">
+              <AirtableAssetIcon asset={190} alt="Copy link" size={16} tintColor={toolbarIconSubtle} />
             </button>
-            {/* Share */}
             <button
-              className="px-3 py-1 text-white text-[13px] font-medium rounded transition-colors hover:brightness-95"
-              style={{ background: baseColor }}
+              className="h-7 px-3 text-[13px] font-medium rounded-[8px] transition-colors hover:brightness-95"
+              style={{ background: baseColor, color: shareTextColor }}
             >
               Share
             </button>
@@ -482,12 +492,13 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
         <AppearancePanel
           base={{
             name:    base.name,
-            color:   base.color ?? "#f82b60",
+            color:   base.color ?? "#dc043b",
             icon:    base.icon  ?? "default",
             guide:   base.guide ?? null,
             starred: base.starred,
           }}
           onClose={() => setPanelOpen(false)}
+          onRename={(name) => renameBase.mutate({ id: baseId, name })}
           onUpdateColor={(c) => updateApp.mutate({ id: baseId, color: c })}
           onUpdateIcon={(i) => updateApp.mutate({ id: baseId, icon: i })}
           onUpdateGuide={(g) => updateApp.mutate({ id: baseId, guide: g })}

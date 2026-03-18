@@ -1,12 +1,17 @@
 ﻿"use client";
 
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { BaseGridView } from "~/app/_components/home/BaseGridView";
 import { BaseListView } from "~/app/_components/home/BaseListView";
 import { SearchModal } from "~/app/_components/home/SearchModal";
+import { StarredGridView, StarredListView } from "~/app/_components/home/StarredViews";
+import { UserAccountMenu } from "~/app/_components/home/UserAccountMenu";
 import { WorkspacesOverview } from "~/app/_components/home/WorkspacesOverview";
-import { ChevronRight, GridIco, HomeIco, ListIco, PencilIco, SharedIco, StarIco, WsIco } from "~/app/_components/home/icons";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
+import { ChevronRight, GridIco, HomeIco, ListIco, PencilIco, SharedIco, SidebarStarIco, StarIco, WsIco } from "~/app/_components/home/icons";
 import type { BaseItem, WsFull } from "~/app/_components/home/types";
-import { ActionBtn, NavBtn, WorkspaceIcon } from "~/app/_components/home/ui";
+import { ActionBtn, BaseIcon, NavBtn } from "~/app/_components/home/ui";
 import { useHomePageController } from "~/app/_components/home/useHomePageController";
 
 export default function HomePage() {
@@ -45,18 +50,32 @@ export default function HomePage() {
     deleteWs,
     toggleWsStar,
   } = useHomePageController();
+  const [starredExpanded, setStarredExpanded] = useState(true);
+  const starredBases = useMemo(
+    () =>
+      [...(bases as BaseItem[])]
+        .filter((base) => base.starred)
+        .sort((a, b) => {
+          const at = a.lastOpenedAt ? new Date(a.lastOpenedAt).getTime() : 0;
+          const bt = b.lastOpenedAt ? new Date(b.lastOpenedAt).getTime() : 0;
+          return bt - at;
+        }),
+    [bases],
+  );
 
   return (
-    <div className="min-h-screen flex bg-[#f9fafb]"
-      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", fontSize: "13px" }}>
+    <div
+      className="flex min-h-screen bg-[#f9fafb]"
+      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" }}
+    >
 
-      <header className="fixed top-0 left-0 right-0 h-[56px] bg-white border-b border-[#e0e0e0] flex items-center z-30">
-        <div className="h-full flex items-center flex-shrink-0 w-[300px] px-3 gap-2">
+      <header className="fixed left-0 right-0 top-0 z-30 flex h-[56px] items-center border-b border-[#d8dbe1] bg-white">
+        <div className="flex h-full w-[300px] flex-shrink-0 items-center gap-2 px-3">
           <button
             onClick={() => setSidebar((prev) => !prev)}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-[#f0f0ef] text-[#555] transition-colors flex-shrink-0"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-[#555] transition-colors hover:bg-[#f0f0ef]"
           >
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <svg width="16" height="16" viewBox="0 0 15 15" fill="none">
               <path d="M2 3.5h11M2 7.5h11M2 11.5h11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
             </svg>
           </button>
@@ -70,45 +89,73 @@ export default function HomePage() {
             />
           </button>
         </div>
-        <div className="h-full flex-1 flex items-center px-6 gap-3">
-          <div className="flex-1 flex justify-center">
-            <button onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 bg-white border border-[#d8d8d8] rounded-full px-3.5 w-full max-w-[420px] shadow-sm hover:border-[#bbb] transition-colors"
-              style={{ height: 32 }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#999] flex-shrink-0" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/>
-              </svg>
-              <span className="flex-1 text-left text-[13px] text-[#aaa]">Search...</span>
-              <span className="text-[11px] text-[#bbb] border border-[#e0e0e0] rounded px-1.5 py-0.5 leading-none flex-shrink-0">ctrl K</span>
-            </button>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              className="w-[28px] h-[28px] rounded-full border border-[#d8d8d8] flex items-center justify-center text-[#555] hover:bg-[#f5f5f4] hover:border-[#bbb] transition-colors"
-              title="Help">
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M5.2 5.2a2 2 0 113.2 1.6C8 7.2 7 7.8 7 9M7 11v.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            <button className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[#555] hover:bg-[#f5f5f4] transition-colors">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
-                <path d="M8 2a5 5 0 0 1 4.33 7.5L14 12H2l1.67-2.5A5 5 0 0 1 8 2z M6 12a2 2 0 0 0 4 0"/>
-              </svg>
-            </button>
-            <div className="w-[28px] h-[28px] rounded-full bg-[#c0392b] flex items-center justify-center text-white text-[12px] font-bold cursor-pointer select-none">R</div>
-          </div>
+        <div className="pointer-events-none absolute left-1/2 top-1/2 w-[354px] max-w-[calc(100vw-640px)] -translate-x-1/2 -translate-y-1/2">
+          <button onClick={() => setSearchOpen(true)}
+            className="pointer-events-auto flex h-[32px] w-full items-center gap-2 rounded-full border border-[#d8d8d8] bg-white px-4 shadow-sm transition-colors hover:border-[#bbb]">
+            <svg width="14" height="14" viewBox="0 0 12 12" fill="none" className="flex-shrink-0 text-[#999]" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5"/>
+            </svg>
+            <span className="flex-1 text-left text-[13px] text-[#8f96a3]">Search...</span>
+            <span className="flex-shrink-0 rounded border border-[#e0e0e0] px-1.5 py-0.5 text-[13px] leading-none text-[#a0a7b2]">ctrl K</span>
+          </button>
+        </div>
+        <div className="flex h-full flex-1 items-center justify-end pr-6">
+          <UserAccountMenu />
         </div>
       </header>
 
       <aside className={`fixed top-[56px] left-0 bottom-0 bg-white border-r border-[#e0e0e0] flex flex-col transition-all duration-200 z-20 overflow-hidden ${sidebarOpen ? "w-[300px]" : "w-[56px]"}`}>
-        <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto overflow-x-hidden">
           <NavBtn icon={<HomeIco/>} label="Home"
             active={page === "home"} collapsed={!sidebarOpen} onClick={() => setPage("home")}/>
 
-          <NavBtn icon={<StarIco/>} label="Starred"
-            active={page === "starred"} collapsed={!sidebarOpen} onClick={() => setPage("starred")}>
-            {sidebarOpen && <ChevronRight className="text-[#aaa]"/>}
+          <NavBtn icon={<SidebarStarIco />} label="Starred"
+            active={page === "starred"} collapsed={!sidebarOpen} onClick={() => {
+              if (!sidebarOpen) {
+                setSidebar(true);
+                setStarredExpanded(true);
+              }
+              if (page === "starred") {
+                setStarredExpanded((prev) => !prev);
+              } else {
+                setStarredExpanded(true);
+              }
+              setPage("starred");
+            }}>
+            {sidebarOpen && <ChevronRight className={`text-[#aaa] transition-transform duration-150 ${starredExpanded ? "rotate-90" : ""}`}/>}
           </NavBtn>
+
+          {sidebarOpen && starredExpanded && (
+            <div>
+              {[...starredWs, ...starredBases].map((entry) =>
+                "bases" in entry ? (
+                  <button
+                    key={`starred-ws-${entry.id}`}
+                    onClick={() => setPage(entry.id)}
+                    className="mb-1 flex h-[35.5px] w-full items-center rounded px-3 text-left text-[13px] font-normal leading-[19.5px] text-[#1d1f25] transition-colors hover:bg-[#f5f6f8]"
+                  >
+                    <span className="mr-2 flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-[6px] bg-[#eef1f4]">
+                      <WsIco size={16} />
+                    </span>
+                    <span className="block w-[111.844px] max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                      {entry.name}
+                    </span>
+                  </button>
+                ) : (
+                  <Link
+                    key={`starred-base-${entry.id}`}
+                    href={`/base/${entry.id}`}
+                    className="mb-1 flex h-[35.5px] w-full items-center rounded px-3 text-left text-[13px] font-normal leading-[19.5px] text-[#1d1f25] transition-colors hover:bg-[#f5f6f8]"
+                  >
+                    <BaseIcon base={entry} size={28} />
+                    <span className="ml-2 block w-[111.844px] max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                      {entry.name}
+                    </span>
+                  </Link>
+                ),
+              )}
+            </div>
+          )}
 
           <NavBtn icon={<SharedIco/>} label="Shared"
             active={false} collapsed={!sidebarOpen} onClick={() => void 0}/>
@@ -135,7 +182,7 @@ export default function HomePage() {
                       open({ kind: "createWorkspace" });
                     }
                   }}
-                  className="w-4 h-4 flex items-center justify-center text-[#aaa] hover:text-[#555] text-sm leading-none cursor-pointer">+</span>
+                  className="flex h-4 w-4 items-center justify-center cursor-pointer text-[#aaa] hover:text-[#555]"><AirtableAssetIcon asset={127} alt="" size={10} /></span>
                 <ChevronRight className={`transition-transform duration-150 text-[#aaa] ${wsExpanded ? "rotate-90" : ""}`}/>
               </div>
             )}
@@ -151,12 +198,12 @@ export default function HomePage() {
                       : "text-[#555] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
                   }`}>
                   <span className="flex-1 truncate">{ws.name}</span>
-                  {ws.starred && <span className="text-yellow-400 text-[10px]"><StarIco/></span>}
+                  {ws.starred && <span className="text-[10px]"><StarIco size={16} active /></span>}
                 </button>
               ))}
               <button onClick={() => open({ kind: "createWorkspace" })}
                 className="w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-[12px] text-[#aaa] hover:text-[#555] hover:bg-[#f5f5f4] transition-colors">
-                <span className="text-sm leading-none font-light">+</span> Add workspace
+                <AirtableAssetIcon asset={127} alt="" size={10} /> Add workspace
               </button>
             </div>
           )}
@@ -164,9 +211,14 @@ export default function HomePage() {
 
         {sidebarOpen && (
           <div className="border-t border-[#e0e0e0] px-2 py-2 space-y-0.5">
-            {["Templates and apps", "Marketplace", "Import"].map((lbl) => (
-              <button key={lbl} className="w-full flex items-center px-2 py-[6px] rounded text-[13px] text-[#555] hover:bg-[#f5f5f4] hover:text-[#374151] transition-colors text-left">
-                {lbl}
+            {[
+              { label: "Templates and apps", asset: 389 },
+              { label: "Marketplace", asset: 91 },
+              { label: "Import", asset: 21 },
+            ].map((item) => (
+              <button key={item.label} className="w-full flex items-center gap-2 px-2 py-[6px] rounded text-[13px] text-[#555] hover:bg-[#f5f5f4] hover:text-[#374151] transition-colors text-left">
+                <AirtableAssetIcon asset={item.asset} alt="" size={14} className="opacity-80" />
+                {item.label}
               </button>
             ))}
           </div>
@@ -175,17 +227,24 @@ export default function HomePage() {
         <div className={`flex-shrink-0 border-t border-[#e0e0e0] ${sidebarOpen ? "p-3" : "p-2"}`}>
           <button onClick={() => open({ kind: "createBase" })}
             className="w-full flex items-center justify-center gap-1.5 py-[7px] bg-[#0069ff] hover:bg-[#0055d4] text-white text-[13px] font-medium rounded transition-colors">
-            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5.5 1v9M1 5.5h9"/>
-            </svg>
+            <AirtableAssetIcon asset={127} alt="" size={10} className="invert brightness-0 saturate-0" />
             {sidebarOpen && "Create"}
           </button>
         </div>
       </aside>
 
       <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[56px] ${sidebarOpen ? "ml-[300px]" : "ml-[56px]"}`}>
-        <div className="flex-1 px-12 py-8 max-w-[1100px] w-full">
-          <h1 className="text-[27px] font-bold text-[#172b4d] mb-4">{pageTitle}</h1>
+        <div className="w-full flex-1 px-12 py-8">
+          <h1
+            className="m-0 pb-6 text-[27px] font-[675] leading-[33.75px] tracking-[-0.16px] text-[#1d1f25]"
+            style={{
+              fontFamily:
+                '"Inter Display", -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+              WebkitFontSmoothing: "antialiased",
+            }}
+          >
+            {pageTitle}
+          </h1>
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-[13px] text-red-600">
@@ -213,19 +272,35 @@ export default function HomePage() {
 
           {page !== "workspaces" && (
             <>
-              <div className="flex items-center justify-between mb-1">
-                <button className="flex items-center gap-1 text-[15px] text-[#374151] hover:text-[#172b4d] transition-colors py-0.5">
-                  Opened anytime
+              <div className="mb-2 flex items-center justify-between">
+                <button
+                  className={`m-0 flex items-center justify-center gap-1 whitespace-nowrap p-0 text-center text-[15px] font-normal text-[#1d1f25] transition-colors hover:text-[#172b4d] ${
+                    page === "starred" ? "h-[19.5px] w-[111.844px] leading-[19.5px]" : "h-[22.5px] w-[110.109px] leading-[22.5px]"
+                  }`}
+                  style={{
+                    fontFamily:
+                      '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+                  }}
+                >
+                  {page === "starred" ? "Show all types" : "Opened anytime"}
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="mt-px">
                     <path d="M2.5 4l2.5 2.5L7.5 4"/>
                   </svg>
                 </button>
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   <button onClick={() => setDispMode("list")}
-                    className={`p-1.5 rounded transition-colors ${dispMode === "list" ? "text-[#172b4d] bg-[#e8e8e8]" : "text-[#999] hover:text-[#555]"}`}
+                    className={`rounded-full p-2 transition-colors ${
+                      dispMode === "list"
+                        ? "bg-[#e8e9ec] text-[#172b4d]"
+                        : "text-[#999] hover:bg-[#eceef2] hover:text-[#555]"
+                    }`}
                     title="List view"><ListIco/></button>
                   <button onClick={() => setDispMode("grid")}
-                    className={`p-1.5 rounded transition-colors ${dispMode === "grid" ? "text-[#172b4d] bg-[#e8e8e8]" : "text-[#999] hover:text-[#555]"}`}
+                    className={`rounded-full p-2 transition-colors ${
+                      dispMode === "grid"
+                        ? "border-2 border-[#1f73d8] text-[#172b4d]"
+                        : "text-[#999] hover:bg-[#eceef2] hover:text-[#555]"
+                    }`}
                     title="Grid view"><GridIco/></button>
                 </div>
               </div>
@@ -240,9 +315,9 @@ export default function HomePage() {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => toggleWsStar.mutate({ id: currentWorkspace.id, starred: !currentWorkspace.starred })}
-                      className={`text-base transition-colors ${currentWorkspace.starred ? "text-yellow-400" : "text-[#ccc] hover:text-yellow-400"}`}
+                      className="text-base transition-colors"
                     >
-                      <StarIco/>
+                      <StarIco size={16} active={currentWorkspace.starred} className={!currentWorkspace.starred ? "opacity-40" : ""} />
                     </button>
                     <ActionBtn title="Rename workspace" onClick={() => open({ kind: "renameWorkspace", id: currentWorkspace.id, value: currentWorkspace.name })}><PencilIco/></ActionBtn>
                     <button onClick={() => open({ kind: "editDesc", id: currentWorkspace.id, value: currentWorkspace.description ?? "" })}
@@ -252,24 +327,6 @@ export default function HomePage() {
                       + Create base
                     </button>
                   </div>
-                </div>
-              )}
-
-              {page === "starred" && starredWs.length > 0 && (
-                <div className="mt-2 mb-3">
-                  <p className="text-[11px] font-semibold text-[#888] uppercase tracking-widest px-1 mb-2">Starred workspaces</p>
-                  {starredWs.map((ws) => (
-                    <div key={ws.id}
-                      className="group flex items-center gap-3 py-2 px-1 hover:bg-white rounded transition-colors cursor-pointer -mx-1"
-                      onClick={() => setPage(ws.id)}>
-                      <WorkspaceIcon size={24}/>
-                      <span className="flex-1 text-[13px] font-medium text-[#172b4d]">{ws.name}</span>
-                      <span className="text-yellow-400"><StarIco/></span>
-                      <span className="text-[12px] text-[#aaa]">{ws.bases.length} base{ws.bases.length !== 1 ? "s" : ""}</span>
-                    </div>
-                  ))}
-                  <div className="border-b border-[#e0e0e0] my-3"/>
-                  <p className="text-[11px] font-semibold text-[#888] uppercase tracking-widest px-1 mb-2">Starred bases</p>
                 </div>
               )}
 
@@ -295,7 +352,7 @@ export default function HomePage() {
                 </div>
               )}
 
-              {!isLoading && !error && filteredBases.length === 0 && (
+              {!isLoading && !error && (page === "starred" ? starredBases.length + starredWs.length === 0 : filteredBases.length === 0) && (
                 <div className="flex flex-col items-center justify-center py-20 text-[#bbb]">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="mb-4 opacity-25" stroke="currentColor" strokeWidth="1.2">
                     <rect x="6" y="10" width="36" height="30" rx="3"/><path d="M6 18h36M16 10v8"/>
@@ -314,18 +371,45 @@ export default function HomePage() {
                 </div>
               )}
 
-              {!isLoading && filteredBases.length > 0 && dispMode === "list" && (
+              {!isLoading && page === "starred" && dispMode === "list" && (
+                <StarredListView
+                  bases={starredBases}
+                  workspaces={starredWs}
+                  onStarBase={(base) => toggleBaseStar.mutate({ id: base.id, starred: false })}
+                  onStarWorkspace={(workspace) => toggleWsStar.mutate({ id: workspace.id, starred: false })}
+                  onOpenWorkspace={(workspaceId) => setPage(workspaceId)}
+                />
+              )}
+
+              {!isLoading && page === "starred" && dispMode === "grid" && (
+                <StarredGridView
+                  bases={starredBases}
+                  workspaces={starredWs}
+                  onStarBase={(base) => toggleBaseStar.mutate({ id: base.id, starred: false })}
+                  onStarWorkspace={(workspace) => toggleWsStar.mutate({ id: workspace.id, starred: false })}
+                  onOpenWorkspace={(workspaceId) => setPage(workspaceId)}
+                />
+              )}
+
+              {!isLoading && page !== "starred" && filteredBases.length > 0 && dispMode === "list" && (
                 <BaseListView
                   bases={filteredBases}
-                  showWorkspace={page === "home" || page === "starred"}
+                  showWorkspace={page === "home"}
                   onRename={(b) => open({ kind: "renameBase", id: b.id, value: b.name })}
                   onDelete={(id) => deleteBase.mutate({ id })}
                   onStar={(b) => toggleBaseStar.mutate({ id: b.id, starred: !b.starred })}
                   onMove={(b) => open({ kind: "moveBase", id: b.id, currentWorkspaceId: b.workspaceId })}
+                  onDuplicate={(b) => {
+                    setNewName(`${b.name} copy`);
+                    open({ kind: "createBase", workspaceId: b.workspaceId ?? undefined });
+                  }}
+                  onGoToWorkspace={(b) => {
+                    if (b.workspaceId) setPage(b.workspaceId);
+                  }}
                 />
               )}
 
-              {!isLoading && filteredBases.length > 0 && dispMode === "grid" && (
+              {!isLoading && page !== "starred" && filteredBases.length > 0 && dispMode === "grid" && (
                 <BaseGridView
                   bases={filteredBases}
                   onRename={(b) => open({ kind: "renameBase", id: b.id, value: b.name })}

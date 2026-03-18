@@ -171,7 +171,7 @@ export function useHomePageController() {
   const [page, setPage] = useState<PageView>("home");
   const [dispMode, setDispMode] = useState<DispMode>("list");
   const [sidebarOpen, setSidebar] = useState(true);
-  const [wsExpanded, setWsExpanded] = useState(true);
+  const [wsExpanded, setWsExpanded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [newName, setNewName] = useState("");

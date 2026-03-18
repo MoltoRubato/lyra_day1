@@ -1,10 +1,11 @@
 import type { ColumnType } from "@prisma/client";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
+import { uid } from "~/app/_components/gridView/tableShared";
+import type { VisibleColumn } from "~/app/_components/gridView/tableTypes";
 import type {
   FilterCondition,
   GroupRule,
 } from "~/app/_components/tableUtils";
-import { uid } from "~/app/_components/gridView/tableShared";
-import type { VisibleColumn } from "~/app/_components/gridView/tableTypes";
 
 type GridViewTableColumnMenuProps = {
   col: VisibleColumn;
@@ -94,139 +95,154 @@ export function GridViewTableColumnMenu({
     onRequestOpenGroupPanel?.();
   }
 
+  const items: Array<
+    | {
+        label: string;
+        icon: React.ReactNode;
+        danger?: boolean;
+        onClick: () => void;
+      }
+    | { divider: true }
+  > = [
+    {
+      label: "Edit field",
+      icon: <AirtableAssetIcon asset={141} alt="" size={16} />,
+      onClick: () => {
+        setEditingField({
+          colId: col.id,
+          name: col.name,
+          type: col.type,
+          description: col.description ?? "",
+          showDescription: !!col.description,
+        });
+        setFieldTypeListOpen(false);
+        closeColMenu();
+      },
+    },
+    {
+      label: "Duplicate field",
+      icon: <AirtableAssetIcon asset={320} alt="" size={16} />,
+      onClick: () => {
+        setDuplicatingField({
+          colId: col.id,
+          name: col.name,
+          duplicateCells: true,
+        });
+        closeColMenu();
+      },
+    },
+    { divider: true },
+    {
+      label: "Insert left",
+      icon: <AirtableAssetIcon asset={437} alt="" size={16} />,
+      onClick: () => {
+        insertColumnLeft.mutate({
+          tableId,
+          anchorColumnId: col.id,
+          name: "New field",
+          type: "TEXT",
+        });
+        closeColMenu();
+      },
+    },
+    {
+      label: "Insert right",
+      icon: <AirtableAssetIcon asset={434} alt="" size={16} />,
+      onClick: () => {
+        insertColumnRight.mutate({
+          tableId,
+          anchorColumnId: col.id,
+          name: "New field",
+          type: "TEXT",
+        });
+        closeColMenu();
+      },
+    },
+    {
+      label: "Change primary field",
+      icon: <AirtableAssetIcon asset={436} alt="" size={16} />,
+      onClick: () => closeColMenu(),
+    },
+    { divider: true },
+    {
+      label: "Copy field URL",
+      icon: <AirtableAssetIcon asset={190} alt="" size={16} />,
+      onClick: () => {
+        void navigator.clipboard?.writeText(`${window.location.href}#field-${col.id}`);
+        closeColMenu();
+      },
+    },
+    {
+      label: "Edit field description",
+      icon: <AirtableAssetIcon asset={210} alt="" size={16} />,
+      onClick: () => {
+        setEditingDescription({ colId: col.id, value: col.description ?? "" });
+        closeColMenu();
+      },
+    },
+    {
+      label: "Edit field permissions",
+      icon: <AirtableAssetIcon asset={181} alt="" size={16} />,
+      onClick: () => closeColMenu(),
+    },
+    { divider: true },
+    {
+      label: "Sort  A -> Z",
+      icon: <AirtableAssetIcon asset={79} alt="" size={16} />,
+      onClick: () => {
+        onRequestOpenSortPanel?.();
+        closeColMenu();
+      },
+    },
+    {
+      label: "Sort  Z -> A",
+      icon: <AirtableAssetIcon asset={78} alt="" size={16} />,
+      onClick: () => {
+        onRequestOpenSortPanel?.();
+        closeColMenu();
+      },
+    },
+    { divider: true },
+    {
+      label: "Filter by this field",
+      icon: <AirtableAssetIcon asset={255} alt="" size={16} />,
+      onClick: () => {
+        addFilterFor(col.id);
+        closeColMenu();
+      },
+    },
+    {
+      label: "Group by this field",
+      icon: <AirtableAssetIcon asset={232} alt="" size={16} />,
+      onClick: () => {
+        addGroupFor(col.id);
+        closeColMenu();
+      },
+    },
+    { divider: true },
+    {
+      label: "Hide field",
+      icon: <AirtableAssetIcon asset={283} alt="" size={16} />,
+      onClick: () => closeColMenu(),
+    },
+    {
+      label: "Delete field",
+      icon: <AirtableAssetIcon asset={32} alt="" size={16} />,
+      danger: true,
+      onClick: () => {
+        deleteColumn.mutate({ columnId: col.id });
+        closeColMenu();
+      },
+    },
+  ];
+
   return (
     <div
-      className="absolute top-full left-0 mt-1 z-50 w-[320px] max-h-[168px] overflow-y-auto bg-white border border-[#d8d8d8] rounded-[8px] shadow-lg py-1.5 text-[13px] font-normal"
+      className="absolute top-full left-0 mt-1 z-50 w-[320px] max-h-[min(70vh,560px)] overflow-y-auto bg-white border border-[#d8d8d8] rounded-[8px] shadow-lg py-1.5 text-[13px] font-normal"
       onClick={(e) => e.stopPropagation()}
     >
-      {[
-        {
-          label: "Edit field",
-          icon: "✎",
-          onClick: () => {
-            setEditingField({
-              colId: col.id,
-              name: col.name,
-              type: col.type,
-              description: col.description ?? "",
-              showDescription: !!col.description,
-            });
-            setFieldTypeListOpen(false);
-            closeColMenu();
-          },
-        },
-        {
-          label: "Duplicate field",
-          icon: "⧉",
-          onClick: () => {
-            setDuplicatingField({
-              colId: col.id,
-              name: col.name,
-              duplicateCells: true,
-            });
-            closeColMenu();
-          },
-        },
-        { divider: true },
-        {
-          label: "Insert left",
-          icon: "←",
-          onClick: () => {
-            insertColumnLeft.mutate({
-              tableId,
-              anchorColumnId: col.id,
-              name: "New field",
-              type: "TEXT",
-            });
-            closeColMenu();
-          },
-        },
-        {
-          label: "Insert right",
-          icon: "→",
-          onClick: () => {
-            insertColumnRight.mutate({
-              tableId,
-              anchorColumnId: col.id,
-              name: "New field",
-              type: "TEXT",
-            });
-            closeColMenu();
-          },
-        },
-        { divider: true },
-        {
-          label: "Copy field URL",
-          icon: "⟲",
-          onClick: () => {
-            void navigator.clipboard?.writeText(`${window.location.href}#field-${col.id}`);
-            closeColMenu();
-          },
-        },
-        {
-          label: "Edit field description",
-          icon: "ⓘ",
-          onClick: () => {
-            setEditingDescription({ colId: col.id, value: col.description ?? "" });
-            closeColMenu();
-          },
-        },
-        {
-          label: "Edit field permissions",
-          icon: "⌂",
-          onClick: () => closeColMenu(),
-        },
-        { divider: true },
-        {
-          label: "Sort  A -> Z",
-          icon: "↕",
-          onClick: () => {
-            onRequestOpenSortPanel?.();
-            closeColMenu();
-          },
-        },
-        {
-          label: "Sort  Z -> A",
-          icon: "↕",
-          onClick: () => {
-            onRequestOpenSortPanel?.();
-            closeColMenu();
-          },
-        },
-        { divider: true },
-        {
-          label: "Filter by this field",
-          icon: "≡",
-          onClick: () => {
-            addFilterFor(col.id);
-            closeColMenu();
-          },
-        },
-        {
-          label: "Group by this field",
-          icon: "▦",
-          onClick: () => {
-            addGroupFor(col.id);
-            closeColMenu();
-          },
-        },
-        { divider: true },
-        {
-          label: "Hide field",
-          icon: "⊘",
-          onClick: () => closeColMenu(),
-        },
-        {
-          label: "Delete field",
-          icon: "⌫",
-          danger: true,
-          onClick: () => {
-            deleteColumn.mutate({ columnId: col.id });
-            closeColMenu();
-          },
-        },
-      ].map((item, idx) =>
-        item.divider ? (
+      {items.map((item, idx) =>
+        "divider" in item ? (
           <div key={`dd-${idx}`} className="h-px bg-[#ececec] my-1 mx-3" />
         ) : (
           <button

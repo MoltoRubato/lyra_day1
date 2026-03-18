@@ -1,8 +1,8 @@
 ﻿import type { BaseItem } from "~/app/_components/home/types";
 
 const BASE_PALETTE = [
-  "#f82b60", "#ff6f2c", "#fcb400", "#20c933", "#00b2a0",
-  "#18bfff", "#2d7ff9", "#ff08c2", "#8b46ff", "#444444",
+  "#dc043b", "#d54401", "#ffba05", "#048a0e", "#01ddd5",
+  "#39caff", "#166ee1", "#dd04a8", "#7c37ef", "#616670",
 ];
 
 export function fallbackColor(id: string): string {

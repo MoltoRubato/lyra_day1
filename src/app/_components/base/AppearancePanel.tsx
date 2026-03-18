@@ -1,31 +1,110 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { BASE_ICONS } from "~/app/_components/baseIcons";
+import {
+  BASE_COLOR_SWATCH_ROWS,
+  getBaseIconForegroundColor,
+  getContrastTextColor,
+} from "~/app/_components/baseAppearanceColors";
 
-const COLOR_PALETTE = [
-  ["#ffdce5", "#fde8d8", "#fdf5d4", "#d1f7c4", "#c2f5e9", "#d0effd", "#cfdfff", "#fce4f9", "#ede2fe", "#e8e8e8"],
-  ["#f82b60", "#ff6f2c", "#fcb400", "#20c933", "#00b2a0", "#18bfff", "#2d7ff9", "#ff08c2", "#8b46ff", "#444444"],
-];
+const DEFAULT_GUIDE =
+  "Teammates will see this when they first open the base - add a description, goals, links, things like that.";
 
-function renderMarkdown(md: string): string {
-  return md
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/^### (.+)$/gm, "<h3 style='font-size:13px;font-weight:700;margin:12px 0 4px'>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2 style='font-size:15px;font-weight:700;margin:14px 0 4px'>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1 style='font-size:17px;font-weight:700;margin:16px 0 6px'>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code style='background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px;font-family:monospace'>$1</code>")
-    .replace(/\[(.+?)\]\((.+?)\)/g, "<a href='$2' target='_blank' style='color:#0069ff;text-decoration:underline'>$1</a>")
-    .replace(/^[-*] (.+)$/gm, "<li style='margin:2px 0;padding-left:4px'>$1</li>")
-    .replace(/(<li[\s\S]*?<\/li>)/g, "<ul style='padding-left:16px;list-style:disc;margin:6px 0'>$1</ul>")
-    .replace(/\n\n/g, "</p><p style='margin:6px 0'>")
-    .replace(/\n/g, "<br/>");
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function renderInlineMarkdown(text: string): string {
+  const codeTokens: string[] = [];
+  let html = text.replace(/`([^`]+)`/g, (_m, code: string) => {
+    const idx = codeTokens.push(code) - 1;
+    return `@@CODE_${idx}@@`;
+  });
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "<a href=\"$2\" target=\"_blank\" rel=\"noreferrer\" style=\"color:#2d7ff9;text-decoration:underline\">$1</a>");
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  html = html.replace(/@@CODE_(\d+)@@/g, (_m, idxRaw: string) => {
+    const idx = Number.parseInt(idxRaw, 10);
+    const code = codeTokens[idx] ?? "";
+    return `<code style="background:#eef1f5;border-radius:4px;padding:1px 4px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${code}</code>`;
+  });
+  return html;
+}
+
+function renderMarkdownToHtml(markdown: string): string {
+  const lines = escapeHtml(markdown).split(/\r?\n/);
+  const chunks: string[] = [];
+  let inList = false;
+
+  const closeList = () => {
+    if (inList) {
+      chunks.push("</ul>");
+      inList = false;
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      closeList();
+      chunks.push("<div style=\"height:8px\"></div>");
+      continue;
+    }
+
+    const listMatch = /^[-*]\s+(.+)$/.exec(trimmed);
+    if (listMatch) {
+      if (!inList) {
+        inList = true;
+        chunks.push("<ul style=\"margin:0;padding-left:18px;list-style:disc\">");
+      }
+      chunks.push(`<li style="margin:2px 0;line-height:1.45">${renderInlineMarkdown(listMatch[1] ?? "")}</li>`);
+      continue;
+    }
+
+    closeList();
+    const headingMatch = /^(#{1,3})\s+(.+)$/.exec(trimmed);
+    if (headingMatch) {
+      const level = headingMatch[1]?.length ?? 1;
+      const text = renderInlineMarkdown(headingMatch[2] ?? "");
+      if (level === 1) chunks.push(`<h1 style="margin:2px 0 6px;font-size:20px;line-height:1.3;font-weight:600">${text}</h1>`);
+      else if (level === 2) chunks.push(`<h2 style="margin:2px 0 6px;font-size:18px;line-height:1.35;font-weight:600">${text}</h2>`);
+      else chunks.push(`<h3 style="margin:2px 0 6px;font-size:16px;line-height:1.35;font-weight:600">${text}</h3>`);
+      continue;
+    }
+
+    chunks.push(`<p style="margin:0;line-height:20.8px">${renderInlineMarkdown(trimmed)}</p>`);
+  }
+
+  closeList();
+  return chunks.join("");
+}
+
+function SectionChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`transition-transform ${open ? "rotate-90" : ""}`}
+    >
+      <path d="M6 4l4 4-4 4" />
+    </svg>
+  );
 }
 
 export function AppearancePanel({
   base,
   onClose,
+  onRename,
   onUpdateColor,
   onUpdateIcon,
   onUpdateGuide,
@@ -33,217 +112,395 @@ export function AppearancePanel({
 }: {
   base: { name: string; color: string; icon: string; guide: string | null; starred: boolean };
   onClose: () => void;
+  onRename: (name: string) => void;
   onUpdateColor: (c: string) => void;
   onUpdateIcon: (i: string) => void;
   onUpdateGuide: (g: string) => void;
   onToggleStar: () => void;
 }) {
+  const [appearanceOpen, setAppearanceOpen] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [tab, setTab] = useState<"color" | "icon">("color");
   const [iconSearch, setIconSearch] = useState("");
-  const [guideOpen, setGuideOpen] = useState(true);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState(base.name);
+  const [isRenaming, setIsRenaming] = useState(false);
   const [guideMode, setGuideMode] = useState<"view" | "edit">("view");
-  const DEFAULT_GUIDE = "Use this space to share the goals and details of your base with your team.\n\nStart by outlining your goal.\n\nNext, share details about key information in your base:\n\nThis table contains...\n\nThis view shows...\n\nThis link contains...";
   const [guideText, setGuideText] = useState(base.guide ?? DEFAULT_GUIDE);
 
-  const filteredIcons = BASE_ICONS.filter((i) =>
-    !iconSearch.trim() || i.label.toLowerCase().includes(iconSearch.toLowerCase())
+  useEffect(() => {
+    setNameDraft(base.name);
+  }, [base.name]);
+
+  useEffect(() => {
+    setGuideText(base.guide ?? DEFAULT_GUIDE);
+  }, [base.guide]);
+
+  const filteredIcons = useMemo(
+    () =>
+      BASE_ICONS.filter((icon) =>
+        !iconSearch.trim() || icon.label.toLowerCase().includes(iconSearch.toLowerCase())
+      ),
+    [iconSearch]
   );
+
+  function commitRename() {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      setNameDraft(base.name);
+      setIsRenaming(false);
+      return;
+    }
+    if (trimmed !== base.name) {
+      onRename(trimmed);
+    }
+    setIsRenaming(false);
+  }
+
+  function saveGuide() {
+    const next = guideText.trim() || DEFAULT_GUIDE;
+    setGuideText(next);
+    onUpdateGuide(next);
+    setGuideMode("view");
+  }
 
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="fixed left-[52px] top-[52px] z-50 w-[480px] bg-white border border-[#e0e0e0] rounded-xl shadow-2xl overflow-hidden"
+        role="menu"
+        aria-label="Base settings menu"
+        className="fixed left-[64px] top-[56px] z-50 w-[400px] rounded-[10px] border border-[#d3d8df] bg-white p-4 shadow-[0_16px_36px_rgba(16,24,40,0.2)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-[#f0f0f0]">
-          <span className="text-[17px] font-semibold text-[#172b4d]">{base.name}</span>
-          <div className="flex items-center gap-2">
+        <div className="flex w-full items-start border-b border-[#d7dce3] pb-3">
+          <div className="w-[304px] flex-none">
+            <div
+              className={`h-11 rounded-[4px] transition-colors ${
+                isRenaming ? "bg-[#f2f4f8] ring-2 ring-[#8db4ff]" : "hover:bg-[#eef1f5]"
+              }`}
+            >
+              <input
+                aria-label="rename base"
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                onFocus={() => setIsRenaming(true)}
+                onBlur={commitRename}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                  if (event.key === "Escape") {
+                    setNameDraft(base.name);
+                    setIsRenaming(false);
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="h-full w-full rounded-[4px] border-none bg-transparent px-2 text-[17px] font-normal text-[#1d1f25] outline-none transition-colors hover:bg-[#eef1f5] focus:bg-[#f2f4f8]"
+              />
+            </div>
+          </div>
+
+          <div className="relative ml-auto flex h-11 w-[64px] items-center justify-end">
             <button
               onClick={onToggleStar}
-              className={`transition-colors ${base.starred ? "text-yellow-400" : "text-[#bbb] hover:text-yellow-400"}`}
-              title="Star"
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-[6px] transition-colors ${
+                base.starred
+                  ? "text-[#f4b400] hover:bg-[#fff3c8]"
+                  : "text-[#2d323a] hover:bg-[#eceff4] hover:text-[#1d1f25]"
+              }`}
+              title={base.starred ? "Unstar base" : "Star base"}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill={base.starred ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              >
                 <path d="M10 2.5l2.2 4.6 5.1.5-3.9 3.3 1.2 5-4.6-2.6-4.6 2.6 1.2-5-3.9-3.3 5.1-.5L10 2.5z" />
               </svg>
             </button>
-            <button className="text-[#999] hover:text-[#555] transition-colors">
+
+            <button
+              onClick={() => setMoreMenuOpen((open) => !open)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#2d323a] transition-colors hover:bg-[#eceff4]"
+              aria-label="Open base actions"
+              aria-haspopup="menu"
+              aria-expanded={moreMenuOpen}
+            >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <circle cx="3" cy="8" r="1.5" />
                 <circle cx="8" cy="8" r="1.5" />
                 <circle cx="13" cy="8" r="1.5" />
               </svg>
             </button>
+
+            {moreMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-[55] cursor-default"
+                  onClick={() => setMoreMenuOpen(false)}
+                  aria-label="Close base actions"
+                />
+                <ul
+                  role="menu"
+                  className="absolute right-0 top-[44px] z-[60] w-[240px] rounded-[10px] border border-[#c9ced7] bg-white p-3 shadow-[0_12px_26px_rgba(16,24,40,0.2)]"
+                >
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[17px] text-[#2a2e35] transition-colors hover:bg-[#eef1f5]"
+                    >
+                      <AirtableAssetIcon asset={320} alt="" size={18} className="shrink-0" />
+                      Duplicate base
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[17px] text-[#2a2e35] transition-colors hover:bg-[#eef1f5]"
+                    >
+                      <AirtableAssetIcon asset={85} alt="" size={18} className="shrink-0" />
+                      Slack notifications
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[17px] text-[#c1204b] transition-colors hover:bg-[#fdeff3]"
+                    >
+                      <AirtableAssetIcon asset={32} alt="" size={18} className="shrink-0" />
+                      Delete base
+                    </button>
+                  </li>
+                </ul>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[calc(100vh-120px)]">
-          <div className="px-5 py-4">
-            <div className="flex items-center gap-1.5 mb-4">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#172b4d" strokeWidth="1.4">
-                <path d="M7 1a6 6 0 100 12A6 6 0 007 1zM2.5 9C4 8 5.5 7.5 7 7.5s3 .5 4.5 1.5" />
-                <circle cx="7" cy="5" r="1.5" />
-              </svg>
-              <span className="text-[13px] font-bold text-[#172b4d]">Appearance</span>
-            </div>
+        <div className="border-b border-[#d7dce3] py-4">
+          <button
+            type="button"
+            onClick={() => setAppearanceOpen((open) => !open)}
+            className="flex w-full items-center gap-2 text-left text-[17px] font-semibold leading-[18px] text-[#1d1f25]"
+          >
+            <span className="inline-flex w-4 items-center justify-center text-[#2e3440]">
+              <SectionChevron open={appearanceOpen} />
+            </span>
+            Appearance
+          </button>
 
-            <div className="flex mb-4 border border-[#e0e0e0] rounded overflow-hidden w-fit">
-              {(["color", "icon"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-5 py-1.5 text-[13px] transition-colors capitalize ${
-                    tab === t ? "bg-white text-[#172b4d] font-medium border border-[#0069ff] -m-px rounded z-10" : "bg-[#f8f8f8] text-[#666] hover:bg-[#f0f0f0]"
-                  }`}
-                >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {tab === "color" && (
-              <div className="space-y-2">
-                {COLOR_PALETTE.map((row, ri) => (
-                  <div key={ri} className="flex gap-2">
-                    {row.map((hex) => (
-                      <button
-                        key={hex}
-                        onClick={() => onUpdateColor(hex)}
-                        title={hex}
-                        className="w-8 h-8 rounded flex items-center justify-center transition-transform hover:scale-110 flex-shrink-0"
-                        style={{ background: hex }}
-                      >
-                        {base.color === hex && (
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M2 7l4 4 6-7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {tab === "icon" && (
-              <div>
-                <div className="flex items-center gap-2 border border-[#e0e0e0] rounded px-3 py-1.5 mb-3">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#aaa" strokeWidth="1.5">
-                    <circle cx="5" cy="5" r="3.5" />
-                    <path d="M8 8l2.5 2.5" />
-                  </svg>
-                  <input
-                    className="flex-1 text-[12px] outline-none text-[#172b4d] placeholder-[#aaa]"
-                    placeholder="Search icons"
-                    value={iconSearch}
-                    onChange={(e) => setIconSearch(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-10 gap-1">
-                  {filteredIcons.map((icon) => (
+          {appearanceOpen && (
+            <div className="pt-4">
+              <div className="border-b border-[#d7dce3]">
+                <div className="flex h-9 w-[126px] items-end" role="tablist" aria-label="Appearance tabs">
+                  {(["color", "icon"] as const).map((currentTab) => (
                     <button
-                      key={icon.id}
-                      onClick={() => onUpdateIcon(icon.id)}
-                      title={icon.label}
-                      className={`w-9 h-9 rounded flex items-center justify-center transition-all hover:scale-110 ${
-                        base.icon === icon.id ? "ring-2 ring-[#0069ff] ring-offset-1" : "hover:bg-[#f5f5f4]"
+                      key={currentTab}
+                      type="button"
+                      role="tab"
+                      aria-selected={tab === currentTab}
+                      onClick={() => setTab(currentTab)}
+                      className={`h-full w-[63px] border-b-2 px-0 pb-1 text-left text-[17px] leading-[20px] transition-colors ${
+                        tab === currentTab
+                          ? "border-[#2d7ff9] font-semibold text-[#1d1f25]"
+                          : "border-transparent font-normal text-[#616670] hover:text-[#303440]"
                       }`}
-                      style={{ background: base.icon === icon.id ? base.color : undefined }}
                     >
-                      {icon.path ? (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke={base.icon === icon.id ? "white" : "#555"}
-                          strokeWidth="1.3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d={icon.path} />
-                        </svg>
-                      ) : (
-                        <span className="text-[10px] font-bold" style={{ color: base.icon === icon.id ? "white" : "#666" }}>Un</span>
-                      )}
+                      {currentTab.charAt(0).toUpperCase() + currentTab.slice(1)}
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
 
-          <div className="border-t border-[#f0f0f0]">
-            <button
-              className="w-full flex items-center gap-2 px-5 py-3 hover:bg-[#f8f8f8] transition-colors"
-              onClick={() => setGuideOpen((p) => !p)}
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="#555"
-                strokeWidth="1.5"
-                className={`transition-transform ${guideOpen ? "rotate-90" : ""}`}
-              >
-                <path d="M4 2l4 4-4 4" />
-              </svg>
-              <span className="text-[13px] font-bold text-[#172b4d]">Base guide</span>
-            </button>
+              {tab === "color" && (
+                <div className="space-y-3 pt-6">
+                  {BASE_COLOR_SWATCH_ROWS.map((row, rowIndex) => (
+                    <div key={`row-${rowIndex}`} className="flex gap-[10px]">
+                      {row.map((hex) => (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => onUpdateColor(hex)}
+                          title={hex}
+                          className={`inline-flex h-6 w-[26px] flex-shrink-0 items-center justify-center rounded-[8px] border border-black/10 transition-transform hover:scale-[1.03] ${
+                            base.color.toLowerCase() === hex.toLowerCase()
+                              ? "ring-2 ring-[#8eb2f9] ring-offset-1 ring-offset-white"
+                              : ""
+                          }`}
+                          style={{ backgroundColor: hex }}
+                        >
+                          {base.color.toLowerCase() === hex.toLowerCase() && (
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                              <path
+                                d="M2.2 7.1l2.7 2.7L11.8 3"
+                                stroke={getContrastTextColor(hex)}
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            {guideOpen && (
-              <div className="px-5 pb-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[12px] text-[#888]">Supports Markdown</span>
-                  <div className="flex items-center gap-1">
-                    {guideMode === "view" ? (
-                      <button
-                        onClick={() => setGuideMode("edit")}
-                        className="text-[12px] text-[#0069ff] hover:underline px-2 py-0.5 rounded hover:bg-[#f0f7ff] transition-colors"
-                      >
-                        Edit
-                      </button>
-                    ) : (
-                      <>
+              {tab === "icon" && (
+                <div className="pt-4">
+                  <div className="mb-3 flex items-center gap-2 rounded-[8px] border border-[#cdd3dc] bg-white px-3 py-2">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8a9099" strokeWidth="1.5">
+                      <circle cx="7" cy="7" r="4.5" />
+                      <path d="M11 11l3 3" strokeLinecap="round" />
+                    </svg>
+                    <input
+                      value={iconSearch}
+                      onChange={(event) => setIconSearch(event.target.value)}
+                      placeholder="Search icons"
+                      className="w-full border-none bg-transparent text-[13px] text-[#303440] outline-none placeholder:text-[#8f96a1]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-10 gap-[10px]">
+                    {filteredIcons.slice(0, 40).map((icon) => {
+                      const active = base.icon === icon.id;
+                      const iconColor = active
+                        ? (icon.path ? getContrastTextColor(base.color) : getBaseIconForegroundColor(base.color))
+                        : "#4f5561";
+                      return (
                         <button
-                          onClick={() => setGuideMode("view")}
-                          className="text-[12px] text-[#888] hover:text-[#555] px-2 py-0.5 rounded hover:bg-[#f5f5f5] transition-colors"
+                          key={icon.id}
+                          type="button"
+                          onClick={() => onUpdateIcon(icon.id)}
+                          title={icon.label}
+                          className={`inline-flex h-6 w-[26px] items-center justify-center rounded-[8px] border transition-colors ${
+                            active
+                              ? "border-transparent ring-2 ring-[#8eb2f9] ring-offset-1 ring-offset-white"
+                              : "border-black/10 hover:bg-[#eef1f5]"
+                          }`}
+                          style={{ backgroundColor: active ? base.color : "#ffffff" }}
                         >
-                          Cancel
+                          {icon.path ? (
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke={iconColor}
+                              strokeWidth="1.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d={icon.path} />
+                            </svg>
+                          ) : (
+                            <AirtableAssetIcon
+                              asset={453}
+                              alt=""
+                              size={13}
+                              tintColor={active ? iconColor : "#4f5561"}
+                            />
+                          )}
                         </button>
-                        <button
-                          onClick={() => {
-                            onUpdateGuide(guideText);
-                            setGuideMode("view");
-                          }}
-                          className="text-[12px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-3 py-0.5 rounded transition-colors"
-                        >
-                          Save
-                        </button>
-                      </>
-                    )}
+                      );
+                    })}
                   </div>
                 </div>
-                {guideMode === "edit" ? (
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="py-4">
+          <button
+            type="button"
+            onClick={() => setGuideOpen((open) => !open)}
+            className="flex w-full items-center gap-2 text-left text-[17px] font-semibold leading-[18px] text-[#1d1f25]"
+          >
+            <span className="inline-flex w-4 items-center justify-center text-[#2e3440]">
+              <SectionChevron open={guideOpen} />
+            </span>
+            Base guide
+          </button>
+
+          {guideOpen && (
+            <div className="pt-4">
+              {guideMode === "edit" ? (
+                <>
                   <textarea
-                    autoFocus
-                    rows={8}
-                    className="w-full border border-[#e0e0e0] rounded p-3 text-[13px] text-[#172b4d] outline-none focus:border-[#0069ff] resize-none font-mono leading-relaxed"
                     value={guideText}
-                    onChange={(e) => setGuideText(e.target.value)}
+                    onChange={(event) => setGuideText(event.target.value)}
+                    onBlur={saveGuide}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setGuideText(base.guide ?? DEFAULT_GUIDE);
+                        setGuideMode("view");
+                      }
+                      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                        event.preventDefault();
+                        saveGuide();
+                      }
+                    }}
+                    autoFocus
+                    rows={3}
+                    className="w-full rounded-[10px] border border-[#8db4ff] bg-white px-3 py-2 text-[16px] outline-none"
+                    style={{
+                      minHeight: 102,
+                      color: "#1d1f25",
+                      lineHeight: 1.5,
+                    }}
                   />
-                ) : (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex items-center gap-2 text-[13px] text-[#8d93a0]">
+                      <AirtableAssetIcon asset={276} alt="" size={16} className="shrink-0 opacity-80" />
+                      <span>styling with markdown is supported</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <AirtableAssetIcon asset={11} alt="" size={18} className="mt-[1px] shrink-0 text-[#6e7581]" tintColor="#6e7581" />
+                      <span className="text-[13px]" style={{ color: "#5f6673", lineHeight: 1.45 }}>
+                        Base guide will be shown the first time someone opens this base.
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setGuideMode("edit")}
+                  className="w-full rounded-[8px] border border-transparent px-2 py-1 text-left transition-colors hover:bg-[#eef1f5]"
+                >
                   <div
-                    className="text-[13px] text-[#444] leading-relaxed min-h-[60px] cursor-text"
-                    onClick={() => setGuideMode("edit")}
-                    dangerouslySetInnerHTML={{ __html: `<p style='margin:6px 0'>${renderMarkdown(guideText)}</p>` }}
+                    className="m-0 block break-words whitespace-pre-wrap p-0"
+                    style={{
+                      color: "rgb(97, 102, 112)",
+                      fontFamily:
+                        '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+                      fontSize: "13px",
+                      fontWeight: 400,
+                      lineHeight: "20.8px",
+                      width: "336px",
+                      minHeight: "41.5833px",
+                      margin: 0,
+                      padding: 0,
+                      overflowWrap: "break-word",
+                      cursor: "pointer",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(guideText || DEFAULT_GUIDE) }}
                   />
-                )}
-              </div>
-            )}
-          </div>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

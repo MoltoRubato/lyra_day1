@@ -1,5 +1,6 @@
 "use client";
 import type { ViewType } from "@prisma/client";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { StarIco } from "~/app/_components/home/icons";
 
 const HollowStar = ({ size = 13 }: { size?: number }) => (
@@ -33,87 +34,22 @@ export function CreateViewMenu({
       >
         <div className="py-2">
           {[
-            { id: "GRID", label: "Grid", color: "#2d7ff9" },
-            { id: "CAL", label: "Calendar", color: "#f97316" },
-            { id: "GAL", label: "Gallery", color: "#a855f7" },
-            { id: "KANBAN", label: "Kanban", color: "#22c55e" },
-            { id: "TIMELINE", label: "Timeline", color: "#ef4444", team: true },
-            { id: "LIST", label: "List", color: "#2563eb" },
-            { id: "GANTT", label: "Gantt", color: "#0ea5e9", team: true, dividerAfter: true },
-            { id: "FORM", label: "Form", color: "#ec4899", dividerAfter: true },
-            { id: "SECTION", label: "Section", color: "#111827", team: true },
+            { id: "GRID", label: "Grid", asset: 236, color: "#2d7ff9" },
+            { id: "CAL", label: "Calendar", asset: 375, color: "#f97316" },
+            { id: "GAL", label: "Gallery", asset: 233, color: "#8b5cf6" },
+            { id: "KANBAN", label: "Kanban", asset: 207, color: "#22c55e" },
+            { id: "TIMELINE", label: "Timeline", asset: 39, color: "#ef4444", team: true },
+            { id: "LIST", label: "List", asset: 184, color: "#3b82f6" },
+            { id: "GANTT", label: "Gantt", asset: 252, color: "#14b8a6", team: true, dividerAfter: true },
+            { id: "FORM", label: "Form", asset: 259, color: "#ec4899", dividerAfter: true },
+            { id: "SECTION", label: "Section", asset: 63, color: "#111827", team: true },
           ].map((item) => (
             <div key={item.id}>
               <button
                 onClick={() => onSelectType(item.id as ViewType)}
                 className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[#f8f8f8] text-left"
               >
-                <span style={{ color: item.color }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
-                    {item.id === "GRID" && (
-                      <>
-                        <rect x="1" y="1" width="4" height="4" rx="0.5" />
-                        <rect x="9" y="1" width="4" height="4" rx="0.5" />
-                        <rect x="1" y="9" width="4" height="4" rx="0.5" />
-                        <rect x="9" y="9" width="4" height="4" rx="0.5" />
-                      </>
-                    )}
-                    {item.id === "CAL" && (
-                      <>
-                        <rect x="1.5" y="2.5" width="11" height="10" rx="1" />
-                        <path d="M4 1.5v3M10 1.5v3M1.5 5.5h11" />
-                      </>
-                    )}
-                    {item.id === "GAL" && (
-                      <>
-                        <rect x="1.5" y="2" width="11" height="10" rx="1" />
-                        <circle cx="5" cy="6" r="1.5" />
-                        <path d="M3 11l3-3 2 2 3-3 2 4" />
-                      </>
-                    )}
-                    {item.id === "KANBAN" && (
-                      <>
-                        <rect x="1" y="1" width="3.5" height="12" rx="0.5" />
-                        <rect x="5.25" y="1" width="3.5" height="8" rx="0.5" />
-                        <rect x="9.5" y="1" width="3.5" height="10" rx="0.5" />
-                      </>
-                    )}
-                    {item.id === "TIMELINE" && (
-                      <>
-                        <path d="M2 3h10M2 7h10M2 11h10" />
-                        <circle cx="4" cy="3" r="1" fill="currentColor" stroke="none" />
-                        <circle cx="9" cy="7" r="1" fill="currentColor" stroke="none" />
-                        <circle cx="6" cy="11" r="1" fill="currentColor" stroke="none" />
-                      </>
-                    )}
-                    {item.id === "LIST" && (
-                      <>
-                        <path d="M3 3h9M3 7h9M3 11h9" />
-                        <circle cx="1.5" cy="3" r="0.8" fill="currentColor" stroke="none" />
-                        <circle cx="1.5" cy="7" r="0.8" fill="currentColor" stroke="none" />
-                        <circle cx="1.5" cy="11" r="0.8" fill="currentColor" stroke="none" />
-                      </>
-                    )}
-                    {item.id === "GANTT" && (
-                      <>
-                        <path d="M2 3h10M2 7h10M2 11h10" />
-                        <rect x="3" y="2.2" width="5" height="1.6" rx="0.8" fill="currentColor" stroke="none" />
-                        <rect x="5" y="6.2" width="6" height="1.6" rx="0.8" fill="currentColor" stroke="none" />
-                      </>
-                    )}
-                    {item.id === "FORM" && (
-                      <>
-                        <rect x="1.5" y="2" width="11" height="10" rx="1" />
-                        <path d="M4 5h6M4 8h6M4 11h4" />
-                      </>
-                    )}
-                    {item.id === "SECTION" && (
-                      <>
-                        <path d="M2 4h10M2 8h10M2 12h10" />
-                      </>
-                    )}
-                  </svg>
-                </span>
+                <AirtableAssetIcon asset={item.asset} alt="" size={16} tintColor={item.color} />
                 <span>{item.label}</span>
                 {item.team && (
                   <span className="ml-auto text-[10px] text-[#1d4ed8] bg-[#e0f2fe] px-2 py-0.5 rounded-full">Team</span>

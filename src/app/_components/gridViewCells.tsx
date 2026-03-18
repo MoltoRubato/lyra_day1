@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { FIELD_TYPES, FIELD_TYPE_GROUPS } from "~/app/_components/tableUtils";
+import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
 
 export type SelectOption = { id: string; label: string; color: string; order: number; columnId: string };
 
@@ -22,7 +23,7 @@ export function FieldTypePicker({ current, onSelect }: { current: string; onSele
                 className={`w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${
                   current === t ? "bg-[#e8f5f1] text-[#166254]" : "text-[#4b5563] hover:bg-[#f5f6f8] hover:text-[#1f2937]"
                 }`}>
-                <span className="w-4 text-center text-[#9ca3af]">{f.icon}</span> {f.label}
+                <span className="w-4 inline-flex items-center justify-center"><FieldTypeIcon type={t} className="text-[#9ca3af]" /></span> {f.label}
               </button>
             );
           })}
