@@ -145,7 +145,7 @@ export function GridViewTableHeader({
   return (
     <thead className="sticky top-0 z-20">
       <tr className="border-b border-[#e2e5e9] bg-[#f9fafb]">
-        <th className="w-12 px-3 py-0 text-left bg-[#f9fafb] z-10 border-r border-[#e2e5e9]">
+        <th className="w-[88px] px-3 py-0 text-left bg-[#f9fafb] z-10 border-r border-[#e2e5e9]">
           <div className="flex items-center" style={{ height: rowH }}>
             <input
               type="checkbox"

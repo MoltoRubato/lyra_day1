@@ -31,6 +31,7 @@ const MAX_PRELOAD_BATCH_ROWS = 10_000;
 const MAX_PRELOAD_STEPS = 2_000;
 const MAX_BATCH_FETCH_RETRIES = 4;
 const RETRY_BACKOFF_MS = 400;
+const MAX_EMPTY_BATCH_RETRIES = 90;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -65,7 +66,17 @@ export default function GridView({
   onRequestOpenFilterPanel?: () => void;
   onRequestOpenGroupPanel?: () => void;
 }) {
-  const { data: table, isLoading, error } = api.table.getById.useQuery({ id: tableId });
+  const { data: table, isLoading, error } = api.table.getById.useQuery(
+    { id: tableId },
+    {
+      // Preserve the fully loaded cache when switching tabs/tables and back.
+      staleTime: 5 * 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      gcTime: 30 * 60 * 1000,
+    },
+  );
   const loadRowsAfterOrder = api.table.loadRowsAfterOrder.useMutation();
 
   const [editing, setEditing] = useState<EditingCell | null>(null);
@@ -264,6 +275,7 @@ export default function GridView({
       let lastOrder = table.rows.length > 0 ? table.rows[table.rows.length - 1]!.order : -1;
       const newRows: typeof table.rows = [];
       let steps = 0;
+      let emptyBatchRetries = 0;
 
       while (seenIds.size < total) {
         steps += 1;
@@ -307,8 +319,14 @@ export default function GridView({
 
         if (preloadCycle.current !== cycleId) return;
         if (rows.length === 0) {
-          throw new Error("No additional rows were returned before preload completed.");
+          emptyBatchRetries += 1;
+          if (emptyBatchRetries > MAX_EMPTY_BATCH_RETRIES) {
+            throw new Error("No additional rows were returned before preload completed.");
+          }
+          await sleep(Math.min(2_000, RETRY_BACKOFF_MS * emptyBatchRetries));
+          continue;
         }
+        emptyBatchRetries = 0;
 
         lastOrder = rows[rows.length - 1]!.order;
         for (const row of rows) {

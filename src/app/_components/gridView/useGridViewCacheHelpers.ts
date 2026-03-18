@@ -29,7 +29,13 @@ export function useGridViewCacheHelpers(tableId: string) {
   );
 
   const invalidate = useCallback(
-    () => void utils.table.getById.invalidate({ id: tableId }),
+    () => {
+      const current = utils.table.getById.getData({ id: tableId });
+      if (current && current.rows.length >= current.rowCount) {
+        return;
+      }
+      void utils.table.getById.invalidate({ id: tableId });
+    },
     [utils, tableId],
   );
 

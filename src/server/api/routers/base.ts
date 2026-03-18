@@ -92,7 +92,42 @@ export const baseRouter = createTRPCRouter({
     .input(BaseDeleteInput)
     .output(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.base.delete({ where: { id: input.id } });
+      const base = await ctx.db.base.findUnique({
+        where: { id: input.id },
+        select: { id: true },
+      });
+      if (!base) return { id: input.id };
+
+      const ROW_BATCH_SIZE = 2_000;
+
+      // Delete very large bases in batches to avoid long single-statement cascades timing out.
+      while (true) {
+        const rows = await ctx.db.row.findMany({
+          where: { table: { baseId: input.id } },
+          select: { id: true },
+          take: ROW_BATCH_SIZE,
+        });
+        if (!rows.length) break;
+
+        const rowIds = rows.map((r) => r.id);
+        await ctx.db.$transaction(
+          [
+            ctx.db.cell.deleteMany({ where: { rowId: { in: rowIds } } }),
+            ctx.db.row.deleteMany({ where: { id: { in: rowIds } } }),
+          ],
+        );
+      }
+
+      await ctx.db.$transaction([
+        ctx.db.selectOption.deleteMany({
+          where: { column: { table: { baseId: input.id } } },
+        }),
+        ctx.db.column.deleteMany({ where: { table: { baseId: input.id } } }),
+        ctx.db.view.deleteMany({ where: { table: { baseId: input.id } } }),
+        ctx.db.table.deleteMany({ where: { baseId: input.id } }),
+        ctx.db.base.delete({ where: { id: input.id } }),
+      ]);
+
       return { id: input.id };
     }),
 });

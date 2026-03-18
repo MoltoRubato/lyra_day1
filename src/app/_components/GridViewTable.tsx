@@ -375,7 +375,11 @@ export function GridViewTable({
 
       <div
         className="pointer-events-none absolute bottom-0 left-0 right-0 z-[18] bg-white"
-        style={{ bottom: horizontalScrollbarHeight, height: summarySolidFillHeightPx }}
+        style={{
+          bottom: horizontalScrollbarHeight,
+          right: verticalScrollbarWidth,
+          height: summarySolidFillHeightPx,
+        }}
       />
       <div
         className="pointer-events-none absolute left-0 right-0 z-[25] h-px bg-[#e2e5e9]"

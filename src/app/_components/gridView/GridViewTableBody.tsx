@@ -243,7 +243,7 @@ export function GridViewTableBody({
               }}
             >
               <td
-                className={`px-2 py-0 sticky left-0 transition-colors border-r border-[#e2e5e9] z-10 ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                className={`w-[88px] px-2 py-0 sticky left-0 transition-colors border-r border-[#e2e5e9] z-10 ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
               >
                 <div className="flex items-center gap-1.5" style={{ height: rowH }}>
                   <button
@@ -269,7 +269,7 @@ export function GridViewTableBody({
                       <span key={i} className="w-[2px] h-[2px] rounded-full bg-current" />
                     ))}
                   </button>
-                  <div className="relative h-4 w-4 flex-shrink-0">
+                  <div className="relative h-4 w-11 flex-shrink-0">
                     <input
                       type="checkbox"
                       checked={rowSelected}
@@ -429,7 +429,7 @@ export function GridViewTableBody({
 
       <tfoot className="sticky z-[20] bg-white" style={{ bottom: summaryBottomOffsetPx }}>
         <tr className="bg-white" style={{ height: summaryRowHeightPx }}>
-          <td className="w-12 px-0 py-0 sticky left-0 z-20 bg-white overflow-visible">
+          <td className="w-[88px] px-0 py-0 sticky left-0 z-20 bg-white overflow-visible">
             <div className="relative" style={{ height: summaryRowHeightPx }}>
               <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[12px] text-[#2f343c]">
                 {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}

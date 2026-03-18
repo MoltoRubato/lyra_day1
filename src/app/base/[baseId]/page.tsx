@@ -200,7 +200,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
       utils.table.getById.setData({ id: tableId }, (prev) =>
         prev ? { ...prev, rowCount: prev.rowCount + count } : prev,
       );
-      return { snapshot, tableId, count };
+      return { snapshot, count };
     },
     onSuccess: ({ inserted }, vars) => {
       if (inserted !== vars.count) {
@@ -213,6 +213,8 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             : prev,
         );
       }
+      void utils.base.getById.invalidate({ id: baseId });
+      void utils.base.getAll.invalidate();
     },
     onError: (_error, vars, ctx) => {
       utils.table.getById.setData({ id: vars.tableId }, ctx?.snapshot);
