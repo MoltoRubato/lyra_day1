@@ -401,7 +401,7 @@ export default function HomePage() {
                   onMove={(b) => open({ kind: "moveBase", id: b.id, currentWorkspaceId: b.workspaceId })}
                   onDuplicate={(b) => {
                     setNewName(`${b.name} copy`);
-                    open({ kind: "createBase", workspaceId: b.workspaceId });
+                    open({ kind: "createBase", workspaceId: b.workspaceId ?? undefined });
                   }}
                   onGoToWorkspace={(b) => {
                     if (b.workspaceId) setPage(b.workspaceId);
