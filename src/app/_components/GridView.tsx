@@ -24,6 +24,18 @@ import { api } from "~/trpc/react";
 type EditingCell = { rowId: string; columnId: string; value: string };
 
 const OVERSCAN = 15;
+const MAX_FULL_LOAD_ROWS = 300_000;
+const TARGET_CELLS_PER_PRELOAD_BATCH = 50_000;
+const MIN_PRELOAD_BATCH_ROWS = 500;
+const MAX_PRELOAD_BATCH_ROWS = 10_000;
+const MAX_PRELOAD_STEPS = 2_000;
+const MAX_BATCH_FETCH_RETRIES = 4;
+const RETRY_BACKOFF_MS = 400;
+const MAX_EMPTY_BATCH_RETRIES = 90;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export default function GridView({
   tableId,
@@ -54,8 +66,18 @@ export default function GridView({
   onRequestOpenFilterPanel?: () => void;
   onRequestOpenGroupPanel?: () => void;
 }) {
-  const utils = api.useUtils();
-  const { data: table, isLoading, error } = api.table.getById.useQuery({ id: tableId });
+  const { data: table, isLoading, error } = api.table.getById.useQuery(
+    { id: tableId },
+    {
+      // Preserve the fully loaded cache when switching tabs/tables and back.
+      staleTime: 5 * 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      gcTime: 30 * 60 * 1000,
+    },
+  );
+  const loadRowsAfterOrder = api.table.loadRowsAfterOrder.useMutation();
 
   const [editing, setEditing] = useState<EditingCell | null>(null);
   const [renamingCol, setRenamingCol] = useState<{ id: string; value: string } | null>(null);
@@ -74,9 +96,15 @@ export default function GridView({
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollTopRef = useRef(0);
   const rafPending = useRef(false);
+  const preloadCycle = useRef(0);
 
   const [, forceRender] = useState(0);
   const [viewportH, setViewportH] = useState(600);
+  const [loadAllLoading, setLoadAllLoading] = useState(false);
+  const [loadAllPhase, setLoadAllPhase] = useState<"fetching" | "finalizing">("fetching");
+  const [loadAllError, setLoadAllError] = useState<string | null>(null);
+  const [preloadProgressRows, setPreloadProgressRows] = useState<number | null>(null);
+  const [loadAllRetryTick, setLoadAllRetryTick] = useState(0);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -88,7 +116,9 @@ export default function GridView({
   }, []);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    scrollTopRef.current = e.currentTarget.scrollTop;
+    const next = e.currentTarget.scrollTop;
+    const max = Math.max(0, e.currentTarget.scrollHeight - e.currentTarget.clientHeight);
+    scrollTopRef.current = Math.max(0, Math.min(next, max));
     if (rafPending.current) return;
     rafPending.current = true;
     requestAnimationFrame(() => {
@@ -137,33 +167,6 @@ export default function GridView({
     updateOption,
   } = useGridViewColumnMutations({ tableId, ...cacheHelpers });
 
-  const [chunkLoading, setChunkLoading] = useState(false);
-  useEffect(() => {
-    if (!table) return;
-    const loaded = table.rows.length;
-    const total = table.rowCount;
-    if (loaded >= total || chunkLoading) return;
-
-    setChunkLoading(true);
-    void utils.table.getRows
-      .fetch({ tableId, skip: loaded, take: 5000 })
-      .then((newRows) => {
-        patchCache((prev) => {
-          if (!prev) return prev;
-          const existingIds = new Set(prev.rows.map((r) => r.id));
-          const fresh = newRows.filter((r) => !existingIds.has(r.id));
-          if (fresh.length === 0) return prev;
-          return {
-            ...prev,
-            rows: [...prev.rows, ...fresh],
-            rowCount: prev.rowCount,
-          };
-        });
-      })
-      .finally(() => setChunkLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table?.rows.length, table?.rowCount, chunkLoading, tableId]);
-
   const flatItems = useMemo(() => {
     if (!table) return [];
     const filtered = applyFilters(table.rows as RowWithCells[], filters);
@@ -194,11 +197,184 @@ export default function GridView({
   const loadedCount = flatItems.length;
 
   const scrollTop = scrollTopRef.current;
-  const startIdx = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN);
-  const endIdx = Math.min(loadedCount, Math.ceil((scrollTop + viewportH) / rowH) + OVERSCAN);
-  const topPad = startIdx * rowH;
-  const bottomPad = Math.max(0, (visibleTotal - endIdx) * rowH);
-  const visItems = flatItems.slice(startIdx, endIdx);
+  const viewportStart = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN);
+  const viewportEnd = Math.min(
+    visibleTotal,
+    Math.ceil((scrollTop + viewportH) / rowH) + OVERSCAN,
+  );
+  const sliceStart = Math.min(viewportStart, loadedCount);
+  const sliceEnd = Math.min(viewportEnd, loadedCount);
+  const topPad = viewportStart * rowH;
+  const loadingGapRows =
+    noTransform && totalRows > loadedCount
+      ? Math.max(0, viewportEnd - Math.max(sliceEnd, viewportStart))
+      : 0;
+  const loadingGapHeight = loadingGapRows * rowH;
+  const bottomPad = Math.max(0, (visibleTotal - viewportEnd) * rowH);
+  const visItems = flatItems.slice(sliceStart, sliceEnd);
+
+  const tableLoadedRows = table?.rows.length ?? 0;
+  const rawLoadedRows = Math.max(tableLoadedRows, preloadProgressRows ?? 0);
+  const allRowsReady = tableLoadedRows >= totalRows;
+  const scrollLocked = !allRowsReady;
+  const effectiveLoadingGapHeight = allRowsReady ? loadingGapHeight : 0;
+
+  useEffect(() => {
+    preloadCycle.current += 1;
+    setLoadAllLoading(false);
+    setLoadAllPhase("fetching");
+    setLoadAllError(null);
+    setPreloadProgressRows(null);
+    scrollTopRef.current = 0;
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+    forceRender((n) => n + 1);
+  }, [tableId]);
+
+  useEffect(() => {
+    if (!table) return;
+
+    const total = table.rowCount;
+    const loaded = table.rows.length;
+    if (loaded >= total) {
+      setLoadAllLoading(false);
+      setLoadAllPhase("fetching");
+      setLoadAllError(null);
+      setPreloadProgressRows(null);
+      return;
+    }
+
+    if (total > MAX_FULL_LOAD_ROWS) {
+      setLoadAllLoading(false);
+      setLoadAllPhase("fetching");
+      setLoadAllError(
+        `Too many rows to load at once (${total.toLocaleString()}). Reduce row count or raise MAX_FULL_LOAD_ROWS.`,
+      );
+      setPreloadProgressRows(loaded);
+      return;
+    }
+
+    const columnCount = Math.max(1, table.columns.length);
+    const batchSize = Math.max(
+      MIN_PRELOAD_BATCH_ROWS,
+      Math.min(
+        MAX_PRELOAD_BATCH_ROWS,
+        Math.floor(TARGET_CELLS_PER_PRELOAD_BATCH / columnCount),
+      ),
+    );
+
+    const cycleId = ++preloadCycle.current;
+    setLoadAllLoading(true);
+    setLoadAllPhase("fetching");
+    setLoadAllError(null);
+    setPreloadProgressRows(loaded);
+
+    void (async () => {
+      const seenIds = new Set(table.rows.map((row) => row.id));
+      let lastOrder = table.rows.length > 0 ? table.rows[table.rows.length - 1]!.order : -1;
+      const newRows: typeof table.rows = [];
+      let steps = 0;
+      let emptyBatchRetries = 0;
+
+      while (seenIds.size < total) {
+        steps += 1;
+        if (steps > MAX_PRELOAD_STEPS) {
+          throw new Error("Stopped preload to avoid an infinite fetch loop.");
+        }
+        const remaining = total - seenIds.size;
+        let rows: typeof table.rows = [];
+        let requestTake = Math.min(batchSize, remaining);
+        let lastBatchError: unknown = null;
+
+        for (let attempt = 0; attempt <= MAX_BATCH_FETCH_RETRIES; attempt += 1) {
+          try {
+            rows = await loadRowsAfterOrder.mutateAsync({
+              tableId,
+              afterOrder: lastOrder,
+              take: requestTake,
+            });
+            lastBatchError = null;
+            break;
+          } catch (err) {
+            lastBatchError = err;
+            if (attempt >= MAX_BATCH_FETCH_RETRIES) break;
+            requestTake = Math.max(
+              MIN_PRELOAD_BATCH_ROWS,
+              Math.floor(requestTake / 2),
+            );
+            await sleep(RETRY_BACKOFF_MS * (attempt + 1));
+          }
+        }
+
+        if (lastBatchError) {
+          if (lastBatchError instanceof Error) {
+            throw lastBatchError;
+          }
+          if (typeof lastBatchError === "string") {
+            throw new Error(lastBatchError);
+          }
+          throw new Error("Batch preload failed with an unknown error.");
+        }
+
+        if (preloadCycle.current !== cycleId) return;
+        if (rows.length === 0) {
+          emptyBatchRetries += 1;
+          if (emptyBatchRetries > MAX_EMPTY_BATCH_RETRIES) {
+            throw new Error("No additional rows were returned before preload completed.");
+          }
+          await sleep(Math.min(2_000, RETRY_BACKOFF_MS * emptyBatchRetries));
+          continue;
+        }
+        emptyBatchRetries = 0;
+
+        lastOrder = rows[rows.length - 1]!.order;
+        for (const row of rows) {
+          if (seenIds.has(row.id)) continue;
+          seenIds.add(row.id);
+          newRows.push(row);
+        }
+        setPreloadProgressRows(seenIds.size);
+      }
+
+      if (preloadCycle.current !== cycleId) return;
+      setLoadAllPhase("finalizing");
+
+      patchCache((prev) => {
+        if (!prev) return prev;
+        const existingIds = new Set(prev.rows.map((row) => row.id));
+        const fresh = newRows.filter((row) => !existingIds.has(row.id));
+        const merged = [...prev.rows, ...fresh];
+        return {
+          ...prev,
+          rows: merged,
+          rowCount: Math.max(prev.rowCount, total, merged.length),
+        };
+      });
+      setPreloadProgressRows(null);
+    })()
+      .catch((err: unknown) => {
+        if (preloadCycle.current !== cycleId) return;
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Failed to preload all rows. Please retry.";
+        setLoadAllError(message);
+      })
+      .finally(() => {
+        if (preloadCycle.current !== cycleId) return;
+        setLoadAllLoading(false);
+        setLoadAllPhase("fetching");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    table?.rowCount,
+    table?.rows.length,
+    table?.columns.length,
+    tableId,
+    loadAllRetryTick,
+    loadRowsAfterOrder.mutateAsync,
+  ]);
 
   if (isLoading) {
     return <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loading...</div>;
@@ -350,9 +526,10 @@ export default function GridView({
       handleAddColumn={handleAddColumn}
       loadedCount={loadedCount}
       topPad={topPad}
+      loadingGapHeight={effectiveLoadingGapHeight}
       bottomPad={bottomPad}
       visItems={visItems}
-      startIdx={startIdx}
+      startIdx={sliceStart}
       rowNumbers={rowNumbers}
       isTall={isTall}
       editing={editing}
@@ -367,7 +544,12 @@ export default function GridView({
       deleteRow={deleteRow}
       addRow={addRow}
       tableId={tableId}
-      chunkLoading={chunkLoading}
+      chunkLoading={loadAllLoading}
+      loadAllPhase={loadAllPhase}
+      scrollLocked={scrollLocked}
+      rawLoadedRows={rawLoadedRows}
+      loadAllError={loadAllError}
+      onRetryLoadAll={() => setLoadAllRetryTick((n) => n + 1)}
       trueTotal={visibleTotal}
       totalRows={totalRows}
       bulkDeleteRows={bulkDeleteRows}

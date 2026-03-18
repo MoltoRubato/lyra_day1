@@ -194,7 +194,31 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
   const [bulkAdding, setBulkAdding] = useState(false);
   const bulkAddRows = api.table.bulkAddRows.useMutation({
-    onSuccess: () => { void utils.table.getById.invalidate({ id: currentTableId ?? "" }); },
+    onMutate: async ({ tableId, count }) => {
+      await utils.table.getById.cancel({ id: tableId });
+      const snapshot = utils.table.getById.getData({ id: tableId });
+      utils.table.getById.setData({ id: tableId }, (prev) =>
+        prev ? { ...prev, rowCount: prev.rowCount + count } : prev,
+      );
+      return { snapshot, count };
+    },
+    onSuccess: ({ inserted }, vars) => {
+      if (inserted !== vars.count) {
+        utils.table.getById.setData({ id: vars.tableId }, (prev) =>
+          prev
+            ? {
+                ...prev,
+                rowCount: Math.max(prev.rows.length, prev.rowCount - vars.count + inserted),
+              }
+            : prev,
+        );
+      }
+      void utils.base.getById.invalidate({ id: baseId });
+      void utils.base.getAll.invalidate();
+    },
+    onError: (_error, vars, ctx) => {
+      utils.table.getById.setData({ id: vars.tableId }, ctx?.snapshot);
+    },
     onSettled: () => setBulkAdding(false),
   });
 

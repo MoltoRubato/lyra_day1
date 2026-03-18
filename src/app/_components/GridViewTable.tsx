@@ -57,6 +57,7 @@ export function GridViewTable({
   handleAddColumn,
   loadedCount,
   topPad,
+  loadingGapHeight,
   bottomPad,
   visItems,
   startIdx,
@@ -75,6 +76,11 @@ export function GridViewTable({
   addRow,
   tableId,
   chunkLoading,
+  loadAllPhase,
+  scrollLocked,
+  rawLoadedRows,
+  loadAllError,
+  onRetryLoadAll,
   trueTotal: _trueTotal,
   totalRows,
   bulkDeleteRows,
@@ -241,13 +247,21 @@ export function GridViewTable({
   const summarySolidFillHeightPx = summaryBottomOffsetPx + summaryRowHeightPx;
   const summaryTopBorderBottomPx =
     summaryBottomOffsetPx + summaryRowHeightPx + horizontalScrollbarHeight;
+  const progressTotal = Math.max(1, totalRows);
+  const progressLoaded = Math.min(progressTotal, Math.max(0, rawLoadedRows));
+  const progressPercent = Math.min(
+    100,
+    Math.round((progressLoaded / progressTotal) * 100),
+  );
 
   return (
     <div className="relative h-full w-full bg-[#f6f8fc]">
       <div
         ref={containerRef}
-        className="h-full w-full overflow-auto select-none bg-[#f6f8fc]"
-        onScroll={handleScroll}
+        data-testid="grid-scroll-container"
+        className={`h-full w-full select-none bg-[#f6f8fc] ${scrollLocked ? "overflow-hidden" : "overflow-auto"}`}
+        style={{ overflowAnchor: "none" }}
+        onScroll={scrollLocked ? undefined : handleScroll}
         onClick={() => {
           setHeaderPanel(null);
           setOpenSelectCell(null);
@@ -316,6 +330,7 @@ export function GridViewTable({
             visCols={visCols}
             loadedCount={loadedCount}
             topPad={topPad}
+            loadingGapHeight={loadingGapHeight}
             bottomPad={bottomPad}
             visItems={visItems}
             startIdx={startIdx}
@@ -360,7 +375,11 @@ export function GridViewTable({
 
       <div
         className="pointer-events-none absolute bottom-0 left-0 right-0 z-[18] bg-white"
-        style={{ bottom: horizontalScrollbarHeight, height: summarySolidFillHeightPx }}
+        style={{
+          bottom: horizontalScrollbarHeight,
+          right: verticalScrollbarWidth,
+          height: summarySolidFillHeightPx,
+        }}
       />
       <div
         className="pointer-events-none absolute left-0 right-0 z-[25] h-px bg-[#e2e5e9]"
@@ -391,6 +410,51 @@ export function GridViewTable({
         setEditingDescription={setEditingDescription}
         updateColumnDescription={updateColumnDescription}
       />
+
+      {scrollLocked && (
+        <div
+          data-testid="grid-loading-overlay"
+          className="absolute inset-0 z-[40] flex items-center justify-center bg-white/70 px-4 backdrop-blur-[1px]"
+        >
+          <div className="w-full max-w-md rounded-xl border border-[#d1d5db] bg-white px-5 py-4 shadow-lg">
+            <div className="text-sm font-semibold text-[#1f2937]">Loading all rows</div>
+            <div className="mt-2 text-xs text-[#4b5563]">
+              {progressLoaded.toLocaleString()} / {progressTotal.toLocaleString()} rows ready.
+              Scrolling is disabled until this completes.
+            </div>
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#e5e7eb]">
+              <div
+                data-testid="grid-loading-progress-bar"
+                className="h-full rounded-full bg-[#2563eb] transition-[width] duration-300 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div data-testid="grid-loading-progress-text" className="mt-1 text-[11px] text-[#6b7280]">
+              {progressPercent}% complete
+            </div>
+            {loadAllError ? (
+              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {loadAllError}
+              </div>
+            ) : (
+              <div className="mt-3 flex items-center gap-2 text-xs text-[#6b7280]">
+                <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
+                {loadAllPhase === "finalizing"
+                  ? "Finalizing rows and unlocking scroll..."
+                  : "Fetching rows..."}
+              </div>
+            )}
+            {loadAllError && (
+              <button
+                onClick={onRetryLoadAll}
+                className="mt-3 rounded-md border border-[#d1d5db] px-3 py-1.5 text-xs font-medium text-[#111827] hover:bg-[#f9fafb]"
+              >
+                Retry Full Load
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

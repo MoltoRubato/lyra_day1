@@ -103,6 +103,7 @@ export type GridViewTableProps = {
   handleAddColumn: () => void;
   loadedCount: number;
   topPad: number;
+  loadingGapHeight: number;
   bottomPad: number;
   visItems: VisibleItem[];
   startIdx: number;
@@ -123,6 +124,11 @@ export type GridViewTableProps = {
   addRow: { mutate: (v: { tableId: string }) => void };
   tableId: string;
   chunkLoading: boolean;
+  loadAllPhase: "fetching" | "finalizing";
+  scrollLocked: boolean;
+  rawLoadedRows: number;
+  loadAllError: string | null;
+  onRetryLoadAll: () => void;
   trueTotal: number;
   totalRows: number;
   bulkDeleteRows: { mutate: (v: { rowIds: string[] }) => void };
