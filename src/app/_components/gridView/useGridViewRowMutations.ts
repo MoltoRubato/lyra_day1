@@ -55,7 +55,6 @@ export function useGridViewRowMutations({
       return { snapshot };
     },
     onError: (_e, _v, ctx) => restoreCache(ctx?.snapshot),
-    onSettled: invalidate,
   });
 
   const addRow = api.table.addRow.useMutation({

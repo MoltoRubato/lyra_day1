@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { AttachmentCell, SelectCell } from "~/app/_components/gridViewCells";
 import {
   formatCellValue,
@@ -18,6 +19,7 @@ type GridViewTableBodyProps = {
   visCols: VisibleColumn[];
   loadedCount: number;
   topPad: number;
+  loadingGapHeight: number;
   bottomPad: number;
   visItems: VisibleItem[];
   startIdx: number;
@@ -69,6 +71,29 @@ type GridViewTableBodyProps = {
   summaryBottomOffsetPx: number;
 };
 
+// Smaller chunks avoid large single-row spacer glitches in table layout engines.
+const MAX_SPACER_ROW_HEIGHT = 20_000;
+
+function renderSpacerRows(totalHeight: number, colSpan: number, keyPrefix: string) {
+  if (totalHeight <= 0) return null;
+  const rows: ReactElement[] = [];
+  let remaining = totalHeight;
+  let idx = 0;
+
+  while (remaining > 0) {
+    const height = Math.min(remaining, MAX_SPACER_ROW_HEIGHT);
+    rows.push(
+      <tr aria-hidden="true" key={`${keyPrefix}-${idx}`} style={{ height }}>
+        <td colSpan={colSpan} style={{ padding: 0, border: "none" }} />
+      </tr>,
+    );
+    remaining -= height;
+    idx += 1;
+  }
+
+  return rows;
+}
+
 function summaryResult(
   colId: string,
   summaryByCol: Record<string, SummaryOption>,
@@ -103,6 +128,7 @@ export function GridViewTableBody({
   visCols,
   loadedCount,
   topPad,
+  loadingGapHeight,
   bottomPad,
   visItems,
   startIdx,
@@ -142,22 +168,21 @@ export function GridViewTableBody({
   summaryRowHeightPx,
   summaryBottomOffsetPx,
 }: GridViewTableBodyProps) {
+  const hasLoadingGap = loadingGapHeight > 0;
+  const colSpan = visCols.length + 2;
+
   return (
     <>
       <tbody>
-        {loadedCount === 0 && (
+        {loadedCount === 0 && !hasLoadingGap && !chunkLoading && (
           <tr>
-            <td colSpan={visCols.length + 2} className="px-4 py-8 text-center text-xs text-[#9ca3af]">
+            <td colSpan={colSpan} className="px-4 py-8 text-center text-xs text-[#9ca3af]">
               No {pluralLabel(2)} match the current filters.
             </td>
           </tr>
         )}
 
-        {topPad > 0 && (
-          <tr aria-hidden="true" style={{ height: topPad }}>
-            <td colSpan={visCols.length + 2} style={{ padding: 0, border: "none" }} />
-          </tr>
-        )}
+        {renderSpacerRows(topPad, colSpan, "top-pad")}
 
         {visItems.map((item, vi) => {
           const absIdx = startIdx + vi;
@@ -343,14 +368,25 @@ export function GridViewTableBody({
           );
         })}
 
-        {bottomPad > 0 && (
-          <tr aria-hidden="true" style={{ height: bottomPad }}>
-            <td colSpan={visCols.length + 2} style={{ padding: 0, border: "none" }} />
+        {hasLoadingGap && (
+          <tr aria-live="polite">
+            <td colSpan={colSpan} style={{ padding: 0, height: loadingGapHeight }}>
+              <div className="relative h-full w-full bg-[#f3f4f6]">
+                <div className="pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 rounded-full bg-white/80 px-3 py-1 text-[11px] text-[#6b7280] shadow-sm backdrop-blur">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
+                    Loading rows {loadedCount.toLocaleString()} / {(table?.rowCount ?? 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </td>
           </tr>
         )}
 
+        {renderSpacerRows(bottomPad, colSpan, "bottom-pad")}
+
         <tr className="border-t border-[#e2e5e9] bg-white" style={{ height: rowH }}>
-          <td colSpan={visCols.length + 2} className="px-0 py-0">
+          <td colSpan={colSpan} className="px-0 py-0">
             <button
               onClick={() => addRow.mutate({ tableId })}
               className="flex h-full items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-xs"
@@ -380,14 +416,14 @@ export function GridViewTableBody({
         {summaryBottomOffsetPx > 0 && (
           <tr aria-hidden="true" className="bg-[#f6f8fc]">
             <td
-              colSpan={visCols.length + 2}
+              colSpan={colSpan}
               style={{ padding: 0, border: "none", height: summaryBottomOffsetPx }}
             />
           </tr>
         )}
 
         <tr aria-hidden="true" className="bg-[#f6f8fc]">
-          <td colSpan={visCols.length + 2} style={{ padding: 0, height: "100%" }} />
+          <td colSpan={colSpan} style={{ padding: 0, height: "100%" }} />
         </tr>
       </tbody>
 

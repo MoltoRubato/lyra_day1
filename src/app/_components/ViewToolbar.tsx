@@ -308,8 +308,13 @@ export default function ViewToolbar({
         <AirtableAssetIcon asset={175} alt="" size={16} tintColor={TOOLBAR_SUBTLE} />
       </button>
       {onBulkAddRows && (
-        <button onClick={onBulkAddRows} disabled={bulkAdding} className="hidden" aria-hidden>
-          Bulk add rows
+        <button
+          onClick={onBulkAddRows}
+          disabled={bulkAdding}
+          className="h-7 inline-flex items-center justify-center rounded-[8px] border border-[#d8dbe1] px-2.5 text-[12px] font-medium text-[#1d1f25] hover:bg-[#f5f5f4] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+          title="Testing only: add 100,000 filled rows"
+        >
+          {bulkAdding ? "Adding..." : "+100k rows"}
         </button>
       )}
 
