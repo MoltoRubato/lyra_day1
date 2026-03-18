@@ -114,10 +114,16 @@ export function ViewSidebar({
     .map((t) => ({ id: `other-${t.id}`, name: `Grid view in ${t.name}` }))
     .filter((v) => !q || v.name.toLowerCase().includes(q));
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const createMenuLeft = createMenuAnchor ? Math.min(createMenuAnchor.left + 200, viewportW - 260) : 260;
+  const minMenuLeft = 68;
+  const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+  const createMenuLeft = createMenuAnchor
+    ? clamp(createMenuAnchor.left + 200, minMenuLeft, viewportW - 260)
+    : 260;
   const createMenuTop = createMenuAnchor ? createMenuAnchor.top + createMenuAnchor.height + 6 : 120;
   const menuWidth = 240;
-  const viewMenuLeft = viewMenuOpen ? Math.min(viewMenuOpen.left, viewportW - menuWidth - 12) : 12;
+  const viewMenuLeft = viewMenuOpen
+    ? clamp(viewMenuOpen.left, minMenuLeft, viewportW - menuWidth - 12)
+    : minMenuLeft;
 
   useEffect(() => {
     if (!resizing) return;
@@ -239,9 +245,8 @@ export function ViewSidebar({
             <div
               key={view.id}
               className={`group/view flex items-center gap-2 mx-1 px-2 py-1.5 rounded cursor-pointer transition-colors ${
-                isActive ? "bg-[#eaf3f1] border-l-2 border-[#166a5b]" : "hover:bg-[#f5f5f4]"
+                isActive ? "bg-[#f2f3f5]" : "hover:bg-[#f2f3f5]"
               }`}
-              style={isActive ? { borderRadius: "0 6px 6px 0" } : {}}
               onClick={() => onSelectView(view.id)}
               onMouseEnter={() => setHoveredViewId(view.id)}
               onMouseLeave={() => setHoveredViewId((prev) => (prev === view.id ? null : prev))}

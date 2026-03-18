@@ -1,21 +1,31 @@
 "use client";
 import Link from "next/link";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
 export function LeftSidebar() {
   return (
     <aside className="w-[56px] flex-shrink-0 bg-white border-r border-[#e0e0e0] flex flex-col items-center py-2 gap-1 z-10">
       <Link
         href="/"
-        className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity mb-2"
+        className="group relative mb-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded overflow-hidden"
         title="Home"
       >
-        <img
-          src="/airtable_assets/airtable_bw_logo.svg"
+        <AirtableAssetIcon
+          asset={453}
           alt="Airtable"
-          width={24}
-          height={24}
-          draggable={false}
+          size={20}
+          tintColor="#010101"
+          className="transition-all duration-200 ease-out group-hover:scale-[0.8] group-hover:opacity-0"
         />
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <AirtableAssetIcon
+            asset={437}
+            alt=""
+            size={14}
+            tintColor="#010101"
+            className="opacity-0 transition-all duration-200 ease-out group-hover:opacity-100"
+          />
+        </span>
       </Link>
       <div className="flex-1" />
 

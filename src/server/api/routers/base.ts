@@ -41,6 +41,7 @@ export const baseRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => ctx.db.base.create({
       data: {
         name: input.name,
+        color: "#dc043b",
         workspaceId: input.workspaceId ?? null,
         lastOpenedAt: new Date(),
         tables: {

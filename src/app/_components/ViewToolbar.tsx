@@ -30,9 +30,19 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
 
 export type OpenPanel = "hide" | "filter" | "group" | "sort" | "height" | null;
 
-const VIEW_ICONS: Record<string, React.ReactNode> = {
-  GRID: <AirtableAssetIcon asset={236} alt="" size={16} />,
-  KANBAN: <AirtableAssetIcon asset={207} alt="" size={16} />,
+const TOOLBAR_SUBTLE = "rgb(97, 102, 112)";
+
+const VIEW_META: Record<string, { asset: number; color: string }> = {
+  GRID: { asset: 236, color: "#2d7ff9" },
+  KANBAN: { asset: 207, color: "#22c55e" },
+};
+
+const ACTIVE_TOOL_CHIP: Record<Exclude<OpenPanel, null>, { bg: string; icon: string }> = {
+  hide: { bg: "#C4ECFF", icon: "#4A5C73" },
+  filter: { bg: "#CFF5D1", icon: "#3E5B45" },
+  group: { bg: "#E0DAFD", icon: "#544C75" },
+  sort: { bg: "#FFE0CC", icon: "#6F5545" },
+  height: { bg: "#EAF3FF", icon: "#3668B5" },
 };
 
 export default function ViewToolbar({
@@ -88,52 +98,55 @@ export default function ViewToolbar({
   const hasFilters = config.filters.length > 0;
   const hasGroups = config.groups.length > 0;
   const hasSorts = config.sorts.length > 0;
+  const activeViewMeta = VIEW_META[activeViewType] ?? { asset: 236, color: "#2d7ff9" };
+  const columnNameById = new Map(columns.map((column) => [column.id, column.name]));
+  const firstFilterColumnName = hasFilters
+    ? columnNameById.get(config.filters[0]?.columnId ?? "")
+    : undefined;
 
   type BtnDef = {
     id: Exclude<OpenPanel, null>;
     label: string;
     active: boolean;
-    icon: React.ReactNode;
+    iconAsset: number;
   };
 
   const BTNS: BtnDef[] = [
     {
       id: "hide",
-      label: hiddenCount > 0 ? `Hide fields (${hiddenCount})` : "Hide fields",
+      label:
+        hiddenCount > 0
+          ? `${hiddenCount} hidden field${hiddenCount > 1 ? "s" : ""}`
+          : "Hide fields",
       active: open === "hide" || hiddenCount > 0,
-      icon: (
-        <AirtableAssetIcon asset={283} alt="" size={16} />
-      ),
+      iconAsset: 283,
     },
     {
       id: "filter",
-      label: hasFilters ? `Filter (${config.filters.length})` : "Filter",
+      label:
+        hasFilters
+          ? `Filtered by ${firstFilterColumnName ?? `${config.filters.length} field${config.filters.length > 1 ? "s" : ""}`}`
+          : "Filter",
       active: open === "filter" || hasFilters,
-      icon: (
-        <AirtableAssetIcon asset={255} alt="" size={16} />
-      ),
+      iconAsset: 255,
     },
     {
       id: "group",
       label: hasGroups ? `Grouped by ${config.groups.length} field${config.groups.length > 1 ? "s" : ""}` : "Group",
       active: open === "group" || hasGroups,
-      icon: (
-        <AirtableAssetIcon asset={232} alt="" size={16} />
-      ),
+      iconAsset: 232,
     },
     {
       id: "sort",
       label: hasSorts ? `Sorted by ${config.sorts.length} field${config.sorts.length > 1 ? "s" : ""}` : "Sort",
       active: open === "sort" || hasSorts,
-      icon: (
-        <AirtableAssetIcon asset={423} alt="" size={16} />
-      ),
+      iconAsset: 423,
     },
   ];
 
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
   const menuWidth = 260;
-  const menuLeft = viewMenuAnchor ? Math.max(12, Math.min(viewMenuAnchor.left, viewportW - menuWidth - 12)) : 12;
+  const menuLeft = viewMenuAnchor ? Math.max(68, Math.min(viewMenuAnchor.left, viewportW - menuWidth - 12)) : 68;
   const menuTop = viewMenuAnchor ? viewMenuAnchor.top + viewMenuAnchor.height + 8 : 48;
 
   return (
@@ -141,7 +154,7 @@ export default function ViewToolbar({
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
-          className="mr-1 p-1.5 rounded hover:bg-[#f0f0ef] text-[#444] transition-colors flex-shrink-0"
+          className="mr-1 p-1.5 rounded hover:bg-[#f0f0ef] text-[#616670] transition-colors flex-shrink-0"
           title="Toggle view sidebar"
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -179,9 +192,9 @@ export default function ViewToolbar({
                 setDraftName(activeViewName ?? "");
                 setDraftDesc(activeViewDescription ?? "");
               }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f5f5f4] text-[#172b4d] font-medium text-[12px] transition-colors"
+              className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f2f3f5] text-[#1d1f25] font-medium text-[12px] transition-colors"
             >
-              {VIEW_ICONS[activeViewType] ?? VIEW_ICONS.GRID}
+              <AirtableAssetIcon asset={activeViewMeta.asset} alt="" size={16} tintColor={activeViewMeta.color} />
               {activeViewName}
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#aaa" strokeWidth="1.5">
                 <path d="M2.5 4l2.5 2.5L7.5 4" />
@@ -196,17 +209,30 @@ export default function ViewToolbar({
 
       {BTNS.map((btn) => (
         <div key={btn.id} className="relative">
+          {(() => {
+            const activeChip = ACTIVE_TOOL_CHIP[btn.id];
+            return (
           <button
             onClick={() => toggle(btn.id)}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded text-[13px] transition-colors ${
+            className={`flex h-[26px] items-center gap-1.5 rounded px-2 py-1 text-[13px] transition-colors ${
               btn.active
-                ? "bg-[#ebf5ff] text-[#0069ff] font-medium"
-                : "text-[#666] hover:text-[#172b4d] hover:bg-[#f5f5f4]"
+                ? "text-[#1d1f25]"
+                : "text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4]"
             }`}
+            style={btn.active ? { backgroundColor: activeChip.bg } : undefined}
           >
-            <span className="inline-flex items-center justify-center">{btn.icon}</span>
+            <span className="inline-flex items-center justify-center">
+              <AirtableAssetIcon
+                asset={btn.iconAsset}
+                alt=""
+                size={16}
+                tintColor={btn.active ? activeChip.icon : TOOLBAR_SUBTLE}
+              />
+            </span>
             {btn.label}
           </button>
+            );
+          })()}
 
           {open === btn.id && (
             <PanelWrapper onClose={() => setOpen(null)}>
@@ -249,8 +275,8 @@ export default function ViewToolbar({
         </div>
       ))}
 
-      <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#666] hover:text-[#172b4d] hover:bg-[#f5f5f4] transition-colors">
-        <AirtableAssetIcon asset={149} alt="" size={16} />
+      <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
+        <AirtableAssetIcon asset={149} alt="" size={16} tintColor={TOOLBAR_SUBTLE} />
         Color
       </button>
       <div className="relative">
@@ -259,11 +285,11 @@ export default function ViewToolbar({
           className={`h-7 w-7 inline-flex items-center justify-center rounded transition-colors ${
             open === "height"
               ? "bg-[#ebf5ff] text-[#0069ff]"
-              : "text-[#666] hover:text-[#172b4d] hover:bg-[#f5f5f4]"
+              : "text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4]"
           }`}
           title="Row height"
         >
-          <AirtableAssetIcon asset={105} alt="" size={16} />
+          <AirtableAssetIcon asset={105} alt="" size={16} tintColor={open === "height" ? "#0069ff" : TOOLBAR_SUBTLE} />
         </button>
         {open === "height" && (
           <PanelWrapper onClose={() => setOpen(null)}>
@@ -274,12 +300,12 @@ export default function ViewToolbar({
           </PanelWrapper>
         )}
       </div>
-      <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#666] hover:text-[#172b4d] hover:bg-[#f5f5f4] transition-colors">
-        <AirtableAssetIcon asset={430} alt="" size={16} />
+      <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
+        <AirtableAssetIcon asset={430} alt="" size={16} tintColor={TOOLBAR_SUBTLE} />
         Share and sync
       </button>
-      <button className="h-7 w-7 inline-flex items-center justify-center rounded text-[#666] hover:text-[#172b4d] hover:bg-[#f5f5f4] transition-colors">
-        <AirtableAssetIcon asset={175} alt="" size={16} />
+      <button className="h-7 w-7 inline-flex items-center justify-center rounded text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
+        <AirtableAssetIcon asset={175} alt="" size={16} tintColor={TOOLBAR_SUBTLE} />
       </button>
       {onBulkAddRows && (
         <button onClick={onBulkAddRows} disabled={bulkAdding} className="hidden" aria-hidden>

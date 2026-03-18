@@ -1,14 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
+import { getBaseTableBarBorderColor, getBaseTableBarColor } from "~/app/_components/baseAppearanceColors";
 
 function tabBarBg(hex: string): string {
-  void hex;
-  return "#f3ecd7";
+  return getBaseTableBarColor(hex);
 }
 function tabBarBorder(hex: string): string {
-  void hex;
-  return "#e2d8be";
+  return getBaseTableBarBorderColor(hex);
 }
 
 type TableTabsBarProps = {
@@ -86,26 +85,28 @@ export function TableTabsBar({
     : tables;
 
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const minMenuLeft = 68;
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
   const searchMenuWidth = 360;
   const addMenuWidth = 280;
   const searchLeft = tableSearchAnchor
-    ? clamp(tableSearchAnchor.left - 120, 12, viewportW - searchMenuWidth - 12)
-    : 12;
+    ? clamp(tableSearchAnchor.left - 120, minMenuLeft, viewportW - searchMenuWidth - 12)
+    : minMenuLeft;
   const addMenuLeft = addMenuAnchor
-    ? clamp(addMenuAnchor.left + addMenuAnchor.width - addMenuWidth, 12, viewportW - addMenuWidth - 12)
-    : 12;
+    ? clamp(addMenuAnchor.left + addMenuAnchor.width - addMenuWidth, minMenuLeft, viewportW - addMenuWidth - 12)
+    : minMenuLeft;
   const menuWidth = 280;
   const menuLeft = tableMenuAnchor
-    ? clamp(tableMenuAnchor.left, 12, viewportW - menuWidth - 12)
-    : 12;
+    ? clamp(tableMenuAnchor.left, minMenuLeft, viewportW - menuWidth - 12)
+    : minMenuLeft;
+  const tabDividerColor = tabBarBorder(baseColor);
 
   return (
     <div
-      className="relative flex items-center px-2 flex-shrink-0 h-8 overflow-hidden"
-      style={{ background: tabBarBg(baseColor), borderBottom: `1px solid ${tabBarBorder(baseColor)}` }}
+      className="relative flex h-8 flex-shrink-0 items-center pl-0 pr-2 overflow-hidden"
+      style={{ background: tabBarBg(baseColor) }}
     >
-      {tables.map((table) => {
+      {tables.map((table, index) => {
         const isActive = currentTableId === table.id;
         const isRenaming = renamingTable?.id === table.id;
         return (
@@ -113,9 +114,10 @@ export function TableTabsBar({
             key={table.id}
             className={`group/tab relative flex items-center flex-shrink-0 h-8 transition-all ${
               isActive
-                ? "bg-white rounded-t border-l border-t border-r border-[#d8d8d8] -mb-px z-10"
-                : "border-r border-[#d8cfb7]"
+                ? `bg-white rounded-t border-t border-r border-[#d8d8d8] -mb-px z-10 ${index === 0 ? "" : "border-l"}`
+                : "border-r"
             }`}
+            style={isActive ? undefined : { borderRightColor: tabDividerColor }}
           >
             {isRenaming ? (
               <input
