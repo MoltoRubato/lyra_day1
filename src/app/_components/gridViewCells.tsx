@@ -163,14 +163,13 @@ export function SelectCell({ cellId, openSelectCell, setOpenSelectCell, value, o
             </span>
           );
         })}
-        {selected.length === 0 && <span className="text-[#d1d5db] text-[11px]">—</span>}
       </div>
 
       {isOpen && (
         <div className="absolute top-full left-0 z-50 mt-1 bg-white border border-[#e2e5e9] rounded-xl shadow-xl p-1 w-48 max-h-56 overflow-y-auto"
           onClick={(e) => e.stopPropagation()}>
           {options.length === 0 && (
-            <p className="text-xs text-[#9ca3af] p-2">No options — use the ⚙ icon to add some.</p>
+            <p className="p-2 text-xs text-[#9ca3af]">No options yet.</p>
           )}
           {options.map((opt) => (
             <button key={opt.id} onClick={() => toggle(opt.label)}
@@ -232,3 +231,4 @@ export function AttachmentCell({ value, onUpload }: { value: string; onUpload: (
     </button>
   );
 }
+

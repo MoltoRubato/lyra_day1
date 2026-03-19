@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnType } from "@prisma/client";
 import {
   GridViewTableBody,
@@ -9,7 +9,11 @@ import {
 import {
   GridViewTableOverlays,
 } from "~/app/_components/gridView/GridViewTableOverlays";
-import type { GridViewTableProps, SummaryOption } from "~/app/_components/gridView/tableTypes";
+import type {
+  FieldEditorState,
+  GridViewTableProps,
+  SummaryOption,
+} from "~/app/_components/gridView/tableTypes";
 
 export function GridViewTable({
   containerRef,
@@ -26,6 +30,8 @@ export function GridViewTable({
   onRequestOpenFilterPanel,
   onRequestOpenGroupPanel,
   visCols,
+  freezeCount,
+  onFreezeCountChange,
   dragOverColId,
   setDragColId,
   setDragOverColId,
@@ -34,7 +40,6 @@ export function GridViewTable({
   setHeaderPanel,
   renamingCol,
   setRenamingCol,
-  handleHeaderSortClick,
   deleteColumn,
   renameColumn,
   changeType,
@@ -83,6 +88,8 @@ export function GridViewTable({
   allRowsForSummary,
   recordLabel = "record",
 }: GridViewTableProps) {
+  const [renderedRowHeaderWidth, setRenderedRowHeaderWidth] = useState<number | null>(null);
+  const [renderedColumnWidths, setRenderedColumnWidths] = useState<number[]>([]);
   const [menuForCol, setMenuForCol] = useState<string | null>(null);
   const [hoveredInfoCol, setHoveredInfoCol] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState<{
@@ -90,13 +97,7 @@ export function GridViewTable({
     value: string;
   } | null>(null);
   const [fieldTypeListOpen, setFieldTypeListOpen] = useState(false);
-  const [editingField, setEditingField] = useState<{
-    colId: string;
-    name: string;
-    type: string;
-    description: string;
-    showDescription: boolean;
-  } | null>(null);
+  const [editingField, setEditingField] = useState<FieldEditorState | null>(null);
   const [duplicatingField, setDuplicatingField] = useState<{
     colId: string;
     name: string;
@@ -114,6 +115,10 @@ export function GridViewTable({
   const [hoveredSummaryCol, setHoveredSummaryCol] = useState<string | null>(null);
   const [horizontalScrollbarHeight, setHorizontalScrollbarHeight] = useState(0);
   const [verticalScrollbarWidth, setVerticalScrollbarWidth] = useState(0);
+  const [isFreezeDividerHover, setIsFreezeDividerHover] = useState(false);
+  const [isFreezeDragging, setIsFreezeDragging] = useState(false);
+  const [freezeTooltipTop, setFreezeTooltipTop] = useState(220);
+  const dividerBottomInset = Math.max(34, horizontalScrollbarHeight + 21.5);
 
   const label = (recordLabel || "record").trim() || "record";
   const labelLower = label.toLowerCase();
@@ -124,6 +129,40 @@ export function GridViewTable({
     () => allRowsForSummary.map((r) => r.id),
     [allRowsForSummary],
   );
+  const visibleColumnsSignature = useMemo(
+    () => visCols.map((col) => `${col.id}:${col.width}`).join("|"),
+    [visCols],
+  );
+  const rowNumberWidth = renderedRowHeaderWidth ?? 88;
+  const effectiveColumnWidths = useMemo(
+    () => visCols.map((col, idx) => renderedColumnWidths[idx] ?? col.width),
+    [renderedColumnWidths, visCols],
+  );
+  const clampedFreezeCount = Math.max(0, Math.min(freezeCount, visCols.length));
+  const frozenOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let nextLeft = rowNumberWidth;
+    for (const width of effectiveColumnWidths) {
+      offsets.push(nextLeft);
+      nextLeft += width;
+    }
+    return offsets;
+  }, [effectiveColumnWidths, rowNumberWidth]);
+  const freezeBoundaries = useMemo(() => {
+    const boundaries: number[] = [rowNumberWidth];
+    let nextBoundary = rowNumberWidth;
+    for (const width of effectiveColumnWidths) {
+      nextBoundary += width;
+      boundaries.push(nextBoundary);
+    }
+    return boundaries;
+  }, [effectiveColumnWidths, rowNumberWidth]);
+  const dividerLeft = freezeBoundaries[clampedFreezeCount] ?? rowNumberWidth;
+  const freezeTooltipLabel = isFreezeDragging
+    ? clampedFreezeCount === 1
+      ? "Freeze 1 column"
+      : `Freeze ${clampedFreezeCount} columns`
+    : "Drag to adjust the number of frozen columns";
   const hasSelectedRows = selectedRowIds.length > 0;
   const selectedSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
 
@@ -135,6 +174,145 @@ export function GridViewTable({
     const valid = new Set(allRowsForSummary.map((r) => r.id));
     setSelectedRowIds((prev) => prev.filter((id) => valid.has(id)));
   }, [allRowsForSummary]);
+
+  useEffect(() => {
+    const containerEl = containerRef.current;
+    if (!containerEl) return;
+
+    const measureHeaderWidths = () => {
+      const headerCells = Array.from(
+        containerEl.querySelectorAll("thead tr:first-child > th"),
+      );
+      if (!headerCells.length) return;
+
+      const rowHeaderCell = headerCells[0];
+      if (rowHeaderCell instanceof HTMLElement) {
+        const nextRowHeaderWidth = rowHeaderCell.offsetWidth;
+        if (Number.isFinite(nextRowHeaderWidth) && nextRowHeaderWidth > 0) {
+          setRenderedRowHeaderWidth((prev) =>
+            prev !== null && Math.abs(prev - nextRowHeaderWidth) < 0.25
+              ? prev
+              : nextRowHeaderWidth,
+          );
+        }
+      }
+
+      const nextColWidths = visCols.map((col, idx) => {
+        const headerCell = headerCells[idx + 1];
+        if (headerCell instanceof HTMLElement) {
+          const width = headerCell.offsetWidth;
+          if (Number.isFinite(width) && width > 0) return width;
+        }
+        return col.width;
+      });
+
+      setRenderedColumnWidths((prev) => {
+        if (
+          prev.length === nextColWidths.length &&
+          prev.every((width, idx) => Math.abs(width - nextColWidths[idx]!) < 0.25)
+        ) {
+          return prev;
+        }
+        return nextColWidths;
+      });
+    };
+
+    measureHeaderWidths();
+
+    const ro = new ResizeObserver(() => measureHeaderWidths());
+    ro.observe(containerEl);
+    const tableEl = containerEl.querySelector("table");
+    if (tableEl instanceof HTMLElement) {
+      ro.observe(tableEl);
+    }
+    const headerRow = containerEl.querySelector("thead tr:first-child");
+    if (headerRow instanceof HTMLElement) {
+      ro.observe(headerRow);
+    }
+    const headerCells = containerEl.querySelectorAll("thead tr:first-child > th");
+    headerCells.forEach((cell) => {
+      if (cell instanceof HTMLElement) ro.observe(cell);
+    });
+
+    if (visCols.length === 0) {
+      setRenderedColumnWidths((prev) => (prev.length ? [] : prev));
+    }
+
+    window.addEventListener("resize", measureHeaderWidths);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measureHeaderWidths);
+    };
+  }, [containerRef, visCols, visibleColumnsSignature]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const paneHeight = Math.max(80, el.clientHeight - rowH - dividerBottomInset);
+    const nextTop = Math.max(24, Math.min(paneHeight - 28, Math.round(paneHeight * 0.44)));
+    setFreezeTooltipTop(nextTop);
+  }, [containerRef, dividerBottomInset, rowH]);
+
+  const nearestFreezeCountForClientX = useCallback(
+    (clientX: number) => {
+      const el = containerRef.current;
+      if (!el) return clampedFreezeCount;
+      const tableEl = el.querySelector("table");
+      if (!(tableEl instanceof HTMLElement)) return clampedFreezeCount;
+      const tableRect = tableEl.getBoundingClientRect();
+      const contentX = clientX - tableRect.left + el.scrollLeft;
+      let nearestCount = 0;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      freezeBoundaries.forEach((boundary, idx) => {
+        const distance = Math.abs(boundary - contentX);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestCount = idx;
+        }
+      });
+      return nearestCount;
+    },
+    [clampedFreezeCount, containerRef, freezeBoundaries],
+  );
+
+  const updateFreezeTooltipTop = useCallback(
+    (clientY: number) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const paneHeight = Math.max(80, el.clientHeight - rowH - dividerBottomInset);
+      const minTop = 24;
+      const maxTop = Math.max(minTop, paneHeight - 28);
+      const nextTop = Math.round(clientY - rect.top - rowH - 14);
+      setFreezeTooltipTop(Math.max(minTop, Math.min(maxTop, nextTop)));
+    },
+    [containerRef, dividerBottomInset, rowH],
+  );
+
+  const beginFreezeDrag = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsFreezeDragging(true);
+      setIsFreezeDividerHover(true);
+      updateFreezeTooltipTop(e.clientY);
+      onFreezeCountChange(nearestFreezeCountForClientX(e.clientX));
+
+      const onMove = (ev: MouseEvent) => {
+        updateFreezeTooltipTop(ev.clientY);
+        onFreezeCountChange(nearestFreezeCountForClientX(ev.clientX));
+      };
+      const onUp = () => {
+        setIsFreezeDragging(false);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [nearestFreezeCountForClientX, onFreezeCountChange, updateFreezeTooltipTop],
+  );
 
   useEffect(() => {
     const el = containerRef.current;
@@ -175,6 +353,7 @@ export function GridViewTable({
 
   function applyFieldEdit() {
     if (!editingField) return;
+    const selectFieldTypes = new Set(["SINGLE_SELECT", "MULTI_SELECT"]);
     renameColumn.mutate({
       columnId: editingField.colId,
       name: editingField.name.trim() || "Field",
@@ -189,6 +368,51 @@ export function GridViewTable({
         ? editingField.description.trim() || null
         : null,
     });
+
+    if (selectFieldTypes.has(editingField.type)) {
+      const originalById = new Map(
+        editingField.originalSelectOptions.map((opt) => [opt.id, opt]),
+      );
+      const normalizedOptions = editingField.selectOptions
+        .map((opt, index) => ({
+          ...opt,
+          order: index,
+          label: opt.label.trim(),
+        }))
+        .filter((opt) => opt.label.length > 0);
+      const nextPersistedIds = new Set(
+        normalizedOptions
+          .map((opt) => opt.id)
+          .filter((id) => !id.startsWith("new-")),
+      );
+
+      editingField.originalSelectOptions.forEach((opt) => {
+        if (!nextPersistedIds.has(opt.id)) {
+          deleteOption.mutate({ optionId: opt.id });
+        }
+      });
+
+      normalizedOptions.forEach((opt) => {
+        if (opt.id.startsWith("new-")) {
+          addOption.mutate({
+            columnId: editingField.colId,
+            label: opt.label,
+            color: opt.color,
+          });
+          return;
+        }
+        const original = originalById.get(opt.id);
+        if (!original) return;
+        if (original.label !== opt.label || original.color !== opt.color) {
+          updateOption.mutate({
+            optionId: opt.id,
+            label: opt.label,
+            color: opt.color,
+          });
+        }
+      });
+    }
+
     setEditingField(null);
   }
 
@@ -268,7 +492,10 @@ export function GridViewTable({
         <table className="min-h-full border-collapse bg-white text-sm" style={{ tableLayout: "fixed" }}>
           <GridViewTableHeader
             rowH={rowH}
+            rowNumberWidth={rowNumberWidth}
             visCols={visCols}
+            freezeCount={clampedFreezeCount}
+            frozenOffsets={frozenOffsets}
             dragOverColId={dragOverColId}
             setDragColId={setDragColId}
             setDragOverColId={setDragOverColId}
@@ -277,15 +504,11 @@ export function GridViewTable({
             setHeaderPanel={setHeaderPanel}
             renamingCol={renamingCol}
             setRenamingCol={setRenamingCol}
-            handleHeaderSortClick={handleHeaderSortClick}
             deleteColumn={deleteColumn}
             renameColumn={renameColumn}
             changeType={changeType}
             insertColumnLeft={insertColumnLeft}
             insertColumnRight={insertColumnRight}
-            addOption={addOption}
-            deleteOption={deleteOption}
-            updateOption={updateOption}
             startResize={startResize}
             addingCol={addingCol}
             setAddingCol={setAddingCol}
@@ -315,8 +538,11 @@ export function GridViewTable({
 
           <GridViewTableBody
             rowH={rowH}
+            rowNumberWidth={rowNumberWidth}
             table={table}
             visCols={visCols}
+            freezeCount={clampedFreezeCount}
+            frozenOffsets={frozenOffsets}
             loadedCount={loadedCount}
             topPad={topPad}
             loadingGapHeight={loadingGapHeight}
@@ -360,6 +586,67 @@ export function GridViewTable({
             summaryBottomOffsetPx={summaryBottomOffsetPx}
           />
         </table>
+      </div>
+
+      <div
+        className="pointer-events-none absolute z-[3] overflow-visible"
+        style={{
+          top: rowH,
+          bottom: dividerBottomInset,
+          left: dividerLeft,
+          width: 0,
+          userSelect: "none",
+        }}
+      >
+        <div
+          className="pointer-events-auto absolute bottom-0 top-0 cursor-col-resize"
+          style={{ left: -1, width: 2 }}
+          onMouseEnter={() => setIsFreezeDividerHover(true)}
+          onMouseLeave={() => {
+            if (!isFreezeDragging) setIsFreezeDividerHover(false);
+          }}
+          onMouseMove={(e) => {
+            if (!isFreezeDragging) updateFreezeTooltipTop(e.clientY);
+          }}
+          onMouseDown={beginFreezeDrag}
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 top-0 border-l border-[#afb5bf]"
+          style={{ left: 0, opacity: 1 }}
+        />
+        <div
+          className="pointer-events-none absolute w-[6px] rounded-full bg-[#1c76d2]"
+          style={{
+            left: -3,
+            top: freezeTooltipTop - 2,
+            height: 26,
+            opacity: isFreezeDragging || isFreezeDividerHover ? 1 : 0,
+            transition: isFreezeDragging ? "none" : "opacity 120ms ease",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute h-7 select-none border border-[#d6dae1] bg-[#f7f8fa] px-3 text-[13px] leading-7 text-[#8a8f99]"
+          style={{
+            top: Math.max(8, freezeTooltipTop - 2),
+            left: 10,
+            clipPath: "polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%)",
+            whiteSpace: "nowrap",
+            fontFamily:
+              '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+            opacity: isFreezeDragging || isFreezeDividerHover ? 1 : 0,
+            transition: isFreezeDragging ? "none" : "opacity 120ms ease",
+          }}
+        >
+          {isFreezeDragging ? (
+            <>
+              <span>Freeze </span>
+              <span className="text-[#10b981]">{clampedFreezeCount}</span>
+              <span>{clampedFreezeCount === 1 ? " column" : " columns"}</span>
+            </>
+          ) : (
+            <span>{freezeTooltipLabel}</span>
+          )}
+        </div>
       </div>
 
       <div

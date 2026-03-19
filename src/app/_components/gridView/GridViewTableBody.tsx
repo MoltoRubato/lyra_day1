@@ -15,8 +15,11 @@ import type {
 
 type GridViewTableBodyProps = {
   rowH: number;
+  rowNumberWidth: number;
   table: { rowCount: number } | null | undefined;
   visCols: VisibleColumn[];
+  freezeCount: number;
+  frozenOffsets: number[];
   loadedCount: number;
   topPad: number;
   loadingGapHeight: number;
@@ -124,8 +127,11 @@ function summaryResult(
 
 export function GridViewTableBody({
   rowH,
+  rowNumberWidth,
   table,
   visCols,
+  freezeCount,
+  frozenOffsets,
   loadedCount,
   topPad,
   loadingGapHeight,
@@ -243,7 +249,7 @@ export function GridViewTableBody({
               }}
             >
               <td
-                className={`w-[88px] px-2 py-0 sticky left-0 transition-colors border-r border-[#e2e5e9] z-10 ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                className={`sticky left-0 z-[13] box-border w-[88px] border-r border-[#e2e5e9] px-2 py-0 transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
               >
                 <div className="flex items-center gap-1.5" style={{ height: rowH }}>
                   <button
@@ -285,14 +291,27 @@ export function GridViewTableBody({
                 </div>
               </td>
 
-              {visCols.map((col) => {
+              {visCols.map((col, colIndex) => {
                 const isEditing = editing?.rowId === row.id && editing.columnId === col.id;
                 const value = getCellValue(row, col.id);
+                const isFrozen = colIndex < freezeCount;
+                const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
                 return (
                   <td
                     key={col.id}
-                    style={{ width: col.width, maxWidth: col.width, height: rowH }}
-                    className={`px-2 py-0 border-r border-[#e2e5e9] overflow-visible ${rowSelected ? "bg-[#dfe5ef]" : ""}`}
+                    style={{
+                      width: col.width,
+                      maxWidth: col.width,
+                      height: rowH,
+                      ...(isFrozen
+                        ? {
+                            left: frozenOffsets[colIndex] ?? rowNumberWidth,
+                            zIndex: 11,
+                          }
+                        : {}),
+                      ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
+                    }}
+                    className={`box-border px-2 py-0 border-r border-[#e2e5e9] overflow-visible ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
                     onClick={() => handleCellClick(row, col)}
                     onContextMenu={(e) => openRowContextMenu(e, row.id)}
                   >
@@ -444,7 +463,7 @@ export function GridViewTableBody({
 
       <tfoot className="sticky z-[20] bg-white" style={{ bottom: summaryBottomOffsetPx }}>
         <tr className="bg-white" style={{ height: summaryRowHeightPx }}>
-          <td className="w-[88px] px-0 py-0 sticky left-0 z-20 bg-white overflow-visible">
+          <td className="sticky left-0 z-[13] box-border w-[88px] overflow-visible bg-white px-0 py-0">
             <div className="relative" style={{ height: summaryRowHeightPx }}>
               <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[12px] text-[#2f343c]">
                 {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
@@ -452,17 +471,26 @@ export function GridViewTableBody({
             </div>
           </td>
 
-          {visCols.map((col) => {
+          {visCols.map((col, colIndex) => {
             const result = summaryResult(col.id, summaryByCol, allRowsForSummary, getCellValue);
             const mode = summaryByCol[col.id] ?? "None";
             const shouldShowPrompt = hoveredSummaryCol === col.id && mode === "None";
             const isSummaryCellHoverOrOpen =
               hoveredSummaryCol === col.id || summaryMenu?.colId === col.id;
+            const isFrozen = colIndex < freezeCount;
+            const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
             return (
               <td
                 key={`summary-${col.id}`}
-                className="relative box-border px-0 py-0"
-                style={{ width: col.width, minWidth: col.width }}
+                className={`relative box-border px-0 py-0 ${isFrozen ? "sticky bg-white" : ""}`}
+                style={{
+                  width: col.width,
+                  minWidth: col.width,
+                  ...(isFrozen
+                    ? { left: frozenOffsets[colIndex] ?? rowNumberWidth, zIndex: 11 }
+                    : {}),
+                  ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
+                }}
               >
                 <button
                   className={`w-full px-3 flex items-center justify-end gap-1.5 text-[#6b7280] ${isSummaryCellHoverOrOpen ? "bg-[#eeeff1]" : "bg-white hover:bg-[#eeeff1]"}`}
