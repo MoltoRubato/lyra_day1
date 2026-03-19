@@ -177,6 +177,7 @@ export function useHomePageController() {
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [moveTo, setMoveTo] = useState("");
+  const [createBaseWorkspaceId, setCreateBaseWorkspaceId] = useState("");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -205,9 +206,24 @@ export function useHomePageController() {
   const starredWs = useMemo(() => (workspaces as WsFull[]).filter((w) => w.starred), [workspaces]);
 
   function open(m: ModalState) {
-    setModal(m);
     if (!m) return;
-    if (m.kind === "createBase" || m.kind === "createWorkspace") { setNewName(""); setNewDesc(""); }
+    if (m.kind === "createBase") {
+      const wsList = workspaces as WsFull[];
+      const pageWorkspaceId =
+        page !== "home" && page !== "starred" && page !== "workspaces" ? page : undefined;
+      const explicitWorkspaceId =
+        m.workspaceId && wsList.some((ws) => ws.id === m.workspaceId) ? m.workspaceId : undefined;
+      const workspaceId = explicitWorkspaceId ?? pageWorkspaceId ?? wsList[0]?.id;
+      setCreateBaseWorkspaceId(workspaceId ?? "");
+      setNewName("Untitled Base");
+      const fromWorkspaceContext =
+        m.fromWorkspaceContext ??
+        Boolean(pageWorkspaceId);
+      setModal({ ...m, fromWorkspaceContext });
+      return;
+    }
+    setModal(m);
+    if (m.kind === "createWorkspace") { setNewName(""); setNewDesc(""); }
     if (m.kind === "renameBase" || m.kind === "renameWorkspace") setNewName(m.value);
     if (m.kind === "editDesc") setNewDesc(m.value);
     if (m.kind === "moveBase") setMoveTo(m.currentWorkspaceId ?? "");
@@ -219,8 +235,10 @@ export function useHomePageController() {
     if (!modal) return;
     switch (modal.kind) {
       case "createBase":
-        if (!newName.trim()) return;
-        createBase.mutate({ name: newName.trim(), workspaceId: modal.workspaceId ?? undefined });
+        createBase.mutate({
+          name: newName.trim() || "Untitled Base",
+          workspaceId: createBaseWorkspaceId || undefined,
+        });
         break;
       case "createWorkspace":
         if (!newName.trim()) return;
@@ -272,6 +290,8 @@ export function useHomePageController() {
     setNewDesc,
     moveTo,
     setMoveTo,
+    createBaseWorkspaceId,
+    setCreateBaseWorkspaceId,
     currentWorkspace,
     filteredBases,
     filteredWs,
