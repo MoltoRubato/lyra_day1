@@ -86,9 +86,6 @@ export default function GridView({
     null,
   );
   const [addingCol, setAddingCol] = useState(false);
-  const [newColName, setNewColName] = useState("");
-  const [newColType, setNewColType] = useState("TEXT");
-  const [showTypePicker, setShowTypePicker] = useState(false);
   const [dragColId, setDragColId] = useState<string | null>(null);
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
 
@@ -421,13 +418,11 @@ export default function GridView({
     setEditing(null);
   }
 
-  function handleAddColumn() {
-    if (!newColName.trim()) return;
-    addColumn.mutate({ tableId, name: newColName.trim(), type: newColType as ColumnType });
-    setNewColName("");
-    setNewColType("TEXT");
+  function handleAddColumnWithType(type: string, suggestedName?: string) {
+    const trimmedName = suggestedName?.trim();
+    const nextName = trimmedName && trimmedName.length > 0 ? trimmedName : "New field";
+    addColumn.mutate({ tableId, name: nextName, type: type as ColumnType });
     setAddingCol(false);
-    setShowTypePicker(false);
   }
 
   function onDragEnd() {
@@ -517,13 +512,7 @@ export default function GridView({
       startResize={startResize}
       addingCol={addingCol}
       setAddingCol={setAddingCol}
-      showTypePicker={showTypePicker}
-      setShowTypePicker={setShowTypePicker}
-      newColType={newColType}
-      setNewColType={setNewColType}
-      newColName={newColName}
-      setNewColName={setNewColName}
-      handleAddColumn={handleAddColumn}
+      handleAddColumn={handleAddColumnWithType}
       loadedCount={loadedCount}
       topPad={topPad}
       loadingGapHeight={effectiveLoadingGapHeight}

@@ -49,15 +49,31 @@ export const baseRouter = createTRPCRouter({
             name: "Tasks",
             columns: {
               create: [
-                { name: "Name",   type: "TEXT",          order: 0, width: 240 },
-                { name: "Status", type: "SINGLE_SELECT", order: 1, width: 160 },
-                { name: "Notes",  type: "TEXT",          order: 2, width: 200 },
+                { name: "Name", type: "TEXT", order: 0, width: 179 },
+                { name: "Notes", type: "LONG_TEXT", order: 1, width: 179 },
+                { name: "Assignee", type: "USER", order: 2, width: 179 },
+                { name: "Status", type: "SINGLE_SELECT", order: 3, width: 179 },
+                { name: "Attachments", type: "ATTACHMENT", order: 4, width: 179 },
+                {
+                  name: "Attachment Summary",
+                  type: "LONG_TEXT",
+                  order: 5,
+                  width: 179,
+                  description:
+                    "An AI generated summary of the Attachments field. Upload files to Attachments to generate a summary.",
+                },
               ],
             },
             views: {
               create: [
-                { name: "Grid view",   type: "GRID",   order: 0 },
-                { name: "Kanban view", type: "KANBAN", order: 1 },
+                { name: "Grid view", type: "GRID", order: 0 },
+              ],
+            },
+            rows: {
+              create: [
+                { order: 0 },
+                { order: 1 },
+                { order: 2 },
               ],
             },
           },

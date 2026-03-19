@@ -94,13 +94,7 @@ export type GridViewTableProps = {
   startResize: (e: React.MouseEvent, colId: string, startW: number) => void;
   addingCol: boolean;
   setAddingCol: (v: boolean) => void;
-  showTypePicker: boolean;
-  setShowTypePicker: (v: boolean | ((p: boolean) => boolean)) => void;
-  newColType: string;
-  setNewColType: (v: string) => void;
-  newColName: string;
-  setNewColName: (v: string) => void;
-  handleAddColumn: () => void;
+  handleAddColumn: (type: string, suggestedName?: string) => void;
   loadedCount: number;
   topPad: number;
   loadingGapHeight: number;

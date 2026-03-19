@@ -363,7 +363,21 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                 : "px-2 py-1 hover:bg-[#f0f0ef]"
             }`}>
             <BaseIconSVG iconId={baseIcon} color={baseColor} size={32}/>
-            <span className="text-[13px] font-semibold text-[#172b4d] max-w-[160px] truncate">{base.name}</span>
+            <span
+              className="block min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+              style={{
+                color: "rgb(29, 31, 37)",
+                fontFamily:
+                  "\"Inter Display\", -apple-system, system-ui, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen-Sans, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\"",
+                fontSize: "17px",
+                fontWeight: 675,
+                lineHeight: "24px",
+                letterSpacing: "-0.16px",
+                WebkitFontSmoothing: "antialiased",
+              }}
+            >
+              {base.name}
+            </span>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-[#999] group-hover:text-[#555] transition-colors flex-shrink-0">
               <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -373,7 +387,10 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center h-full">
             <div className="relative flex items-center h-full">
               <span className="text-[13px] font-medium text-[#172b4d] px-3 cursor-default">Data</span>
-              <div className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#166a5b] rounded-full"/>
+              <div
+                className="absolute bottom-0 left-3 right-3 h-[2px] rounded-full"
+                style={{ backgroundColor: baseColor }}
+              />
             </div>
             {["Automations","Interfaces","Forms"].map((t) => (
               <button key={t} className="text-[13px] text-[#555] hover:text-[#172b4d] px-3 h-full transition-colors">{t}</button>

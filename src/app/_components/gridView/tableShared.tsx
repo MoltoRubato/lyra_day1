@@ -30,6 +30,8 @@ export function FieldTypeIcon({
 }) {
   const assetByType: Record<string, number> = {
     TEXT: 53,
+    LONG_TEXT: 51,
+    USER: 19,
     DATE: 375,
     PHONE: 137,
     EMAIL: 289,
@@ -38,6 +40,8 @@ export function FieldTypeIcon({
     CURRENCY: 313,
     PERCENT: 140,
     DURATION: 335,
+    SINGLE_SELECT: 372,
+    ATTACHMENT: 279,
   };
 
   if (assetByType[type]) {
@@ -56,21 +60,10 @@ export function FieldTypeIcon({
   if (type === "NUMBER" || type === "CURRENCY" || type === "PERCENT") {
     return <span className={className}>#</span>;
   }
-  if (type === "SINGLE_SELECT" || type === "MULTI_SELECT") {
+  if (type === "MULTI_SELECT") {
     return (
       <svg {...common} className={className} stroke="currentColor" strokeWidth="1.3">
         <path d="M3 4h8M3 7h6M3 10h8" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (type === "ATTACHMENT") {
-    return (
-      <svg {...common} className={className} stroke="currentColor" strokeWidth="1.3">
-        <path
-          d="M4.2 6.8l3.2-3.2a2 2 0 112.8 2.8L6.3 10.3a2.2 2.2 0 11-3.1-3.1l3.7-3.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
       </svg>
     );
   }

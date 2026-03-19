@@ -1,7 +1,7 @@
 ﻿export type PageView = "home" | "starred" | "workspaces" | (string & {});
 export type DispMode = "list" | "grid";
 export type ModalState =
-  | { kind: "createBase"; workspaceId?: string }
+  | { kind: "createBase"; workspaceId?: string; fromWorkspaceContext?: boolean }
   | { kind: "createWorkspace" }
   | { kind: "renameBase"; id: string; value: string }
   | { kind: "renameWorkspace"; id: string; value: string }

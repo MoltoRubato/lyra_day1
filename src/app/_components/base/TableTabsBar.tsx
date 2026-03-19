@@ -56,6 +56,7 @@ export function TableTabsBar({
   const suggestedName = useMemo(() => {
     return `Table ${tables.length + 1}`;
   }, [tables.length]);
+  const showAddOrImportLabel = tables.length <= 3;
 
   function commitTableRename() {
     if (!renamingTable?.value.trim()) {
@@ -370,12 +371,18 @@ export function TableTabsBar({
             setAddMenuAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
             setAddMenuOpen((p) => !p);
           }}
-          className="w-7 h-7 rounded flex items-center justify-center text-[#444] hover:text-[#172b4d] hover:bg-black/5 transition-colors"
-          title="Add table"
+          className={
+            showAddOrImportLabel
+              ? "h-8 inline-flex items-center gap-1.5 px-3 text-[13px] font-normal text-[#000000D9] hover:text-[#172b4d] hover:bg-black/5 transition-colors"
+              : "w-7 h-7 rounded flex items-center justify-center text-[#444] hover:text-[#172b4d] hover:bg-black/5 transition-colors"
+          }
+          title={showAddOrImportLabel ? "Add or import table" : "Add table"}
+          aria-label={showAddOrImportLabel ? "Add or import table" : "Add table"}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M6 1v10M1 6h10" />
           </svg>
+          {showAddOrImportLabel && <span>Add or import</span>}
         </button>
 
         {addMenuOpen && (

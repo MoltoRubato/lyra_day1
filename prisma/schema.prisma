@@ -124,6 +124,8 @@ enum ViewType {
 
 enum ColumnType {
   TEXT
+  LONG_TEXT
+  USER
   NUMBER
   CHECKBOX
   SINGLE_SELECT
