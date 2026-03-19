@@ -88,6 +88,7 @@ export default function GridView({
   const [addingCol, setAddingCol] = useState(false);
   const [dragColId, setDragColId] = useState<string | null>(null);
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+  const [freezeCount, setFreezeCount] = useState(0);
 
   const resizingRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -132,6 +133,10 @@ export default function GridView({
     () => allCols.filter((c) => !hiddenFields[c.id]),
     [allCols, hiddenFields],
   );
+
+  useEffect(() => {
+    setFreezeCount((prev) => Math.max(0, Math.min(prev, visCols.length)));
+  }, [visCols.length]);
 
   const isSelect = useCallback(
     (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT",
@@ -227,6 +232,7 @@ export default function GridView({
       containerRef.current.scrollTop = 0;
     }
     forceRender((n) => n + 1);
+    setFreezeCount(0);
   }, [tableId]);
 
   useEffect(() => {
@@ -383,18 +389,6 @@ export default function GridView({
     return <div className="p-8 text-[#9ca3af] text-sm">Table not found.</div>;
   }
 
-  function handleHeaderSortClick(colId: string) {
-    if (!onSortsChange) return;
-    const existing = sorts.find((s) => s.columnId === colId);
-    if (!existing) {
-      onSortsChange([{ id: `s-${colId}`, columnId: colId, dir: "asc" }]);
-    } else if (existing.dir === "asc") {
-      onSortsChange(sorts.map((s) => (s.columnId === colId ? { ...s, dir: "desc" } : s)));
-    } else {
-      onSortsChange(sorts.filter((s) => s.columnId !== colId));
-    }
-  }
-
   function handleCellClick(row: RowWithCells, col: { id: string; type: string }) {
     setHeaderPanel(null);
     setOpenSelectCell(null);
@@ -482,6 +476,8 @@ export default function GridView({
       table={table}
       sorts={sorts}
       visCols={visCols}
+      freezeCount={freezeCount}
+      onFreezeCountChange={setFreezeCount}
       dragOverColId={dragOverColId}
       setDragColId={setDragColId}
       setDragOverColId={setDragOverColId}
@@ -490,7 +486,6 @@ export default function GridView({
       setHeaderPanel={setHeaderPanel}
       renamingCol={renamingCol}
       setRenamingCol={setRenamingCol}
-      handleHeaderSortClick={handleHeaderSortClick}
       deleteColumn={deleteColumn}
       renameColumn={renameColumn}
       changeType={changeType}

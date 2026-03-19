@@ -104,7 +104,7 @@ export function TableTabsBar({
 
   return (
     <div
-      className="relative flex h-8 flex-shrink-0 items-center pl-0 pr-2 overflow-hidden"
+      className="relative flex h-8 min-h-8 flex-shrink-0 items-center overflow-hidden pl-0 pr-2 box-border"
       style={{ background: tabBarBg(baseColor) }}
     >
       {tables.map((table, index) => {
@@ -113,7 +113,7 @@ export function TableTabsBar({
         return (
           <div
             key={table.id}
-            className={`group/tab relative flex items-center flex-shrink-0 h-8 transition-all ${
+            className={`group/tab relative flex h-8 min-h-8 flex-shrink-0 items-center box-border transition-all ${
               isActive
                 ? `bg-white rounded-t border-t border-r border-[#d8d8d8] -mb-px z-10 ${index === 0 ? "" : "border-l"}`
                 : "border-r"
@@ -133,11 +133,11 @@ export function TableTabsBar({
                 }}
               />
             ) : (
-              <div className="flex items-center h-full">
+              <div className="flex h-8 min-h-8 items-center box-border">
                 <button
                   onClick={() => onSelectTable(table.id)}
                   onDoubleClick={() => setRenamingTable({ id: table.id, value: table.name })}
-                  className={`flex items-center gap-1 px-3 h-full text-[12px] font-medium transition-colors ${
+                  className={`flex h-8 min-h-8 items-center gap-1 px-3 text-[12px] font-medium box-border transition-colors ${
                     isActive ? "text-[#172b4d]" : "text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded-t"
                   }`}
                 >

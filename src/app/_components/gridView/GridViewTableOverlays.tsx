@@ -4,7 +4,24 @@ import {
   FieldTypeIcon,
   SUMMARY_OPTIONS,
 } from "~/app/_components/gridView/tableShared";
-import type { SummaryOption } from "~/app/_components/gridView/tableTypes";
+import type {
+  FieldEditorState,
+  SummaryOption,
+} from "~/app/_components/gridView/tableTypes";
+
+const SELECT_OPTION_COLORS = [
+  "#f87171",
+  "#fbbf24",
+  "#4ade80",
+  "#60a5fa",
+  "#a78bfa",
+  "#f472b6",
+  "#2dd4bf",
+  "#fb923c",
+];
+
+const isSelectFieldType = (type: string) =>
+  type === "SINGLE_SELECT" || type === "MULTI_SELECT";
 
 type GridViewTableOverlaysProps = {
   summaryMenu: { colId: string; left: number; top: number } | null;
@@ -20,26 +37,8 @@ type GridViewTableOverlaysProps = {
   bulkDeleteRows: { mutate: (v: { rowIds: string[] }) => void };
   setSelectedRowIds: (v: string[] | ((prev: string[]) => string[])) => void;
   setRowContextMenu: (v: { x: number; y: number } | null) => void;
-  editingField:
-    | {
-        colId: string;
-        name: string;
-        type: string;
-        description: string;
-        showDescription: boolean;
-      }
-    | null;
-  setEditingField: (
-    v:
-      | {
-          colId: string;
-          name: string;
-          type: string;
-          description: string;
-          showDescription: boolean;
-        }
-      | null,
-  ) => void;
+  editingField: FieldEditorState | null;
+  setEditingField: (v: FieldEditorState | null) => void;
   fieldTypeListOpen: boolean;
   setFieldTypeListOpen: (v: boolean | ((p: boolean) => boolean)) => void;
   applyFieldEdit: () => void;
@@ -174,7 +173,38 @@ export function GridViewTableOverlays({
                         <button
                           key={typeKey}
                           onClick={() => {
-                            setEditingField({ ...editingField, type: typeKey });
+                            const switchingToSelect = isSelectFieldType(typeKey);
+                            const existingOptions = editingField.selectOptions;
+                            setEditingField({
+                              ...editingField,
+                              type: typeKey,
+                              selectOptions:
+                                switchingToSelect && existingOptions.length === 0
+                                  ? [
+                                      {
+                                        id: `new-${Date.now()}-todo`,
+                                        label: "Todo",
+                                        color: SELECT_OPTION_COLORS[0]!,
+                                        order: 0,
+                                        columnId: editingField.colId,
+                                      },
+                                      {
+                                        id: `new-${Date.now()}-progress`,
+                                        label: "In progress",
+                                        color: SELECT_OPTION_COLORS[1]!,
+                                        order: 1,
+                                        columnId: editingField.colId,
+                                      },
+                                      {
+                                        id: `new-${Date.now()}-done`,
+                                        label: "Done",
+                                        color: SELECT_OPTION_COLORS[2]!,
+                                        order: 2,
+                                        columnId: editingField.colId,
+                                      },
+                                    ]
+                                  : existingOptions,
+                            });
                             setFieldTypeListOpen(false);
                           }}
                           className={`w-full h-9 px-2 rounded-[6px] text-left flex items-center gap-2 ${editingField.type === typeKey ? "bg-[#eef3ff]" : "hover:bg-[#f7f7f7]"}`}
@@ -187,7 +217,151 @@ export function GridViewTableOverlays({
                   </div>
                 )}
               </div>
-              <p className="text-[13px] text-[#666]">Enter text.</p>
+              <p className="text-[13px] text-[#666]">
+                {editingField.type === "SINGLE_SELECT"
+                  ? "Select one predefined option from a list, or prefill each new cell with a default option."
+                  : editingField.type === "MULTI_SELECT"
+                    ? "Select one or more predefined options from a list."
+                    : "Enter text."}
+              </p>
+
+              {isSelectFieldType(editingField.type) && (
+                <div className="space-y-3 border-t border-[#eceff3] pt-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[13px] font-semibold text-[#2f343c]">Options</h4>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[13px] text-[#3b414c] hover:bg-[#f4f6f9]"
+                      onClick={() =>
+                        setEditingField({
+                          ...editingField,
+                          selectOptions: [...editingField.selectOptions].sort((a, b) =>
+                            a.label.localeCompare(b.label),
+                          ),
+                        })
+                      }
+                    >
+                      <span>↕</span>
+                      <span>Alphabetize</span>
+                    </button>
+                  </div>
+
+                  <label className="inline-flex items-center gap-2 text-[13px] text-[#2f343c]">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[#1d6feb]"
+                      checked={editingField.colorCodeOptions}
+                      onChange={(e) =>
+                        setEditingField({
+                          ...editingField,
+                          colorCodeOptions: e.target.checked,
+                        })
+                      }
+                    />
+                    <span>Color-code options</span>
+                  </label>
+
+                  <div className="space-y-1">
+                    {editingField.selectOptions.map((option, idx) => (
+                      <div key={option.id} className="flex items-center gap-2">
+                        <span className="w-4 text-center text-[12px] text-[#c1c7d0]">⋮⋮</span>
+                        <button
+                          type="button"
+                          className="h-5 w-5 rounded-full border border-[#d3d8df]"
+                          style={{ backgroundColor: option.color }}
+                          onClick={() => {
+                            const paletteIndex = SELECT_OPTION_COLORS.indexOf(option.color);
+                            const nextColor =
+                              SELECT_OPTION_COLORS[
+                                (paletteIndex + 1 + SELECT_OPTION_COLORS.length) %
+                                  SELECT_OPTION_COLORS.length
+                              ] ?? SELECT_OPTION_COLORS[0]!;
+                            const nextOptions = [...editingField.selectOptions];
+                            nextOptions[idx] = { ...option, color: nextColor };
+                            setEditingField({ ...editingField, selectOptions: nextOptions });
+                          }}
+                          title="Change option color"
+                        />
+                        <input
+                          type="text"
+                          value={option.label}
+                          onChange={(e) => {
+                            const nextOptions = [...editingField.selectOptions];
+                            nextOptions[idx] = { ...option, label: e.target.value };
+                            setEditingField({ ...editingField, selectOptions: nextOptions });
+                          }}
+                          className="h-8 flex-1 rounded-[8px] border border-[#d8dce3] px-2 text-[13px] text-[#1f2937]"
+                        />
+                        <button
+                          type="button"
+                          className="h-6 w-6 rounded-[6px] text-[16px] text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1f2937]"
+                          onClick={() =>
+                            setEditingField({
+                              ...editingField,
+                              selectOptions: editingField.selectOptions.filter(
+                                (_, optionIndex) => optionIndex !== idx,
+                              ),
+                            })
+                          }
+                          aria-label="Remove option"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-[8px] px-1 py-1 text-[14px] text-[#596273] hover:bg-[#f5f7fa]"
+                    onClick={() =>
+                      setEditingField({
+                        ...editingField,
+                        selectOptions: [
+                          ...editingField.selectOptions,
+                          {
+                            id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                            label: "New option",
+                            color:
+                              SELECT_OPTION_COLORS[
+                                editingField.selectOptions.length %
+                                  SELECT_OPTION_COLORS.length
+                              ] ?? SELECT_OPTION_COLORS[0]!,
+                            order: editingField.selectOptions.length,
+                            columnId: editingField.colId,
+                          },
+                        ],
+                      })
+                    }
+                  >
+                    <span className="text-[18px] leading-none">＋</span>
+                    <span>Add option</span>
+                  </button>
+
+                  <div className="space-y-1 border-t border-[#eceff3] pt-3">
+                    <h4 className="text-[13px] font-semibold text-[#2f343c]">Default</h4>
+                    <select
+                      className="h-9 w-full rounded-[8px] border border-[#d8dce3] px-2 text-[13px] text-[#2f343c]"
+                      value={editingField.defaultSelectOptionLabel}
+                      onChange={(e) =>
+                        setEditingField({
+                          ...editingField,
+                          defaultSelectOptionLabel: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">None</option>
+                      {editingField.selectOptions
+                        .filter((option) => option.label.trim().length > 0)
+                        .map((option) => (
+                          <option key={`default-${option.id}`} value={option.label}>
+                            {option.label}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {editingField.showDescription ? (
                 <div className="pt-2">

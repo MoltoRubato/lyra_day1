@@ -1,10 +1,14 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import type { ColumnType } from "@prisma/client";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
-import { FieldTypePicker, OptionsPanel } from "~/app/_components/gridViewCells";
+import { FieldTypePicker } from "~/app/_components/gridViewCells";
 import { GridViewTableColumnMenu } from "~/app/_components/gridView/GridViewTableColumnMenu";
 import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
-import type { HeaderPanel, VisibleColumn } from "~/app/_components/gridView/tableTypes";
+import type {
+  FieldEditorState,
+  HeaderPanel,
+  VisibleColumn,
+} from "~/app/_components/gridView/tableTypes";
 import type {
   FilterCondition,
   GroupRule,
@@ -13,7 +17,10 @@ import { FIELD_TYPES } from "~/app/_components/tableUtils";
 
 type GridViewTableHeaderProps = {
   rowH: number;
+  rowNumberWidth: number;
   visCols: VisibleColumn[];
+  freezeCount: number;
+  frozenOffsets: number[];
   dragOverColId: string | null;
   setDragColId: (id: string | null) => void;
   setDragOverColId: (id: string | null) => void;
@@ -22,7 +29,6 @@ type GridViewTableHeaderProps = {
   setHeaderPanel: (v: HeaderPanel) => void;
   renamingCol: { id: string; value: string } | null;
   setRenamingCol: (v: { id: string; value: string } | null) => void;
-  handleHeaderSortClick: (colId: string) => void;
   deleteColumn: { mutate: (v: { columnId: string }) => void };
   renameColumn: { mutate: (v: { columnId: string; name: string }) => void };
   changeType: { mutate: (v: { columnId: string; type: ColumnType }) => void };
@@ -42,11 +48,6 @@ type GridViewTableHeaderProps = {
       type: ColumnType;
     }) => void;
   };
-  addOption: { mutate: (v: { columnId: string; label: string; color: string }) => void };
-  deleteOption: { mutate: (v: { optionId: string }) => void };
-  updateOption: {
-    mutate: (v: { optionId: string; label: string; color: string }) => void;
-  };
   startResize: (e: React.MouseEvent, colId: string, startW: number) => void;
   addingCol: boolean;
   setAddingCol: (v: boolean) => void;
@@ -57,17 +58,7 @@ type GridViewTableHeaderProps = {
   hoveredInfoCol: string | null;
   setHoveredInfoCol: (id: string | null | ((prev: string | null) => string | null)) => void;
   setEditingDescription: (v: { colId: string; value: string } | null) => void;
-  setEditingField: (
-    v:
-      | {
-          colId: string;
-          name: string;
-          type: string;
-          description: string;
-          showDescription: boolean;
-        }
-      | null,
-  ) => void;
+  setEditingField: (v: FieldEditorState | null) => void;
   setFieldTypeListOpen: (v: boolean) => void;
   setDuplicatingField: (
     v: { colId: string; name: string; duplicateCells: boolean } | null,
@@ -88,7 +79,10 @@ type GridViewTableHeaderProps = {
 
 export function GridViewTableHeader({
   rowH,
+  rowNumberWidth,
   visCols,
+  freezeCount,
+  frozenOffsets,
   dragOverColId,
   setDragColId,
   setDragOverColId,
@@ -97,15 +91,11 @@ export function GridViewTableHeader({
   setHeaderPanel,
   renamingCol,
   setRenamingCol,
-  handleHeaderSortClick,
   deleteColumn,
   renameColumn,
   changeType,
   insertColumnLeft,
   insertColumnRight,
-  addOption,
-  deleteOption,
-  updateOption,
   startResize,
   addingCol,
   setAddingCol,
@@ -251,8 +241,8 @@ export function GridViewTableHeader({
 
   return (
     <thead className="sticky top-0 z-20">
-      <tr className="border-b border-[#e2e5e9] bg-[#f9fafb]">
-        <th className="w-[88px] px-3 py-0 text-left bg-[#f9fafb] z-10 border-r border-[#e2e5e9]">
+      <tr className="border-b border-[#e2e5e9] bg-white">
+        <th className="sticky left-0 z-[14] box-border w-[88px] border-r border-[#e2e5e9] bg-white px-3 py-0 text-left">
           <div className="flex items-center" style={{ height: rowH }}>
             <input
               type="checkbox"
@@ -267,15 +257,23 @@ export function GridViewTableHeader({
           </div>
         </th>
 
-        {visCols.map((col) => {
+        {visCols.map((col, colIndex) => {
           const ft = FIELD_TYPES[col.type] ?? FIELD_TYPES.TEXT!;
           const isCurrentPanel = headerPanel?.colId === col.id;
+          const isFrozen = colIndex < freezeCount;
+          const frozenLeft = frozenOffsets[colIndex] ?? rowNumberWidth;
+          const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
 
           return (
             <th
               key={col.id}
-              style={{ width: col.width, minWidth: col.width }}
-              className={`relative px-0 py-0 text-left group/col border-r border-[#e2e5e9] bg-[#f9fafb] ${dragOverColId === col.id ? "bg-[#e8f5f1]" : ""}`}
+              style={{
+                width: col.width,
+                minWidth: col.width,
+                ...(isFrozen ? { left: frozenLeft, zIndex: 12 } : {}),
+                ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
+              }}
+              className={`relative box-border px-0 py-0 text-left group/col border-r border-[#e2e5e9] bg-white ${isFrozen ? "sticky" : ""} ${dragOverColId === col.id ? "bg-[#e8f5f1]" : ""}`}
               draggable
               onDragStart={() => setDragColId(col.id)}
               onDragOver={(e) => {
@@ -284,36 +282,10 @@ export function GridViewTableHeader({
               }}
               onDragEnd={onDragEnd}
             >
-              <div className="flex items-center px-2 gap-1.5" style={{ height: rowH }}>
+              <div className="flex h-full w-full min-w-0 box-border items-center gap-1.5 px-2" style={{ height: rowH }}>
                 <span className="text-[#111827] text-[16px] leading-none flex-shrink-0" title={ft.label}>
                   <FieldTypeIcon type={col.type} />
                 </span>
-
-                {(col.type === "SINGLE_SELECT" || col.type === "MULTI_SELECT") && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setHeaderPanel(
-                        isCurrentPanel && headerPanel?.panel === "options"
-                          ? null
-                          : { colId: col.id, panel: "options" },
-                      );
-                    }}
-                    className="text-[#9ca3af] hover:text-[#166254] text-[11px] transition-colors flex-shrink-0"
-                    title="Manage options"
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                    >
-                      <path d="M1 2.5h10M2.5 6h7M4 9.5h4" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                )}
 
                 {renamingCol?.id === col.id ? (
                   <input
@@ -341,10 +313,9 @@ export function GridViewTableHeader({
                   />
                 ) : (
                   <button
-                    onClick={() => handleHeaderSortClick(col.id)}
                     onDoubleClick={() => setRenamingCol({ id: col.id, value: col.name })}
                     className="flex-1 min-w-0 text-left text-[13px] font-medium text-[#111827] hover:text-[#1f2937] truncate"
-                    title="Click to sort, double-click to rename"
+                    title="Double-click to rename"
                   >
                     {col.name}
                   </button>
@@ -417,17 +388,6 @@ export function GridViewTableHeader({
                   }}
                 />
               )}
-              {isCurrentPanel && headerPanel?.panel === "options" && (
-                <OptionsPanel
-                  columnId={col.id}
-                  options={col.selectOptions ?? []}
-                  onAdd={(label, color) => addOption.mutate({ columnId: col.id, label, color })}
-                  onDelete={(id) => deleteOption.mutate({ optionId: id })}
-                  onUpdate={(id, label, color) =>
-                    updateOption.mutate({ optionId: id, label, color })
-                  }
-                />
-              )}
 
               <GridViewTableColumnMenu
                 col={col}
@@ -451,14 +411,14 @@ export function GridViewTableHeader({
               />
 
               <div
-                className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-[#166254]/40 transition-colors z-10"
+                className="absolute right-0 top-0 h-full w-px cursor-col-resize z-10"
                 onMouseDown={(e) => startResize(e, col.id, col.width)}
               />
             </th>
           );
         })}
 
-        <th className="relative px-2 py-0 text-left w-24 bg-[#f9fafb]">
+        <th className="relative box-border w-24 bg-white px-2 py-0 text-left">
           <button
             onClick={(e) => {
               e.stopPropagation();

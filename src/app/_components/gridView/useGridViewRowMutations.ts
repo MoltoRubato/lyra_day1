@@ -44,9 +44,25 @@ export function useGridViewRowMutations({
                   ? r
                   : {
                       ...r,
-                      cells: r.cells.map((c) =>
-                        c.columnId !== columnId ? c : { ...c, value },
-                      ),
+                      cells: (() => {
+                        const existing = r.cells.find((c) => c.columnId === columnId);
+                        if (existing) {
+                          return r.cells.map((c) =>
+                            c.columnId !== columnId ? c : { ...c, value },
+                          );
+                        }
+                        return [
+                          ...r.cells,
+                          {
+                            id: `temp-cell-${rowId}-${columnId}`,
+                            rowId,
+                            columnId,
+                            value,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                          },
+                        ];
+                      })(),
                     },
               ),
             }

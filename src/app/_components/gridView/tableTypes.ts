@@ -11,6 +11,19 @@ export type EditingCell = { rowId: string; columnId: string; value: string };
 
 export type HeaderPanel = { colId: string; panel: "type" | "options" } | null;
 
+export type FieldEditorState = {
+  colId: string;
+  name: string;
+  type: string;
+  description: string;
+  showDescription: boolean;
+  originalType: string;
+  selectOptions: SelectOption[];
+  originalSelectOptions: SelectOption[];
+  defaultSelectOptionLabel: string;
+  colorCodeOptions: boolean;
+};
+
 export type SummaryOption =
   | "None"
   | "Empty"
@@ -52,6 +65,8 @@ export type GridViewTableProps = {
   onRequestOpenFilterPanel?: () => void;
   onRequestOpenGroupPanel?: () => void;
   visCols: VisibleColumn[];
+  freezeCount: number;
+  onFreezeCountChange: (count: number) => void;
   dragOverColId: string | null;
   setDragColId: (id: string | null) => void;
   setDragOverColId: (id: string | null) => void;
@@ -60,7 +75,6 @@ export type GridViewTableProps = {
   setHeaderPanel: (v: HeaderPanel) => void;
   renamingCol: { id: string; value: string } | null;
   setRenamingCol: (v: { id: string; value: string } | null) => void;
-  handleHeaderSortClick: (colId: string) => void;
   deleteColumn: { mutate: (v: { columnId: string }) => void };
   renameColumn: { mutate: (v: { columnId: string; name: string }) => void };
   changeType: { mutate: (v: { columnId: string; type: ColumnType }) => void };

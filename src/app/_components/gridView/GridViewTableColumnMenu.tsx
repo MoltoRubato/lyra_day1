@@ -1,7 +1,10 @@
 import type { ColumnType } from "@prisma/client";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { uid } from "~/app/_components/gridView/tableShared";
-import type { VisibleColumn } from "~/app/_components/gridView/tableTypes";
+import type {
+  FieldEditorState,
+  VisibleColumn,
+} from "~/app/_components/gridView/tableTypes";
 import type {
   FilterCondition,
   GroupRule,
@@ -37,17 +40,7 @@ type GridViewTableColumnMenuProps = {
     }) => void;
   };
   setEditingDescription: (v: { colId: string; value: string } | null) => void;
-  setEditingField: (
-    v:
-      | {
-          colId: string;
-          name: string;
-          type: string;
-          description: string;
-          showDescription: boolean;
-        }
-      | null,
-  ) => void;
+  setEditingField: (v: FieldEditorState | null) => void;
   setFieldTypeListOpen: (v: boolean) => void;
   setDuplicatingField: (
     v: { colId: string; name: string; duplicateCells: boolean } | null,
@@ -114,6 +107,13 @@ export function GridViewTableColumnMenu({
           type: col.type,
           description: col.description ?? "",
           showDescription: !!col.description,
+          originalType: col.type,
+          selectOptions: [...(col.selectOptions ?? [])].sort((a, b) => a.order - b.order),
+          originalSelectOptions: [...(col.selectOptions ?? [])].sort(
+            (a, b) => a.order - b.order,
+          ),
+          defaultSelectOptionLabel: "",
+          colorCodeOptions: true,
         });
         setFieldTypeListOpen(false);
         closeColMenu();
