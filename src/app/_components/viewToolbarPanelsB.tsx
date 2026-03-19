@@ -15,7 +15,7 @@ export function GroupPanel({
   onChange: (g: GroupRule[]) => void;
 }) {
   const groupableCols = columns.filter((c) =>
-    ["TEXT", "SINGLE_SELECT", "MULTI_SELECT", "NUMBER", "DATE", "EMAIL", "URL", "PHONE"].includes(c.type),
+    ["TEXT", "LONG_TEXT", "USER", "SINGLE_SELECT", "MULTI_SELECT", "NUMBER", "DATE", "EMAIL", "URL", "PHONE"].includes(c.type),
   );
 
   function add() {

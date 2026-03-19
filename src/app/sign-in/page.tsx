@@ -375,14 +375,14 @@ export default function SignInPage() {
                 <p className={styles.inlineMessage}>{message}</p>
               ) : null}
 
-              <p className="css-1ibshur">
+              <p className={`css-1ibshur ${styles.newToAirtableLine}`}>
                 New to Airtable?{" "}
                 <Link href="/sign-up" className="css-1mxpef6">
                   Create an account
                 </Link>{" "}
                 instead
               </p>
-              <p className="css-1ibshur" style={{ marginTop: "1rem" }}>
+              <p className="css-1ibshur">
                 Manage your cookie preferences{" "}
                 <button
                   type="button"

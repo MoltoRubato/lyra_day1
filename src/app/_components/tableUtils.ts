@@ -13,7 +13,9 @@ export function getCellValue(row: RowWithCells, columnId: string): string {
 export type FieldCategory = "text" | "number" | "boolean" | "date" | "select";
 
 export const FIELD_TYPES: Record<string, { label: string; icon: string; category: FieldCategory }> = {
-  TEXT:          { label: "Text",           icon: "T",  category: "text"    },
+  TEXT:          { label: "Single line text", icon: "T",  category: "text"    },
+  LONG_TEXT:     { label: "Long text",      icon: "P",  category: "text"    },
+  USER:          { label: "User",           icon: "U",  category: "text"    },
   NUMBER:        { label: "Number",         icon: "#",  category: "number"  },
   CHECKBOX:      { label: "Checkbox",       icon: "☑",  category: "boolean" },
   SINGLE_SELECT: { label: "Single select",  icon: "◉",  category: "select"  },
@@ -30,7 +32,7 @@ export const FIELD_TYPES: Record<string, { label: string; icon: string; category
 };
 
 export const FIELD_TYPE_GROUPS = [
-  { label: "Text & links",  types: ["TEXT", "EMAIL", "URL", "PHONE", "ATTACHMENT", "DURATION"] },
+  { label: "Text & links",  types: ["TEXT", "LONG_TEXT", "USER", "EMAIL", "URL", "PHONE", "ATTACHMENT", "DURATION"] },
   { label: "Numbers",       types: ["NUMBER", "CURRENCY", "PERCENT", "RATING"] },
   { label: "Date & time",   types: ["DATE"] },
   { label: "Choice",        types: ["SINGLE_SELECT", "MULTI_SELECT", "CHECKBOX"] },
@@ -56,6 +58,7 @@ export function inputTypeForField(colType: string): string {
     case "EMAIL":  return "email";
     case "URL":    return "url";
     case "PHONE":  return "tel";
+    case "USER":   return "text";
     default:       return "text";
   }
 }
@@ -90,7 +93,7 @@ export type GroupRule = {
 export type RowHeight = "short" | "medium" | "tall" | "extra-tall";
 
 export const ROW_HEIGHT_PX: Record<RowHeight, number> = {
-  short:       32,
+  short:       30,
   medium:      40,
   tall:        64,
   "extra-tall": 96,
@@ -277,7 +280,7 @@ export function resolveGroupColumn(
   if (groupByColumnId) return columns.find((c) => c.id === groupByColumnId);
   return (
     columns.find((c) => c.name.toLowerCase() === "status") ??
-    columns.find((c) => ["TEXT", "SINGLE_SELECT"].includes(c.type))
+    columns.find((c) => ["TEXT", "LONG_TEXT", "USER", "SINGLE_SELECT"].includes(c.type))
   );
 }
 

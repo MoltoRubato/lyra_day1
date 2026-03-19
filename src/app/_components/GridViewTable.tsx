@@ -48,12 +48,6 @@ export function GridViewTable({
   startResize,
   addingCol,
   setAddingCol,
-  showTypePicker,
-  setShowTypePicker,
-  newColType,
-  setNewColType,
-  newColName,
-  setNewColName,
   handleAddColumn,
   loadedCount,
   topPad,
@@ -266,6 +260,7 @@ export function GridViewTable({
           setHeaderPanel(null);
           setOpenSelectCell(null);
           closeColMenu();
+          setAddingCol(false);
           setSummaryMenu(null);
           setRowContextMenu(null);
         }}
@@ -294,12 +289,6 @@ export function GridViewTable({
             startResize={startResize}
             addingCol={addingCol}
             setAddingCol={setAddingCol}
-            showTypePicker={showTypePicker}
-            setShowTypePicker={setShowTypePicker}
-            newColType={newColType}
-            setNewColType={setNewColType}
-            newColName={newColName}
-            setNewColName={setNewColName}
             handleAddColumn={handleAddColumn}
             menuForCol={menuForCol}
             openColMenu={openColMenu}

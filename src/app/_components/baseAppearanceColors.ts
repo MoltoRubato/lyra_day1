@@ -1,6 +1,7 @@
 type BaseColorFamily = {
   id: string;
   light: string;
+  light3: string;
   bright: string;
   dusty: string;
   aliases?: string[];
@@ -9,16 +10,16 @@ type BaseColorFamily = {
 export type BaseShadeLevel = "light" | "bright" | "dusty";
 
 export const BASE_COLOR_FAMILIES: BaseColorFamily[] = [
-  { id: "red", light: "#ffd4e0", bright: "#dc043b", dusty: "#99455a", aliases: ["#ffdce5", "#f82b60"] },
-  { id: "orange", light: "#ffe0cc", bright: "#d54401", dusty: "#944d37", aliases: ["#fde8d8", "#ff6f2c"] },
-  { id: "yellow", light: "#ffeab6", bright: "#ffba05", dusty: "#a26811", aliases: ["#fdf5d4", "#fcb400"] },
-  { id: "green", light: "#cff5d1", bright: "#048a0e", dusty: "#407c4a", aliases: ["#d1f7c4", "#20c933"] },
-  { id: "teal", light: "#c1f5f0", bright: "#01ddd5", dusty: "#0d7f78", aliases: ["#c2f5e9", "#00b2a0"] },
-  { id: "cyan", light: "#c4ecff", bright: "#39caff", dusty: "#107da3", aliases: ["#d0effd", "#18bfff"] },
-  { id: "blue", light: "#d1e2ff", bright: "#166ee1", dusty: "#3b66a3", aliases: ["#cfdfff", "#2d7ff9"] },
-  { id: "pink", light: "#fad2fc", bright: "#dd04a8", dusty: "#8c3f78", aliases: ["#fce4f9", "#ff08c2"] },
-  { id: "purple", light: "#e0dafd", bright: "#7c37ef", dusty: "#63498d", aliases: ["#ede2fe", "#8b46ff"] },
-  { id: "gray", light: "#e5e9f0", bright: "#616670", dusty: "#535965", aliases: ["#e8e8e8", "#444444"] },
+  { id: "red", light: "#ffd4e0", light3: "#fff2fa", bright: "#dc043b", dusty: "#99455a", aliases: ["#ffdce5", "#f82b60"] },
+  { id: "orange", light: "#ffe0cc", light3: "#ffece3", bright: "#d54401", dusty: "#944d37", aliases: ["#fde8d8", "#ff6f2c"] },
+  { id: "yellow", light: "#ffeab6", light3: "#fff6dd", bright: "#ffba05", dusty: "#a26811", aliases: ["#fdf5d4", "#fcb400"] },
+  { id: "green", light: "#cff5d1", light3: "#e6fce8", bright: "#048a0e", dusty: "#407c4a", aliases: ["#d1f7c4", "#20c933"] },
+  { id: "teal", light: "#c1f5f0", light3: "#e4fbfb", bright: "#01ddd5", dusty: "#0d7f78", aliases: ["#c2f5e9", "#00b2a0"] },
+  { id: "cyan", light: "#c4ecff", light3: "#e3fafd", bright: "#39caff", dusty: "#107da3", aliases: ["#d0effd", "#18bfff"] },
+  { id: "blue", light: "#d1e2ff", light3: "#f1f5ff", bright: "#166ee1", dusty: "#3b66a3", aliases: ["#cfdfff", "#2d7ff9"] },
+  { id: "pink", light: "#fad2fc", light3: "#fff1ff", bright: "#dd04a8", dusty: "#8c3f78", aliases: ["#fce4f9", "#ff08c2"] },
+  { id: "purple", light: "#e0dafd", light3: "#fcf3ff", bright: "#7c37ef", dusty: "#63498d", aliases: ["#ede2fe", "#8b46ff"] },
+  { id: "gray", light: "#e5e9f0", light3: "#f5f7fa", bright: "#616670", dusty: "#535965", aliases: ["#e8e8e8", "#444444"] },
 ];
 
 export const BASE_COLOR_SWATCH_ROWS = [
@@ -45,12 +46,15 @@ const FAMILY_BY_SHADE = new Map<string, BaseColorFamily>();
 const SHADE_LEVEL_BY_COLOR = new Map<string, BaseShadeLevel>();
 for (const family of BASE_COLOR_FAMILIES) {
   const light = normalizeHex(family.light);
+  const light3 = normalizeHex(family.light3);
   const bright = normalizeHex(family.bright);
   const dusty = normalizeHex(family.dusty);
   FAMILY_BY_SHADE.set(light, family);
+  FAMILY_BY_SHADE.set(light3, family);
   FAMILY_BY_SHADE.set(bright, family);
   FAMILY_BY_SHADE.set(dusty, family);
   SHADE_LEVEL_BY_COLOR.set(light, "light");
+  SHADE_LEVEL_BY_COLOR.set(light3, "light");
   SHADE_LEVEL_BY_COLOR.set(bright, "bright");
   SHADE_LEVEL_BY_COLOR.set(dusty, "dusty");
   for (const [index, aliasRaw] of (family.aliases ?? []).entries()) {
@@ -95,7 +99,7 @@ export function getBaseShadeLevel(baseColor: string | null | undefined): BaseSha
 
 export function getBaseTableBarColor(baseColor: string | null | undefined): string {
   const family = resolveBaseColorFamily(baseColor);
-  if (family) return family.light;
+  if (family) return family.light3;
   return baseColor ?? "#ffeab6";
 }
 

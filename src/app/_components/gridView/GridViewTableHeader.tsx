@@ -1,4 +1,6 @@
+import { useMemo, useState, type CSSProperties } from "react";
 import type { ColumnType } from "@prisma/client";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { FieldTypePicker, OptionsPanel } from "~/app/_components/gridViewCells";
 import { GridViewTableColumnMenu } from "~/app/_components/gridView/GridViewTableColumnMenu";
 import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
@@ -48,13 +50,7 @@ type GridViewTableHeaderProps = {
   startResize: (e: React.MouseEvent, colId: string, startW: number) => void;
   addingCol: boolean;
   setAddingCol: (v: boolean) => void;
-  showTypePicker: boolean;
-  setShowTypePicker: (v: boolean | ((p: boolean) => boolean)) => void;
-  newColType: string;
-  setNewColType: (v: string) => void;
-  newColName: string;
-  setNewColName: (v: string) => void;
-  handleAddColumn: () => void;
+  handleAddColumn: (type: string, suggestedName?: string) => void;
   menuForCol: string | null;
   openColMenu: (colId: string, e: React.MouseEvent<HTMLButtonElement>) => void;
   closeColMenu: () => void;
@@ -113,12 +109,6 @@ export function GridViewTableHeader({
   startResize,
   addingCol,
   setAddingCol,
-  showTypePicker,
-  setShowTypePicker,
-  newColType,
-  setNewColType,
-  newColName,
-  setNewColName,
   handleAddColumn,
   menuForCol,
   openColMenu,
@@ -142,6 +132,123 @@ export function GridViewTableHeader({
   someInViewSelected,
   toggleAllRowsInView,
 }: GridViewTableHeaderProps) {
+  const [fieldTypeQuery, setFieldTypeQuery] = useState("");
+  const [hoveredFieldAgent, setHoveredFieldAgent] = useState<string | null>(null);
+  const normalizedFieldTypeQuery = fieldTypeQuery.trim().toLowerCase();
+  const dropdownFontFamily =
+    '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
+  const dropdownTextStyle: CSSProperties = {
+    fontFamily: dropdownFontFamily,
+    fontSize: "13px",
+    lineHeight: "18px",
+    fontWeight: 400,
+    color: "rgb(29, 31, 37)",
+  };
+  const dropdownLabelStyle: CSSProperties = {
+    ...dropdownTextStyle,
+    boxSizing: "border-box",
+    display: "block",
+    height: "18px",
+    maxWidth: "100%",
+    margin: 0,
+    overflow: "hidden",
+    padding: 0,
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  };
+  const fieldAgentItems = useMemo(
+    () =>
+      [
+        {
+          label: "Analyze attachment",
+          asset: 279,
+          tintColor: "rgb(4, 138, 14)",
+          hoverBg: "rgb(230, 252, 232)",
+        },
+        {
+          label: "Research companies",
+          asset: 381,
+          tintColor: "rgb(22, 110, 225)",
+          hoverBg: "rgb(241, 245, 255)",
+        },
+        {
+          label: "Find image from web",
+          asset: null,
+          tintColor: "rgb(124, 55, 239)",
+          hoverBg: "rgb(252, 243, 255)",
+        },
+        {
+          label: "Generate image",
+          asset: 220,
+          tintColor: "rgb(213, 68, 1)",
+          hoverBg: "rgb(255, 236, 227)",
+        },
+        {
+          label: "Deep match",
+          asset: 433,
+          tintColor: "rgb(1, 221, 213)",
+          hoverBg: "rgb(228, 251, 251)",
+        },
+        {
+          label: "Build prototype",
+          asset: 308,
+          tintColor: "rgb(124, 55, 239)",
+          hoverBg: "rgb(252, 243, 255)",
+        },
+        {
+          label: "Create custom agent",
+          asset: null,
+          tintColor: "rgb(220, 4, 59)",
+          hoverBg: "rgb(255, 242, 250)",
+        },
+        {
+          label: "Browse catalog",
+          asset: 71,
+          tintColor: "rgb(97, 102, 112)",
+          hoverBg: "rgb(246, 248, 252)",
+        },
+      ].filter((item) =>
+        normalizedFieldTypeQuery ? item.label.toLowerCase().includes(normalizedFieldTypeQuery) : true,
+      ),
+    [normalizedFieldTypeQuery],
+  );
+  const standardFieldItems = useMemo(
+    () =>
+      [
+        { label: "Link to another record" },
+        { label: "Single line text", type: "TEXT" },
+        { label: "Long text", type: "LONG_TEXT" },
+        { label: "Attachment", type: "ATTACHMENT" },
+        { label: "Checkbox", type: "CHECKBOX" },
+        { label: "Multiple select", type: "MULTI_SELECT" },
+        { label: "Single select", type: "SINGLE_SELECT" },
+        { label: "User", type: "USER" },
+        { label: "Date", type: "DATE" },
+        { label: "Phone number", type: "PHONE" },
+        { label: "Email", type: "EMAIL" },
+        { label: "URL", type: "URL" },
+        { label: "Number", type: "NUMBER" },
+        { label: "Currency", type: "CURRENCY" },
+        { label: "Percent", type: "PERCENT" },
+        { label: "Duration", type: "DURATION" },
+        { label: "Rating", type: "RATING" },
+        { label: "Formula" },
+        { label: "Rollup" },
+        { label: "Count" },
+        { label: "Lookup" },
+        { label: "Created time" },
+        { label: "Last modified time" },
+        { label: "Created by" },
+        { label: "Last modified by" },
+        { label: "Autonumber" },
+        { label: "Barcode" },
+        { label: "Button" },
+      ].filter((item) =>
+        normalizedFieldTypeQuery ? item.label.toLowerCase().includes(normalizedFieldTypeQuery) : true,
+      ),
+    [normalizedFieldTypeQuery],
+  );
+
   return (
     <thead className="sticky top-0 z-20">
       <tr className="border-b border-[#e2e5e9] bg-[#f9fafb]">
@@ -351,85 +458,171 @@ export function GridViewTableHeader({
           );
         })}
 
-        <th className="px-2 py-0 text-left w-24 bg-[#f9fafb]">
-          {addingCol ? (
-            <div className="flex items-center gap-1" style={{ height: rowH, minWidth: 240 }}>
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowTypePicker((p) => !p);
-                  }}
-                  className="text-xs px-1.5 py-1 rounded border border-[#e2e5e9] bg-white hover:bg-[#f5f6f8] text-[#4b5563] transition-colors"
-                >
-                  <FieldTypeIcon type={newColType} />
-                </button>
-                {showTypePicker && (
-                  <FieldTypePicker
-                    current={newColType}
-                    onSelect={(t) => {
-                      setNewColType(t);
-                      setShowTypePicker(false);
-                    }}
-                  />
-                )}
-              </div>
-              <input
-                autoFocus
-                className="border border-[#166254] rounded-lg px-2 py-1 text-xs outline-none flex-1 bg-white text-[#1f2937] placeholder-[#9ca3af]"
-                placeholder="Name..."
-                value={newColName}
-                onChange={(e) => setNewColName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddColumn();
-                  if (e.key === "Escape") {
-                    setAddingCol(false);
-                    setShowTypePicker(false);
-                  }
-                }}
-              />
-              <button
-                onClick={handleAddColumn}
-                className="px-2 py-1 bg-[#166254] text-white rounded-lg text-xs hover:bg-[#124f43] transition-colors"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => {
-                  setAddingCol(false);
-                  setShowTypePicker(false);
-                }}
-                className="text-[#9ca3af] text-xs hover:text-[#6b7280] transition-colors"
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <path d="M2 2l8 8M10 2L2 10" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setAddingCol(true)}
-              className="flex items-center gap-1 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f0f1f3] transition-colors w-full text-xs"
-              style={{ height: rowH }}
-              title="Add field"
+        <th className="relative px-2 py-0 text-left w-24 bg-[#f9fafb]">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setAddingCol(!addingCol);
+              setFieldTypeQuery("");
+            }}
+            className="flex items-center justify-center text-[#7d8592] hover:text-[#1f2937] hover:bg-[#f0f1f3] transition-colors w-full rounded-[4px]"
+            style={{ height: rowH }}
+            title="Add field"
+          >
+            <svg
+              viewBox="0 0 12 12"
+              fill="none"
+              className="w-3 h-3"
+              stroke="currentColor"
+              strokeWidth="1.5"
             >
-              <svg
-                viewBox="0 0 12 12"
-                fill="none"
-                className="w-3 h-3 ml-2"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M6 2v8M2 6h8" strokeLinecap="round" />
-              </svg>
-            </button>
+              <path d="M6 2v8M2 6h8" strokeLinecap="round" />
+            </svg>
+          </button>
+          {addingCol && (
+            <div
+              className="absolute left-0 top-full z-[60] mt-1 w-[400px] max-h-[min(72vh,900px)] overflow-y-auto rounded-[12px] border border-[#d9dde3] bg-white shadow-[0_12px_32px_rgba(25,30,40,0.22)]"
+              role="dialog"
+              aria-label="Create field"
+              style={dropdownTextStyle}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-[6px]">
+                <div className="sticky top-0 z-10 bg-white pt-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 flex-1 items-center rounded-[10px] border border-[#dfe3e9] bg-[#f6f8fb] px-2">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        className="text-[#7f8794]"
+                      >
+                        <circle cx="7" cy="7" r="4.5" />
+                        <path d="M10.5 10.5L14 14" strokeLinecap="round" />
+                      </svg>
+                      <input
+                        autoFocus
+                        type="text"
+                        className="ml-2 h-full w-full bg-transparent text-[#1f2937] outline-none placeholder:text-[#8a94a6]"
+                        style={dropdownTextStyle}
+                        placeholder="Find a field type"
+                        value={fieldTypeQuery}
+                        onChange={(e) => setFieldTypeQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setAddingCol(false);
+                            setFieldTypeQuery("");
+                          }
+                        }}
+                      />
+                    </div>
+                    <a
+                      href="https://support.airtable.com/docs/supported-field-types-in-airtable-overview"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-[#6f7683] hover:bg-[#f5f7fa]"
+                      title="Learn about field types"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                      >
+                        <circle cx="8" cy="8" r="6" />
+                        <path d="M8 10.8v.01M8 8.6c0-1.6 1.7-1.7 1.7-3.3A1.7 1.7 0 006.3 5.3" strokeLinecap="round" />
+                      </svg>
+                    </a>
+                  </div>
+                  <hr className="mt-2 border-0 border-t border-[#eceff3]" />
+                </div>
+
+                <p className="mx-[10px] my-3 text-[13px] font-normal text-[#616670]" style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}>Field agents</p>
+                <div className="flex flex-wrap">
+                  {fieldAgentItems.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="flex h-[34px] w-1/2 items-center gap-2 rounded-[6px] px-[10px] py-[8px] text-left text-[#1d1f25] transition-colors"
+                      style={{
+                        ...dropdownTextStyle,
+                        boxSizing: "border-box",
+                        backgroundColor: hoveredFieldAgent === item.label ? item.hoverBg : "transparent",
+                      }}
+                      onMouseEnter={() => setHoveredFieldAgent(item.label)}
+                      onMouseLeave={() => setHoveredFieldAgent((prev) => (prev === item.label ? null : prev))}
+                    >
+                      {item.asset ? (
+                        <AirtableAssetIcon asset={item.asset} size={16} tintColor={item.tintColor} />
+                      ) : item.label === "Find image from web" ? (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={item.tintColor} strokeWidth="1.3">
+                          <path d="M2.5 8h11M8 2.5a7 7 0 010 11M8 2.5a7 7 0 000 11" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <circle cx="8" cy="8" r="6" fill={item.tintColor} />
+                          <circle cx="8" cy="8" r="1.7" fill="white" />
+                        </svg>
+                      )}
+                      <span className="truncate" style={dropdownLabelStyle}>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <hr className="my-2 border-0 border-t border-[#eceff3]" />
+
+                <p className="mx-[10px] my-3 text-[13px] font-normal text-[#616670]" style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}>Standard fields</p>
+                <div className="px-1 pb-1">
+                  {standardFieldItems.length === 0 && (
+                    <div className="px-[10px] py-2 text-[13px] text-[#8a94a6] font-normal" style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}>No field types found.</div>
+                  )}
+                  {standardFieldItems.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      disabled={!item.type}
+                      onClick={() => {
+                        if (!item.type) return;
+                        handleAddColumn(item.type, item.label);
+                        setFieldTypeQuery("");
+                      }}
+                      className={`flex h-[34px] w-full items-center rounded-[6px] px-[10px] py-[8px] text-left ${
+                        item.type
+                          ? "text-[#1d1f25] hover:bg-[#f4f6f9] active:bg-[#eef1f5]"
+                          : "cursor-default text-[#5f6672]"
+                      }`}
+                      style={dropdownTextStyle}
+                    >
+                      <span className="inline-flex w-5 flex-none items-center justify-center">
+                        {item.type ? (
+                          <FieldTypeIcon type={item.type} />
+                        ) : item.label === "Link to another record" ? (
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+                            <path d="M2.2 4.2h9.6M2.2 7h7.2M2.2 9.8h9.6" strokeLinecap="round" />
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+                            <circle cx="7" cy="7" r="5.2" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="ml-2 truncate" style={dropdownLabelStyle}>{item.label}</span>
+                      {item.label === "Link to another record" && (
+                        <span className="ml-auto text-[#9ca3af]">
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+                            <path d="M5.2 3.2l3.6 3.8-3.6 3.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
         </th>
       </tr>

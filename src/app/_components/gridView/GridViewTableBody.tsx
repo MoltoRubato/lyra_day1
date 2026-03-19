@@ -320,18 +320,33 @@ export function GridViewTableBody({
                           onUpload={(url) => safeUpdateCell(row.id, col.id, url)}
                         />
                       ) : isEditing ? (
-                        <input
-                          autoFocus
-                          className="border-2 border-[#166254] rounded px-2 py-0.5 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm"
-                          value={editing.value}
-                          type={inputTypeForField(col.type)}
-                          onChange={(e) => setEditing({ ...editing, value: e.target.value })}
-                          onBlur={commitEdit}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") commitEdit();
-                            if (e.key === "Escape") setEditing(null);
-                          }}
-                        />
+                        col.type === "LONG_TEXT" ? (
+                          <textarea
+                            autoFocus
+                            rows={3}
+                            className="border-2 border-[#166254] rounded px-2 py-1 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm resize-y min-h-[56px]"
+                            value={editing.value}
+                            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                            onBlur={commitEdit}
+                            onKeyDown={(e) => {
+                              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") commitEdit();
+                              if (e.key === "Escape") setEditing(null);
+                            }}
+                          />
+                        ) : (
+                          <input
+                            autoFocus
+                            className="border-2 border-[#166254] rounded px-2 py-0.5 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm"
+                            value={editing.value}
+                            type={inputTypeForField(col.type)}
+                            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                            onBlur={commitEdit}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitEdit();
+                              if (e.key === "Escape") setEditing(null);
+                            }}
+                          />
+                        )
                       ) : (
                         <span
                           className={`cursor-pointer text-xs transition-colors ${isTall ? "whitespace-normal break-words line-clamp-4" : "block truncate"} ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}

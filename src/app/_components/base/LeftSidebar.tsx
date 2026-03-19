@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
 export function LeftSidebar() {
@@ -27,6 +28,24 @@ export function LeftSidebar() {
           />
         </span>
       </Link>
+
+      <div className="px-2">
+        <button
+          type="button"
+          aria-label="Open Omni"
+          title="Open Omni"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-transparent transition-colors hover:bg-[#f5f5f4]"
+        >
+          <Image
+            src="/airtable_assets/Omni.png"
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 object-contain"
+          />
+        </button>
+      </div>
+
       <div className="flex-1" />
 
       <button className="w-8 h-8 rounded flex items-center justify-center text-[#666] hover:bg-[#f5f5f4] hover:text-[#172b4d] transition-colors" title="Help">
