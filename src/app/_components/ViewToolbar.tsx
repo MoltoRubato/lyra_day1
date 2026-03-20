@@ -1,6 +1,6 @@
 ﻿"use client";
 // src/app/_components/ViewToolbar.tsx
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Column } from "@prisma/client";
 import type {
   FilterCondition,
@@ -18,6 +18,7 @@ export type ViewConfig = {
   sorts: SortRule[];
   groups: GroupRule[];
   rowHeight: RowHeight;
+  frozenColumnCount: number;
 };
 
 export const DEFAULT_VIEW_CONFIG: ViewConfig = {
@@ -26,6 +27,7 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   sorts: [],
   groups: [],
   rowHeight: "short",
+  frozenColumnCount: 0,
 };
 
 export type OpenPanel = "hide" | "filter" | "group" | "sort" | "height" | null;
@@ -58,6 +60,7 @@ export default function ViewToolbar({
   onBulkAddRows,
   bulkAdding = false,
   onToggleSidebar,
+  frozenColumnCount = 0,
   forcedOpenPanel,
   onForcedOpenHandled,
 }: {
@@ -73,6 +76,7 @@ export default function ViewToolbar({
   onBulkAddRows?: () => void;
   bulkAdding?: boolean;
   onToggleSidebar?: () => void;
+  frozenColumnCount?: number;
   forcedOpenPanel?: Exclude<OpenPanel, null> | null;
   onForcedOpenHandled?: () => void;
 }) {
@@ -94,15 +98,57 @@ export default function ViewToolbar({
     setOpen((p) => (p === panel ? null : panel));
   }
 
-  const hiddenCount = Object.values(config.hiddenFields).filter(Boolean).length;
+  const sortedColumns = useMemo(
+    () => [...columns].sort((a, b) => a.order - b.order),
+    [columns],
+  );
+  const visibleColumns = useMemo(
+    () => sortedColumns.filter((column, index) => index === 0 || !config.hiddenFields[column.id]),
+    [config.hiddenFields, sortedColumns],
+  );
+  const clampedFrozenColumnCount = Math.max(
+    0,
+    Math.min(frozenColumnCount, visibleColumns.length),
+  );
+  const nonHideableColumnIds = useMemo(() => {
+    return visibleColumns
+      .slice(0, clampedFrozenColumnCount)
+      .map((column) => column.id);
+  }, [clampedFrozenColumnCount, visibleColumns]);
+  const nonHideableColumnSet = useMemo(
+    () => new Set(nonHideableColumnIds),
+    [nonHideableColumnIds],
+  );
+  const hiddenCount = sortedColumns.reduce((count, column) => {
+    if (nonHideableColumnSet.has(column.id)) return count;
+    return count + (config.hiddenFields[column.id] ? 1 : 0);
+  }, 0);
   const hasFilters = config.filters.length > 0;
   const hasGroups = config.groups.length > 0;
   const hasSorts = config.sorts.length > 0;
   const activeViewMeta = VIEW_META[activeViewType] ?? { asset: 236, color: "#2d7ff9" };
-  const columnNameById = new Map(columns.map((column) => [column.id, column.name]));
+  const columnNameById = new Map(sortedColumns.map((column) => [column.id, column.name]));
   const firstFilterColumnName = hasFilters
     ? columnNameById.get(config.filters[0]?.columnId ?? "")
     : undefined;
+
+  const sanitizeHiddenFields = useCallback((nextHiddenFields: Record<string, boolean>) => {
+    if (nonHideableColumnIds.length === 0) return nextHiddenFields;
+    const sanitized = { ...nextHiddenFields };
+    let changed = false;
+    nonHideableColumnIds.forEach((columnId) => {
+      if (!sanitized[columnId]) return;
+      delete sanitized[columnId];
+      changed = true;
+    });
+    return changed ? sanitized : nextHiddenFields;
+  }, [nonHideableColumnIds]);
+
+  useEffect(() => {
+    const sanitized = sanitizeHiddenFields(config.hiddenFields);
+    if (sanitized === config.hiddenFields) return;
+    onConfigChange({ hiddenFields: sanitized });
+  }, [config.hiddenFields, onConfigChange, sanitizeHiddenFields]);
 
   type BtnDef = {
     id: Exclude<OpenPanel, null>;
@@ -238,9 +284,12 @@ export default function ViewToolbar({
             <PanelWrapper onClose={() => setOpen(null)}>
               {btn.id === "hide" && (
                 <HideFieldsPanel
-                  columns={columns}
+                  columns={sortedColumns}
                   hiddenFields={config.hiddenFields}
-                  onChange={(hf) => onConfigChange({ hiddenFields: hf })}
+                  nonHideableColumnIds={nonHideableColumnIds}
+                  onChange={(hf) =>
+                    onConfigChange({ hiddenFields: sanitizeHiddenFields(hf) })
+                  }
                 />
               )}
               {btn.id === "filter" && (

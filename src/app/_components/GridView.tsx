@@ -44,10 +44,12 @@ export default function GridView({
   sorts = [],
   groups = [],
   rowHeight = "short",
+  frozenColumnCount = 0,
   recordLabel = "Record",
   onSortsChange,
   onFiltersChange,
   onGroupsChange,
+  onFrozenColumnCountChange,
   onRequestOpenSortPanel,
   onRequestOpenFilterPanel,
   onRequestOpenGroupPanel,
@@ -58,10 +60,12 @@ export default function GridView({
   sorts?: SortRule[];
   groups?: GroupRule[];
   rowHeight?: RowHeight;
+  frozenColumnCount?: number;
   recordLabel?: string;
   onSortsChange?: (sorts: SortRule[]) => void;
   onFiltersChange?: (filters: FilterCondition[]) => void;
   onGroupsChange?: (groups: GroupRule[]) => void;
+  onFrozenColumnCountChange?: (count: number) => void;
   onRequestOpenSortPanel?: () => void;
   onRequestOpenFilterPanel?: () => void;
   onRequestOpenGroupPanel?: () => void;
@@ -88,7 +92,7 @@ export default function GridView({
   const [addingCol, setAddingCol] = useState(false);
   const [dragColId, setDragColId] = useState<string | null>(null);
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
-  const [freezeCount, setFreezeCount] = useState(0);
+  const [freezeCount, setFreezeCount] = useState(frozenColumnCount);
 
   const resizingRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -137,6 +141,19 @@ export default function GridView({
   useEffect(() => {
     setFreezeCount((prev) => Math.max(0, Math.min(prev, visCols.length)));
   }, [visCols.length]);
+
+  useEffect(() => {
+    const nextFrozenColumnCount = Math.max(0, frozenColumnCount);
+    setFreezeCount((prev) => (prev === nextFrozenColumnCount ? prev : nextFrozenColumnCount));
+  }, [frozenColumnCount]);
+
+  const handleFreezeCountChange = useCallback(
+    (nextCount: number) => {
+      setFreezeCount(nextCount);
+      onFrozenColumnCountChange?.(nextCount);
+    },
+    [onFrozenColumnCountChange],
+  );
 
   const isSelect = useCallback(
     (type: string) => type === "SINGLE_SELECT" || type === "MULTI_SELECT",
@@ -477,7 +494,7 @@ export default function GridView({
       sorts={sorts}
       visCols={visCols}
       freezeCount={freezeCount}
-      onFreezeCountChange={setFreezeCount}
+      onFreezeCountChange={handleFreezeCountChange}
       dragOverColId={dragOverColId}
       setDragColId={setDragColId}
       setDragOverColId={setDragOverColId}

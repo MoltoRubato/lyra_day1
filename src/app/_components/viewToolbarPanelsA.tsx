@@ -34,14 +34,19 @@ export function PanelWrapper({
 export function HideFieldsPanel({
   columns,
   hiddenFields,
+  nonHideableColumnIds = [],
   onChange,
 }: {
   columns: Column[];
   hiddenFields: Record<string, boolean>;
+  nonHideableColumnIds?: string[];
   onChange: (hf: Record<string, boolean>) => void;
 }) {
   const [search, setSearch] = useState("");
-  const filtered = columns.filter(
+  const sortedColumns = [...columns].sort((a, b) => a.order - b.order);
+  const lockedColumnIds = new Set(nonHideableColumnIds);
+  const hideableColumns = sortedColumns.filter((column) => !lockedColumnIds.has(column.id));
+  const filtered = hideableColumns.filter(
     (c) => !search.trim() || c.name.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -98,7 +103,9 @@ export function HideFieldsPanel({
 
       <div className="flex gap-2 border-t border-[#f0f0f0] pt-2.5">
         <button
-          onClick={() => onChange(Object.fromEntries(columns.map((c) => [c.id, true])))}
+          onClick={() =>
+            onChange(Object.fromEntries(hideableColumns.map((column) => [column.id, true])))
+          }
           className="flex-1 py-1 text-xs text-[#555] border border-[#e0e0e0] rounded-md hover:bg-[#f5f5f4] transition-colors"
         >
           Hide all

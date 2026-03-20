@@ -228,12 +228,17 @@ export function GridViewTableBody({
           const { row } = item;
           const rowNum = rowNumbers[absIdx] ?? absIdx + 1;
           const rowSelected = selectedSet.has(row.id);
+          const editingColumn =
+            editing?.rowId === row.id
+              ? visCols.find((candidateCol) => candidateCol.id === editing.columnId)
+              : null;
+          const editingLongTextRow = editingColumn?.type === "LONG_TEXT";
 
           return (
             <tr
               key={row.id}
-              className={`border-b border-[#e2e5e9] group transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-inset ring-[#1c76d2]" : ""}`}
-              style={{ height: rowH }}
+              className={`relative border-b border-[#e2e5e9] group transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-inset ring-[#1c76d2]" : ""}`}
+              style={{ height: rowH, zIndex: editingLongTextRow ? 15 : undefined }}
               onContextMenu={(e) => openRowContextMenu(e, row.id)}
               onDragOver={(e) => {
                 if (!canReorderRows || !dragRowId) return;
@@ -293,6 +298,7 @@ export function GridViewTableBody({
 
               {visCols.map((col, colIndex) => {
                 const isEditing = editing?.rowId === row.id && editing.columnId === col.id;
+                const isLongTextEditing = isEditing && col.type === "LONG_TEXT";
                 const value = getCellValue(row, col.id);
                 const isFrozen = colIndex < freezeCount;
                 const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
@@ -306,16 +312,20 @@ export function GridViewTableBody({
                       ...(isFrozen
                         ? {
                             left: frozenOffsets[colIndex] ?? rowNumberWidth,
-                            zIndex: 11,
+                            zIndex: isLongTextEditing ? 30 : 11,
                           }
                         : {}),
+                      ...(isLongTextEditing && !isFrozen ? { zIndex: 30 } : {}),
                       ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
                     }}
-                    className={`box-border px-2 py-0 border-r border-[#e2e5e9] overflow-visible ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                    className={`relative box-border px-2 py-0 border-r border-[#e2e5e9] overflow-visible ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
                     onClick={() => handleCellClick(row, col)}
                     onContextMenu={(e) => openRowContextMenu(e, row.id)}
                   >
-                    <div className={`flex ${isTall ? "items-start pt-1.5" : "items-center"}`} style={{ height: rowH }}>
+                    <div
+                      className={`flex ${isTall || isLongTextEditing ? "items-start pt-1.5" : "items-center"} ${isLongTextEditing ? "relative z-[2]" : ""}`}
+                      style={{ height: rowH }}
+                    >
                       {col.type === "CHECKBOX" ? (
                         <input
                           type="checkbox"
@@ -343,7 +353,7 @@ export function GridViewTableBody({
                           <textarea
                             autoFocus
                             rows={3}
-                            className="border-2 border-[#166254] rounded px-2 py-1 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm resize-y min-h-[56px]"
+                            className="relative z-[3] border-2 border-[#166254] rounded px-2 py-1 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm resize-y min-h-[56px]"
                             value={editing.value}
                             onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                             onBlur={commitEdit}
