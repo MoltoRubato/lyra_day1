@@ -243,12 +243,12 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const [forcedToolbarPanel, setForcedToolbarPanel] = useState<Exclude<OpenPanel, null> | null>(null);
 
   function getViewConfig(viewId: string): ViewConfig {
-    return viewConfigs[viewId] ?? { ...DEFAULT_VIEW_CONFIG };
+    return { ...DEFAULT_VIEW_CONFIG, ...(viewConfigs[viewId] ?? {}) };
   }
   function updateViewConfig(viewId: string, patch: Partial<ViewConfig>) {
     setViewConfigs((prev) => ({
       ...prev,
-      [viewId]: { ...getViewConfig(viewId), ...patch },
+      [viewId]: { ...DEFAULT_VIEW_CONFIG, ...(prev[viewId] ?? {}), ...patch },
     }));
   }
   function getViewDescription(viewId: string): string | null {
@@ -449,6 +449,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             columns={currentTable.columns}
             config={currentCfg}
             onConfigChange={(patch) => updateViewConfig(activeView.id, patch)}
+            frozenColumnCount={currentCfg.frozenColumnCount}
             activeViewName={activeView.name}
             activeViewType={activeView.type}
             activeViewId={activeView.id}
@@ -508,10 +509,14 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                   sorts={currentCfg.sorts}
                   groups={currentCfg.groups}
                   rowHeight={currentCfg.rowHeight}
+                  frozenColumnCount={currentCfg.frozenColumnCount}
                   recordLabel={getRecordLabel(currentTableId) ?? "Record"}
                   onSortsChange={(sorts) => updateViewConfig(activeView.id, { sorts })}
                   onFiltersChange={(filters) => updateViewConfig(activeView.id, { filters })}
                   onGroupsChange={(groups) => updateViewConfig(activeView.id, { groups })}
+                  onFrozenColumnCountChange={(count) =>
+                    updateViewConfig(activeView.id, { frozenColumnCount: count })
+                  }
                   onRequestOpenSortPanel={() => setForcedToolbarPanel("sort")}
                   onRequestOpenFilterPanel={() => setForcedToolbarPanel("filter")}
                   onRequestOpenGroupPanel={() => setForcedToolbarPanel("group")}
