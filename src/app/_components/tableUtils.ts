@@ -298,7 +298,7 @@ type LegacyFilterCondition = {
   value?: string;
 };
 
-function normalizeLegacyOp(op: LegacyFilterOp | string | null | undefined): FilterOp | null {
+function normalizeLegacyOp(op: string | null | undefined): FilterOp | null {
   switch (op) {
     case "contains":
     case "does_not_contain":
@@ -320,6 +320,19 @@ function normalizeLegacyOp(op: LegacyFilterOp | string | null | undefined): Filt
     default:
       return null;
   }
+}
+
+function normalizeFilterConditionValue(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (value == null) return undefined;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value) || (typeof value === "object" && value !== null)) {
+    return JSON.stringify(value);
+  }
+  return undefined;
 }
 
 function isFilterGroupLike(value: unknown): value is { type?: unknown; children?: unknown } {
@@ -366,12 +379,7 @@ function normalizeFilterCondition(raw: unknown): FilterCondition | null {
   );
   const operator = operatorFromNewModel ?? operatorFromLegacyModel;
 
-  const value =
-    typeof condition.value === "string"
-      ? condition.value
-      : condition.value == null
-        ? undefined
-        : String(condition.value);
+  const value = normalizeFilterConditionValue(condition.value);
 
   return {
     id:
