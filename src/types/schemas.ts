@@ -117,6 +117,25 @@ export const ColumnResizeInput   = z.object({ columnId: z.string(), width: z.num
 export const TableOutput      = z.object({ id: z.string(), name: z.string(), baseId: z.string(), createdAt: z.date(), updatedAt: z.date() });
 export const CellOutput       = z.object({ id: z.string(), value: z.string().nullable(), rowId: z.string(), columnId: z.string(), createdAt: z.date(), updatedAt: z.date() });
 export const RowOutput        = z.object({ id: z.string(), order: z.number(), tableId: z.string(), cells: z.array(CellOutput), createdAt: z.date(), updatedAt: z.date() });
+export const PreloadCellOutput = z.object({
+  columnId: z.string(),
+  value: z.string().nullable(),
+});
+export const PreloadRowOutput = z.object({
+  id: z.string(),
+  order: z.number(),
+  tableId: z.string(),
+  cells: z.array(PreloadCellOutput),
+});
+export const PreloadValueRowOutput = z.object({
+  id: z.string(),
+  order: z.number(),
+  value: z.string().nullable(),
+});
+export const PreloadValueBatchOutput = z.object({
+  columnId: z.string(),
+  rows: z.array(PreloadValueRowOutput),
+});
 export const TableWithDataOutput = TableOutput.extend({
   columns: z.array(ColumnOutput),
   rows: z.array(RowOutput),
@@ -129,5 +148,13 @@ export const CellUpdateInput  = z.object({ rowId: z.string(), columnId: z.string
 export const RowAddInput      = z.object({ tableId: z.string() });
 export const RowDeleteInput   = z.object({ rowId: z.string() });
 export const RowReorderInput  = z.object({ tableId: z.string(), orderedIds: z.array(z.string()).min(1) });
-export const BulkDeleteRowsInput = z.object({ rowIds: z.array(z.string()).min(1) });
+export const BulkDeleteRowsInput = z.union([
+  z.object({
+    rowIds: z.array(z.string()).min(1),
+  }),
+  z.object({
+    tableId: z.string(),
+    deleteAll: z.literal(true),
+  }),
+]);
 export const TableGetByIdInput   = z.object({ id: z.string(), filterColumnId: z.string().optional(), filterValue: z.string().optional(), sortByColumnId: z.string().optional(), sortDir: z.enum(["asc", "desc"]).optional() });

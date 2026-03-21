@@ -68,6 +68,10 @@ export default function HomePage() {
   );
   const selectedWorkspaceName =
     (workspaces as WsFull[]).find((ws) => ws.id === createBaseWorkspaceId)?.name ?? "No workspace";
+  const requestDeleteBase = (id: string | null | undefined) => {
+    if (typeof id !== "string" || id.length === 0) return;
+    deleteBase.mutate({ id });
+  };
 
   useEffect(() => {
     if (!(modal?.kind === "createBase" && workspaceMenuOpen)) return;
@@ -294,7 +298,7 @@ export default function HomePage() {
               onDeleteWs={(id) => { if (confirm("Delete this workspace? Bases will be unassigned.")) deleteWs.mutate({ id }); }}
               onStarWs={(ws) => toggleWsStar.mutate({ id: ws.id, starred: !ws.starred })}
               onRenameBase={(b) => open({ kind: "renameBase", id: b.id, value: b.name })}
-              onDeleteBase={(id) => deleteBase.mutate({ id })}
+              onDeleteBase={requestDeleteBase}
               onStarBase={(b) => toggleBaseStar.mutate({ id: b.id, starred: !b.starred })}
               onMoveBase={(b) => open({ kind: "moveBase", id: b.id, currentWorkspaceId: b.workspaceId })}
             />
@@ -426,7 +430,7 @@ export default function HomePage() {
                   bases={filteredBases}
                   showWorkspace={page === "home"}
                   onRename={(b) => open({ kind: "renameBase", id: b.id, value: b.name })}
-                  onDelete={(id) => deleteBase.mutate({ id })}
+                  onDelete={requestDeleteBase}
                   onStar={(b) => toggleBaseStar.mutate({ id: b.id, starred: !b.starred })}
                   onMove={(b) => open({ kind: "moveBase", id: b.id, currentWorkspaceId: b.workspaceId })}
                   onDuplicate={(b) => {
@@ -443,7 +447,7 @@ export default function HomePage() {
                 <BaseGridView
                   bases={filteredBases}
                   onRename={(b) => open({ kind: "renameBase", id: b.id, value: b.name })}
-                  onDelete={(id) => deleteBase.mutate({ id })}
+                  onDelete={requestDeleteBase}
                   onStar={(b) => toggleBaseStar.mutate({ id: b.id, starred: !b.starred })}
                   onMove={(b) => open({ kind: "moveBase", id: b.id, currentWorkspaceId: b.workspaceId })}
                 />

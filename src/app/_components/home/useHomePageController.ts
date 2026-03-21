@@ -4,6 +4,7 @@ import type { BaseItem, DispMode, ModalState, PageView, WsFull } from "~/app/_co
 
 export function useHomePageController() {
   const utils = api.useUtils();
+  const [pendingDeleteBaseIds, setPendingDeleteBaseIds] = useState<string[]>([]);
 
   const { data: bases = [], isLoading: basesLoading, error: basesError } = api.base.getAll.useQuery();
   const { data: workspaces = [], isLoading: wsLoading, error: wsError } = api.workspace.getAll.useQuery();
@@ -21,6 +22,15 @@ export function useHomePageController() {
   const patchWs = (fn: Parameters<typeof utils.workspace.getAll.setData>[1]) =>
     utils.workspace.getAll.setData(undefined, fn);
   const invalidateWs = () => void utils.workspace.getAll.invalidate();
+  const pendingDeleteBaseIdSet = useMemo(
+    () => new Set(pendingDeleteBaseIds),
+    [pendingDeleteBaseIds],
+  );
+
+  const removeBaseFromCachedLists = (id: string) => {
+    patchBases((p) => p?.filter((b) => b.id !== id));
+    patchWs((p) => p?.map((w) => ({ ...w, bases: w.bases.filter((b) => b.id !== id) })));
+  };
 
   const createBase = api.base.create.useMutation({
     onMutate: async ({ name, workspaceId }) => {
@@ -62,12 +72,24 @@ export function useHomePageController() {
     onMutate: async ({ id }) => {
       await cancelBases(); await cancelWs();
       const snapshotB = snapshotBases(); const snapshotW = snapshotWs();
-      patchBases((p) => p?.filter((b) => b.id !== id));
-      patchWs((p) => p?.map((w) => ({ ...w, bases: w.bases.filter((b) => b.id !== id) })));
+      setPendingDeleteBaseIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      removeBaseFromCachedLists(id);
       return { snapshotB, snapshotW };
     },
-    onError: (_e, _v, ctx) => { patchBases(() => ctx?.snapshotB); patchWs(() => ctx?.snapshotW); },
-    onSettled: () => { invalidateBases(); invalidateWs(); },
+    onSuccess: ({ id }) => {
+      removeBaseFromCachedLists(id);
+      setPendingDeleteBaseIds((prev) => prev.filter((candidate) => candidate !== id));
+    },
+    onError: (_e, v, ctx) => {
+      setPendingDeleteBaseIds((prev) => prev.filter((candidate) => candidate !== v.id));
+      patchBases(() => ctx?.snapshotB);
+      patchWs(() => ctx?.snapshotW);
+    },
+    onSettled: (_data, _error, vars) => {
+      setPendingDeleteBaseIds((prev) => prev.filter((candidate) => candidate !== vars.id));
+      invalidateBases();
+      invalidateWs();
+    },
   });
 
   const toggleBaseStar = api.base.toggleStar.useMutation({
@@ -187,23 +209,39 @@ export function useHomePageController() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const visibleBases = useMemo(
+    () => (bases as BaseItem[]).filter((base) => !pendingDeleteBaseIdSet.has(base.id)),
+    [bases, pendingDeleteBaseIdSet],
+  );
+  const visibleWorkspaces = useMemo(
+    () =>
+      (workspaces as WsFull[]).map((workspace) => ({
+        ...workspace,
+        bases: workspace.bases.filter((base) => !pendingDeleteBaseIdSet.has(base.id)),
+      })),
+    [workspaces, pendingDeleteBaseIdSet],
+  );
+
   const currentWorkspace = useMemo(
     () => (page !== "home" && page !== "starred" && page !== "workspaces")
-      ? (workspaces.find((w) => w.id === page) ?? null)
+      ? (visibleWorkspaces.find((w) => w.id === page) ?? null)
       : null,
-    [page, workspaces],
+    [page, visibleWorkspaces],
   );
 
   const filteredBases = useMemo(() => {
-    const list = bases as BaseItem[];
+    const list = visibleBases;
     if (page === "starred") return list.filter((b) => b.starred);
     if (page === "workspaces") return list;
     if (page === "home") return list;
     return list.filter((b) => b.workspaceId === page);
-  }, [bases, page]);
+  }, [visibleBases, page]);
 
-  const filteredWs = useMemo(() => workspaces as WsFull[], [workspaces]);
-  const starredWs = useMemo(() => (workspaces as WsFull[]).filter((w) => w.starred), [workspaces]);
+  const filteredWs = useMemo(() => visibleWorkspaces, [visibleWorkspaces]);
+  const starredWs = useMemo(
+    () => visibleWorkspaces.filter((workspace) => workspace.starred),
+    [visibleWorkspaces],
+  );
 
   function open(m: ModalState) {
     if (!m) return;
@@ -269,8 +307,8 @@ export function useHomePageController() {
           currentWorkspace?.name ?? "Workspace";
 
   return {
-    bases,
-    workspaces,
+    bases: visibleBases,
+    workspaces: visibleWorkspaces,
     isLoading,
     error,
     page,

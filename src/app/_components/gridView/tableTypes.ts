@@ -50,6 +50,10 @@ export type VisibleItem =
     }
   | { kind: "row"; row: RowWithCells };
 
+export type BulkDeleteRowsPayload =
+  | { rowIds: string[] }
+  | { tableId: string; deleteAll: true };
+
 export type GridViewTableProps = {
   containerRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -139,7 +143,9 @@ export type GridViewTableProps = {
   onRetryLoadAll: () => void;
   trueTotal: number;
   totalRows: number;
-  bulkDeleteRows: { mutate: (v: { rowIds: string[] }) => void };
+  bulkDeleteRows: {
+    mutate: (v: BulkDeleteRowsPayload) => void;
+  };
   reorderRows: { mutate: (v: { tableId: string; orderedIds: string[] }) => void };
   canReorderRows: boolean;
   allRowsForSummary: RowWithCells[];

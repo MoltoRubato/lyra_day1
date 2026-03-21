@@ -95,10 +95,29 @@ export const rowMutationProcedures = {
     .input(BulkDeleteRowsInput)
     .output(z.object({ deletedCount: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const result = await ctx.db.row.deleteMany({
-        where: { id: { in: input.rowIds } },
-      });
-      return { deletedCount: result.count };
+      if (!("rowIds" in input)) {
+        const result = await ctx.db.row.deleteMany({
+          where: { tableId: input.tableId },
+        });
+        return { deletedCount: result.count };
+      }
+
+      const rowIds = Array.from(new Set(input.rowIds));
+      if (rowIds.length === 0) {
+        return { deletedCount: 0 };
+      }
+
+      const chunkSize = 5_000;
+      let deletedCount = 0;
+      for (let i = 0; i < rowIds.length; i += chunkSize) {
+        const idsChunk = rowIds.slice(i, i + chunkSize);
+        const result = await ctx.db.row.deleteMany({
+          where: { id: { in: idsChunk } },
+        });
+        deletedCount += result.count;
+      }
+
+      return { deletedCount };
     }),
 
   updateCell: publicProcedure

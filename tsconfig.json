@@ -40,5 +40,13 @@
     "**/*.js",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "generated", "prisma/test-query.ts"]
+  "exclude": [
+    "node_modules",
+    "generated",
+    "prisma/test-query.ts",
+    "playwright-report",
+    "playwright-report.bak",
+    "test-results",
+    "test-results.bak"
+  ]
 }

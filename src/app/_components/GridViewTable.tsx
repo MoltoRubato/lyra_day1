@@ -133,7 +133,7 @@ export function GridViewTable({
     () => visCols.map((col) => `${col.id}:${col.width}`).join("|"),
     [visCols],
   );
-  const rowNumberWidth = renderedRowHeaderWidth ?? 88;
+  const rowNumberWidth = renderedRowHeaderWidth ?? 80;
   const effectiveColumnWidths = useMemo(
     () => visCols.map((col, idx) => renderedColumnWidths[idx] ?? col.width),
     [renderedColumnWidths, visCols],
@@ -344,7 +344,7 @@ export function GridViewTable({
 
   function openColMenu(colId: string, e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
-    setMenuForCol(colId);
+    setMenuForCol((prev) => (prev === colId ? null : colId));
   }
 
   function closeColMenu() {
@@ -589,7 +589,7 @@ export function GridViewTable({
       </div>
 
       <div
-        className="pointer-events-none absolute z-[3] overflow-visible"
+        className="pointer-events-none absolute z-[26] overflow-visible"
         style={{
           top: rowH,
           bottom: dividerBottomInset,
@@ -600,7 +600,7 @@ export function GridViewTable({
       >
         <div
           className="pointer-events-auto absolute bottom-0 top-0 cursor-col-resize"
-          style={{ left: -1, width: 2 }}
+          style={{ left: -4, width: 8 }}
           onMouseEnter={() => setIsFreezeDividerHover(true)}
           onMouseLeave={() => {
             if (!isFreezeDragging) setIsFreezeDividerHover(false);
@@ -670,6 +670,8 @@ export function GridViewTable({
         rowContextMenu={rowContextMenu}
         hasSelectedRows={hasSelectedRows}
         selectedRowIds={selectedRowIds}
+        tableId={tableId}
+        allRowsSelected={allInViewSelected}
         pluralLabel={pluralLabel}
         bulkDeleteRows={bulkDeleteRows}
         setSelectedRowIds={setSelectedRowIds}

@@ -213,6 +213,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             : prev,
         );
       }
+      void utils.table.getById.invalidate({ id: vars.tableId });
       void utils.base.getById.invalidate({ id: baseId });
       void utils.base.getAll.invalidate();
     },

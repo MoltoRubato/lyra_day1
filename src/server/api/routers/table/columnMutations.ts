@@ -2,6 +2,10 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure } from "~/server/api/trpc";
 import {
+  loadAvailableColumnTypes,
+  resolveSupportedColumnType,
+} from "~/server/columnTypeCompat";
+import {
   ColumnAddInput,
   ColumnChangeTypeInput,
   ColumnDeleteInput,
@@ -36,11 +40,13 @@ export const columnMutationProcedures = {
         where: { tableId: input.tableId },
         _max: { order: true },
       });
+      const availableTypes = await loadAvailableColumnTypes(ctx.db);
+      const supportedType = resolveSupportedColumnType(input.type, availableTypes);
 
       const column = await ctx.db.column.create({
         data: {
           name: input.name,
-          type: input.type,
+          type: supportedType,
           order: (maxOrder._max.order ?? -1) + 1,
           tableId: input.tableId,
         },
@@ -84,12 +90,14 @@ export const columnMutationProcedures = {
           data: { order: { increment: 1 } },
         });
       });
+      const availableTypes = await loadAvailableColumnTypes(ctx.db);
+      const supportedType = resolveSupportedColumnType(input.type, availableTypes);
 
       const inserted = await ctx.db.column.create({
         data: {
           tableId: input.tableId,
           name: input.name,
-          type: input.type,
+          type: supportedType,
           description: null,
           width: 180,
           order: anchor.order,
@@ -133,12 +141,14 @@ export const columnMutationProcedures = {
         where: { tableId: input.tableId, order: { gt: anchor.order } },
         data: { order: { increment: 1 } },
       });
+      const availableTypes = await loadAvailableColumnTypes(ctx.db);
+      const supportedType = resolveSupportedColumnType(input.type, availableTypes);
 
       const inserted = await ctx.db.column.create({
         data: {
           tableId: input.tableId,
           name: input.name,
-          type: input.type,
+          type: supportedType,
           description: null,
           width: 180,
           order: anchor.order + 1,
@@ -222,9 +232,11 @@ export const columnMutationProcedures = {
           message: `Column "${input.columnId}" not found`,
         });
       }
+      const availableTypes = await loadAvailableColumnTypes(ctx.db);
+      const supportedType = resolveSupportedColumnType(input.type, availableTypes);
       return ctx.db.column.update({
         where: { id: input.columnId },
-        data: { type: input.type },
+        data: { type: supportedType },
       });
     }),
 

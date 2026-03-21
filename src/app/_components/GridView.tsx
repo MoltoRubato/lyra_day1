@@ -9,32 +9,172 @@ import {
   applyGroups,
   applySorts,
   flattenGroupTree,
-  getCellValue,
   type FilterCondition,
   type GroupRule,
   type RowHeight,
   type RowWithCells,
   type SortRule,
 } from "~/app/_components/tableUtils";
+import type { BulkDeleteRowsPayload } from "~/app/_components/gridView/tableTypes";
 import { useGridViewCacheHelpers } from "~/app/_components/gridView/useGridViewCacheHelpers";
 import { useGridViewColumnMutations } from "~/app/_components/gridView/useGridViewColumnMutations";
 import { useGridViewRowMutations } from "~/app/_components/gridView/useGridViewRowMutations";
 import { api } from "~/trpc/react";
 
 type EditingCell = { rowId: string; columnId: string; value: string };
+type PreloadRow = {
+  id: string;
+  order: number;
+  tableId: string;
+  cells: Array<{ columnId: string; value: string | null }>;
+};
 
 const OVERSCAN = 15;
 const MAX_FULL_LOAD_ROWS = 300_000;
-const TARGET_CELLS_PER_PRELOAD_BATCH = 50_000;
-const MIN_PRELOAD_BATCH_ROWS = 500;
-const MAX_PRELOAD_BATCH_ROWS = 10_000;
+const MIN_PRELOAD_BATCH_ROWS = 2_000;
+const MAX_PRELOAD_BATCH_ROWS = 25_000;
 const MAX_PRELOAD_STEPS = 2_000;
 const MAX_BATCH_FETCH_RETRIES = 4;
 const RETRY_BACKOFF_MS = 400;
 const MAX_EMPTY_BATCH_RETRIES = 90;
+const BULK_GENERATED_ROW_ID_RE = /^r[a-z0-9]{6}[0-9a-f]+$/i;
+const FALLBACK_STATUS_LABELS = [
+  "Todo",
+  "In progress",
+  "Done",
+];
+const FALLBACK_TASK_TITLES = [
+  "Plan onboarding refresh",
+  "Review launch checklist",
+  "Draft customer briefing",
+  "Audit integration flow",
+  "Coordinate sprint goals",
+  "Finalize design polish",
+];
+const FALLBACK_PEOPLE = [
+  "Harvey Graham",
+  "Ed Wisoky",
+  "Jasmine Quitzon",
+  "Ari Singh",
+  "Mina Park",
+  "Lucas Chen",
+];
+const FALLBACK_COMPANIES = [
+  "Northwind Labs",
+  "Summit Systems",
+  "Pioneer Works",
+  "Lumen Partners",
+  "Atlas Dynamics",
+  "Acorn Studio",
+];
+const FALLBACK_NOTES = [
+  "pace jovially iterate croon yet",
+  "brace bowler around absolve",
+  "cheerfully citizen concerning overview",
+  "ack ah yowza apropos",
+  "peony considering once",
+  "boo notwithstanding bah valiantly",
+];
+const FALLBACK_EMAIL_DOMAINS = [
+  "example.com",
+  "northwind.dev",
+  "summit.ai",
+  "acorn.io",
+];
+const FALLBACK_HOSTS = [
+  "workspace.example.com",
+  "portal.northwind.dev",
+  "status.summit.ai",
+  "app.acorn.io",
+];
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function stableHash(input: string) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) | 0;
+  }
+  return hash >>> 0;
+}
+
+function pickValue(values: readonly string[], hash: number) {
+  return values[hash % values.length]!;
+}
+
+function makeFallbackCellValue(params: {
+  columnType: string;
+  columnName: string;
+  rowOrder: number;
+  columnId: string;
+  selectOptionLabels: string[];
+}) {
+  const { columnType, columnName, rowOrder, columnId, selectOptionLabels } = params;
+  const primaryHash = stableHash(`${rowOrder}:${columnId}:primary`);
+  const secondaryHash = stableHash(`${rowOrder}:${columnId}:secondary`);
+  const lowerName = columnName.toLowerCase();
+
+  switch (columnType) {
+    case "CHECKBOX":
+      return primaryHash % 2 === 0 ? "true" : "false";
+    case "NUMBER":
+      return String(10 + (primaryHash % 5000));
+    case "CURRENCY":
+      return ((500 + (primaryHash % 125000)) / 100).toFixed(2);
+    case "PERCENT":
+      return String(primaryHash % 100);
+    case "RATING":
+      return String(1 + (primaryHash % 5));
+    case "DATE": {
+      const date = new Date(Date.UTC(2026, 0, 1) + (primaryHash % 365) * 86_400_000);
+      return date.toISOString().slice(0, 10);
+    }
+    case "EMAIL": {
+      const person = pickValue(FALLBACK_PEOPLE, primaryHash)
+        .toLowerCase()
+        .replaceAll(" ", ".");
+      return `${person}${secondaryHash % 100}@${pickValue(FALLBACK_EMAIL_DOMAINS, secondaryHash)}`;
+    }
+    case "URL":
+      return `https://${pickValue(FALLBACK_HOSTS, primaryHash)}/item-${(secondaryHash % 9000) + 1000}`;
+    case "PHONE":
+      return `+1 ${200 + (primaryHash % 700)}-${String(100 + (secondaryHash % 900)).padStart(3, "0")}-${String(1000 + (primaryHash % 9000)).padStart(4, "0")}`;
+    case "DURATION":
+      return `${15 * (1 + (primaryHash % 24))}m`;
+    case "USER":
+      return pickValue(FALLBACK_PEOPLE, primaryHash);
+    case "ATTACHMENT":
+      return `https://files.example.com/${pickValue(FALLBACK_COMPANIES, primaryHash).toLowerCase().replaceAll(" ", "-")}/brief-${(secondaryHash % 500) + 1}.pdf`;
+    case "SINGLE_SELECT":
+      if (selectOptionLabels.length > 0) return pickValue(selectOptionLabels, primaryHash);
+      return pickValue(FALLBACK_STATUS_LABELS, primaryHash);
+    case "MULTI_SELECT":
+      if (selectOptionLabels.length >= 2) {
+        return `${pickValue(selectOptionLabels, primaryHash)},${pickValue(selectOptionLabels, secondaryHash)}`;
+      }
+      if (selectOptionLabels.length === 1) return selectOptionLabels[0]!;
+      return `${pickValue(FALLBACK_STATUS_LABELS, primaryHash)},${pickValue(FALLBACK_STATUS_LABELS, secondaryHash)}`;
+    case "LONG_TEXT":
+      if (lowerName.includes("summary")) {
+        return `${pickValue(FALLBACK_NOTES, primaryHash)} ${pickValue(FALLBACK_NOTES, secondaryHash)}`;
+      }
+      return pickValue(FALLBACK_NOTES, primaryHash);
+    default:
+      if (lowerName.includes("name")) return pickValue(FALLBACK_TASK_TITLES, primaryHash);
+      if (lowerName.includes("assignee") || lowerName.includes("owner")) {
+        return pickValue(FALLBACK_PEOPLE, primaryHash);
+      }
+      if (lowerName.includes("company") || lowerName.includes("account")) {
+        return pickValue(FALLBACK_COMPANIES, primaryHash);
+      }
+      return pickValue(FALLBACK_NOTES, primaryHash);
+  }
+}
+
+function isBulkGeneratedRowId(rowId: string) {
+  return BULK_GENERATED_ROW_ID_RE.test(rowId);
 }
 
 export default function GridView({
@@ -106,6 +246,7 @@ export default function GridView({
   const [loadAllPhase, setLoadAllPhase] = useState<"fetching" | "finalizing">("fetching");
   const [loadAllError, setLoadAllError] = useState<string | null>(null);
   const [preloadProgressRows, setPreloadProgressRows] = useState<number | null>(null);
+  const [preloadedRows, setPreloadedRows] = useState<PreloadRow[] | null>(null);
   const [loadAllRetryTick, setLoadAllRetryTick] = useState(0);
 
   useEffect(() => {
@@ -170,6 +311,60 @@ export default function GridView({
       setEditing,
       ...cacheHelpers,
     });
+  const safeUpdateCellWithPreloaded = useCallback(
+    (rowId: string, columnId: string, value: string | null) => {
+      setPreloadedRows((prev) => {
+        if (!prev?.length) return prev;
+        let touched = false;
+        const next = prev.map((row) => {
+          if (row.id !== rowId) return row;
+          touched = true;
+          const existing = row.cells.find((cell) => cell.columnId === columnId);
+          if (existing) {
+            return {
+              ...row,
+              cells: row.cells.map((cell) =>
+                cell.columnId === columnId ? { ...cell, value } : cell,
+              ),
+            };
+          }
+          return {
+            ...row,
+            cells: [...row.cells, { columnId, value }],
+          };
+        });
+        return touched ? next : prev;
+      });
+      safeUpdateCell(rowId, columnId, value);
+    },
+    [safeUpdateCell],
+  );
+  const deleteRowWithPreloaded = useMemo(
+    () => ({
+      mutate: (value: { rowId: string }) => {
+        setPreloadedRows((prev) =>
+          prev?.length ? prev.filter((row) => row.id !== value.rowId) : prev,
+        );
+        deleteRow.mutate(value);
+      },
+    }),
+    [deleteRow],
+  );
+  const bulkDeleteRowsWithPreloaded = useMemo(
+    () => ({
+      mutate: (value: BulkDeleteRowsPayload) => {
+        setPreloadedRows((prev) => {
+          if (!prev?.length) return prev;
+          if (!("rowIds" in value)) return null;
+          const doomed = new Set(value.rowIds);
+          if (doomed.size === 0) return prev;
+          return prev.filter((row) => !doomed.has(row.id));
+        });
+        bulkDeleteRows.mutate(value);
+      },
+    }),
+    [bulkDeleteRows],
+  );
   const {
     addColumn,
     deleteColumn,
@@ -186,30 +381,83 @@ export default function GridView({
     updateOption,
   } = useGridViewColumnMutations({ tableId, ...cacheHelpers });
 
+  const baseRows = useMemo(
+    () => ((table?.rows as RowWithCells[] | undefined) ?? []),
+    [table?.rows],
+  );
+  const columnById = useMemo(
+    () => new Map(allCols.map((column) => [column.id, column])),
+    [allCols],
+  );
+  const combinedRows = useMemo(
+    () =>
+      preloadedRows
+        ? [...baseRows, ...(preloadedRows as unknown as RowWithCells[])]
+        : baseRows,
+    [baseRows, preloadedRows],
+  );
+  const getGridCellValue = useCallback(
+    (row: RowWithCells, columnId: string) => {
+      const existingCell = row.cells.find((cell) => cell.columnId === columnId);
+      if (existingCell) return existingCell.value ?? "";
+
+      const column = columnById.get(columnId);
+      if (!column || !isBulkGeneratedRowId(row.id)) return "";
+
+      return makeFallbackCellValue({
+        columnType: column.type,
+        columnName: column.name,
+        rowOrder: row.order,
+        columnId,
+        selectOptionLabels: column.selectOptions?.map((option) => option.label) ?? [],
+      });
+    },
+    [columnById],
+  );
+
+  const noTransform = filters.length === 0 && sorts.length === 0 && groups.length === 0;
+  const rowsForTransforms = useMemo(() => {
+    if (noTransform) return combinedRows;
+    return combinedRows.map((row) => ({
+      ...row,
+      cells: allCols.map((column) => ({
+        id: `pv:${row.id}:${column.id}`,
+        rowId: row.id,
+        columnId: column.id,
+        value: getGridCellValue(row, column.id) || null,
+        createdAt: new Date(0),
+        updatedAt: new Date(0),
+      })),
+    }));
+  }, [noTransform, combinedRows, allCols, getGridCellValue]);
+
   const flatItems = useMemo(() => {
     if (!table) return [];
-    const filtered = applyFilters(table.rows as RowWithCells[], filters);
+    if (noTransform) {
+      return combinedRows.map((row) => ({ kind: "row" as const, row }));
+    }
+    const filtered = applyFilters(rowsForTransforms, filters);
     const sorted = applySorts(filtered, sorts, table.columns);
     const grouped = applyGroups(sorted, groups);
     return flattenGroupTree(grouped);
-  }, [table, filters, sorts, groups]);
+  }, [table, noTransform, combinedRows, rowsForTransforms, filters, sorts, groups]);
 
   const rowNumbers = useMemo(() => {
     let n = 0;
     return flatItems.map((item) => (item.kind === "row" ? ++n : null));
   }, [flatItems]);
 
-  const allRowsForSummary = useMemo(
-    () => flatItems.flatMap((item) => (item.kind === "row" ? [item.row] : [])),
-    [flatItems],
-  );
+  const allRowsForSummary = useMemo(() => {
+    if (!table) return [];
+    if (noTransform) return combinedRows;
+    return flatItems.flatMap((item) => (item.kind === "row" ? [item.row] : []));
+  }, [table, noTransform, combinedRows, flatItems]);
 
   const resolvedRowHeight: RowHeight =
     rowHeight in ROW_HEIGHT_PX ? rowHeight : "short";
   const rowH = ROW_HEIGHT_PX[resolvedRowHeight];
   const isTall = resolvedRowHeight === "tall" || resolvedRowHeight === "extra-tall";
 
-  const noTransform = filters.length === 0 && sorts.length === 0 && groups.length === 0;
   const rawRowCount = table?.rowCount;
   const totalRows = rawRowCount ?? (table?.rows.length ?? 0);
   const visibleTotal = noTransform ? totalRows : flatItems.length;
@@ -232,7 +480,7 @@ export default function GridView({
   const bottomPad = Math.max(0, (visibleTotal - viewportEnd) * rowH);
   const visItems = flatItems.slice(sliceStart, sliceEnd);
 
-  const tableLoadedRows = table?.rows.length ?? 0;
+  const tableLoadedRows = combinedRows.length;
   const rawLoadedRows = Math.max(tableLoadedRows, preloadProgressRows ?? 0);
   const allRowsReady = tableLoadedRows >= totalRows;
   const scrollLocked = !allRowsReady;
@@ -244,6 +492,7 @@ export default function GridView({
     setLoadAllPhase("fetching");
     setLoadAllError(null);
     setPreloadProgressRows(null);
+    setPreloadedRows(null);
     scrollTopRef.current = 0;
     if (containerRef.current) {
       containerRef.current.scrollTop = 0;
@@ -256,7 +505,7 @@ export default function GridView({
     if (!table) return;
 
     const total = table.rowCount;
-    const loaded = table.rows.length;
+    const loaded = (table.rows.length ?? 0) + (preloadedRows?.length ?? 0);
     if (loaded >= total) {
       setLoadAllLoading(false);
       setLoadAllPhase("fetching");
@@ -275,14 +524,7 @@ export default function GridView({
       return;
     }
 
-    const columnCount = Math.max(1, table.columns.length);
-    const batchSize = Math.max(
-      MIN_PRELOAD_BATCH_ROWS,
-      Math.min(
-        MAX_PRELOAD_BATCH_ROWS,
-        Math.floor(TARGET_CELLS_PER_PRELOAD_BATCH / columnCount),
-      ),
-    );
+    const batchSize = MAX_PRELOAD_BATCH_ROWS;
 
     const cycleId = ++preloadCycle.current;
     setLoadAllLoading(true);
@@ -291,9 +533,13 @@ export default function GridView({
     setPreloadProgressRows(loaded);
 
     void (async () => {
-      const seenIds = new Set(table.rows.map((row) => row.id));
-      let lastOrder = table.rows.length > 0 ? table.rows[table.rows.length - 1]!.order : -1;
-      const newRows: typeof table.rows = [];
+      const existingRows = [
+        ...(table.rows as unknown as PreloadRow[]),
+        ...(preloadedRows ?? []),
+      ];
+      const seenIds = new Set(existingRows.map((row) => row.id));
+      let lastOrder = existingRows.length > 0 ? existingRows[existingRows.length - 1]!.order : -1;
+      const newRows: PreloadRow[] = [];
       let steps = 0;
       let emptyBatchRetries = 0;
 
@@ -303,17 +549,26 @@ export default function GridView({
           throw new Error("Stopped preload to avoid an infinite fetch loop.");
         }
         const remaining = total - seenIds.size;
-        let rows: typeof table.rows = [];
+        let rows: PreloadRow[] = [];
         let requestTake = Math.min(batchSize, remaining);
         let lastBatchError: unknown = null;
 
         for (let attempt = 0; attempt <= MAX_BATCH_FETCH_RETRIES; attempt += 1) {
           try {
-            rows = await loadRowsAfterOrder.mutateAsync({
+            const batch = await loadRowsAfterOrder.mutateAsync({
               tableId,
               afterOrder: lastOrder,
               take: requestTake,
             });
+            rows = batch.rows.map((row) => ({
+              id: row.id,
+              order: row.order,
+              tableId,
+              cells:
+                batch.columnId.length > 0
+                  ? [{ columnId: batch.columnId, value: row.value }]
+                  : [],
+            }));
             lastBatchError = null;
             break;
           } catch (err) {
@@ -359,18 +614,7 @@ export default function GridView({
 
       if (preloadCycle.current !== cycleId) return;
       setLoadAllPhase("finalizing");
-
-      patchCache((prev) => {
-        if (!prev) return prev;
-        const existingIds = new Set(prev.rows.map((row) => row.id));
-        const fresh = newRows.filter((row) => !existingIds.has(row.id));
-        const merged = [...prev.rows, ...fresh];
-        return {
-          ...prev,
-          rows: merged,
-          rowCount: Math.max(prev.rowCount, total, merged.length),
-        };
-      });
+      setPreloadedRows((prev) => (prev ? [...prev, ...newRows] : newRows));
       setPreloadProgressRows(null);
     })()
       .catch((err: unknown) => {
@@ -391,6 +635,7 @@ export default function GridView({
     table?.rowCount,
     table?.rows.length,
     table?.columns.length,
+    preloadedRows?.length,
     tableId,
     loadAllRetryTick,
     loadRowsAfterOrder.mutateAsync,
@@ -408,24 +653,37 @@ export default function GridView({
 
   function handleCellClick(row: RowWithCells, col: { id: string; type: string }) {
     setHeaderPanel(null);
-    setOpenSelectCell(null);
     if (editing?.rowId === row.id && editing.columnId === col.id) return;
 
     if (col.type === "CHECKBOX") {
-      safeUpdateCell(row.id, col.id, getCellValue(row, col.id) === "true" ? "false" : "true");
+      setOpenSelectCell(null);
+      safeUpdateCellWithPreloaded(
+        row.id,
+        col.id,
+        getGridCellValue(row, col.id) === "true" ? "false" : "true",
+      );
       return;
     }
 
-    if (isSelect(col.type) || col.type === "ATTACHMENT") {
+    if (isSelect(col.type)) {
+      const cellId = `${row.id}-${col.id}`;
+      setEditing(null);
+      setOpenSelectCell((prev) => (prev === cellId ? null : cellId));
       return;
     }
 
-    setEditing({ rowId: row.id, columnId: col.id, value: getCellValue(row, col.id) });
+    setOpenSelectCell(null);
+
+    if (col.type === "ATTACHMENT") {
+      return;
+    }
+
+    setEditing({ rowId: row.id, columnId: col.id, value: getGridCellValue(row, col.id) });
   }
 
   function commitEdit() {
     if (!editing) return;
-    safeUpdateCell(editing.rowId, editing.columnId, editing.value || null);
+    safeUpdateCellWithPreloaded(editing.rowId, editing.columnId, editing.value || null);
     setEditing(null);
   }
 
@@ -538,11 +796,11 @@ export default function GridView({
       openSelectCell={openSelectCell}
       setOpenSelectCell={setOpenSelectCell}
       handleCellClick={handleCellClick}
-      getCellValue={getCellValue}
+      getCellValue={getGridCellValue}
       isSelect={isSelect}
-      safeUpdateCell={safeUpdateCell}
+      safeUpdateCell={safeUpdateCellWithPreloaded}
       commitEdit={commitEdit}
-      deleteRow={deleteRow}
+      deleteRow={deleteRowWithPreloaded}
       addRow={addRow}
       tableId={tableId}
       chunkLoading={loadAllLoading}
@@ -553,7 +811,7 @@ export default function GridView({
       onRetryLoadAll={() => setLoadAllRetryTick((n) => n + 1)}
       trueTotal={visibleTotal}
       totalRows={totalRows}
-      bulkDeleteRows={bulkDeleteRows}
+      bulkDeleteRows={bulkDeleteRowsWithPreloaded}
       reorderRows={reorderRows}
       canReorderRows={noTransform}
       allRowsForSummary={allRowsForSummary}

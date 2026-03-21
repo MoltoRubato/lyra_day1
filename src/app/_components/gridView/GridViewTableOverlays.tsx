@@ -5,6 +5,7 @@ import {
   SUMMARY_OPTIONS,
 } from "~/app/_components/gridView/tableShared";
 import type {
+  BulkDeleteRowsPayload,
   FieldEditorState,
   SummaryOption,
 } from "~/app/_components/gridView/tableTypes";
@@ -33,8 +34,12 @@ type GridViewTableOverlaysProps = {
   rowContextMenu: { x: number; y: number } | null;
   hasSelectedRows: boolean;
   selectedRowIds: string[];
+  tableId: string;
+  allRowsSelected: boolean;
   pluralLabel: (n: number) => string;
-  bulkDeleteRows: { mutate: (v: { rowIds: string[] }) => void };
+  bulkDeleteRows: {
+    mutate: (v: BulkDeleteRowsPayload) => void;
+  };
   setSelectedRowIds: (v: string[] | ((prev: string[]) => string[])) => void;
   setRowContextMenu: (v: { x: number; y: number } | null) => void;
   editingField: FieldEditorState | null;
@@ -60,6 +65,8 @@ export function GridViewTableOverlays({
   rowContextMenu,
   hasSelectedRows,
   selectedRowIds,
+  tableId,
+  allRowsSelected,
   pluralLabel,
   bulkDeleteRows,
   setSelectedRowIds,
@@ -121,9 +128,13 @@ export function GridViewTableOverlays({
           <button
             className="mx-5 h-[48px] w-[calc(100%-40px)] rounded-[8px] text-left px-4 text-[13px] text-[#c91f4a] hover:bg-[#fff1f5] inline-flex items-center gap-3"
             onClick={() => {
-              const ids = [...selectedRowIds];
-              if (ids.length === 0) return;
-              bulkDeleteRows.mutate({ rowIds: ids });
+              if (allRowsSelected) {
+                bulkDeleteRows.mutate({ tableId, deleteAll: true });
+              } else {
+                const ids = [...selectedRowIds];
+                if (ids.length === 0) return;
+                bulkDeleteRows.mutate({ rowIds: ids });
+              }
               setSelectedRowIds([]);
               setRowContextMenu(null);
             }}

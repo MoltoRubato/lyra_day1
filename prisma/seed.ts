@@ -1,36 +1,161 @@
-import { PrismaClient, ColumnType } from "@prisma/client";
+import { ColumnType, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-async function createDefaultViews(tableId: string) {
-  await Promise.all([
-    prisma.view.create({ data: { name: "Grid view", type: "GRID", order: 0, tableId } }),
-    prisma.view.create({ data: { name: "Kanban view", type: "KANBAN", order: 1, tableId, groupByColumnId: null } }),
-  ]);
+const COLUMN_TYPE_FALLBACK: Partial<Record<ColumnType, ColumnType>> = {
+  LONG_TEXT: "TEXT",
+  USER: "TEXT",
+};
+
+type EnumLabelRow = { enumlabel: string };
+
+async function loadAvailableColumnTypes(): Promise<Set<string> | null> {
+  const isSqlite = process.env.DATABASE_URL?.startsWith("file:") ?? false;
+  if (isSqlite) return null;
+
+  try {
+    const rows = await prisma.$queryRaw<EnumLabelRow[]>`
+      SELECT e.enumlabel
+      FROM pg_type t
+      JOIN pg_enum e ON t.oid = e.enumtypid
+      WHERE t.typname = 'ColumnType'
+    `;
+    return new Set(rows.map((row) => row.enumlabel));
+  } catch {
+    return null;
+  }
 }
 
-async function createSimpleBase(workspaceId: string, name: string, tableName: string, daysAgo: number) {
+function resolveSupportedColumnType(
+  desired: ColumnType,
+  availableTypes: Set<string> | null,
+): ColumnType {
+  if (!availableTypes || availableTypes.has(desired)) return desired;
+  return COLUMN_TYPE_FALLBACK[desired] ?? "TEXT";
+}
+
+async function createDefaultTable(params: {
+  baseId: string;
+  name: string;
+  availableTypes: Set<string> | null;
+  rowSeed: Array<{
+    name: string;
+    notes: string;
+    assignee: string;
+    status: "Todo" | "In progress" | "Done";
+    attachmentSummary: string;
+    attachmentUrl?: string;
+  }>;
+}) {
+  const longTextType = resolveSupportedColumnType("LONG_TEXT", params.availableTypes);
+  const userType = resolveSupportedColumnType("USER", params.availableTypes);
+
+  const table = await prisma.table.create({
+    data: { name: params.name, baseId: params.baseId },
+  });
+
+  await prisma.view.create({
+    data: { name: "Grid view", type: "GRID", order: 0, tableId: table.id },
+  });
+
+  const [
+    colName,
+    colNotes,
+    colAssignee,
+    colStatus,
+    colAttachments,
+    colAttachmentSummary,
+  ] = await Promise.all([
+    prisma.column.create({
+      data: { name: "Name", type: "TEXT", order: 0, width: 179, tableId: table.id },
+    }),
+    prisma.column.create({
+      data: { name: "Notes", type: longTextType, order: 1, width: 179, tableId: table.id },
+    }),
+    prisma.column.create({
+      data: { name: "Assignee", type: userType, order: 2, width: 179, tableId: table.id },
+    }),
+    prisma.column.create({
+      data: { name: "Status", type: "SINGLE_SELECT", order: 3, width: 179, tableId: table.id },
+    }),
+    prisma.column.create({
+      data: { name: "Attachments", type: "ATTACHMENT", order: 4, width: 179, tableId: table.id },
+    }),
+    prisma.column.create({
+      data: {
+        name: "Attachment Summary",
+        type: longTextType,
+        order: 5,
+        width: 179,
+        tableId: table.id,
+        description:
+          "An AI generated summary of the Attachments field. Upload files to Attachments to generate a summary.",
+      },
+    }),
+  ]);
+
+  await prisma.selectOption.createMany({
+    data: [
+      { columnId: colStatus.id, label: "Todo", color: "#f7c6d6", order: 0 },
+      { columnId: colStatus.id, label: "In progress", color: "#f3dfab", order: 1 },
+      { columnId: colStatus.id, label: "Done", color: "#bce8c2", order: 2 },
+    ],
+  });
+
+  for (let i = 0; i < params.rowSeed.length; i += 1) {
+    const seed = params.rowSeed[i]!;
+    const row = await prisma.row.create({
+      data: { tableId: table.id, order: i },
+    });
+
+    await prisma.cell.createMany({
+      data: [
+        { rowId: row.id, columnId: colName.id, value: seed.name },
+        { rowId: row.id, columnId: colNotes.id, value: seed.notes },
+        { rowId: row.id, columnId: colAssignee.id, value: seed.assignee },
+        { rowId: row.id, columnId: colStatus.id, value: seed.status },
+        { rowId: row.id, columnId: colAttachments.id, value: seed.attachmentUrl ?? null },
+        { rowId: row.id, columnId: colAttachmentSummary.id, value: seed.attachmentSummary },
+      ],
+    });
+  }
+}
+
+async function createBaseWithDefaultTable(params: {
+  workspaceId: string;
+  name: string;
+  tableName: string;
+  daysAgo: number;
+  availableTypes: Set<string> | null;
+  rowSeed: Array<{
+    name: string;
+    notes: string;
+    assignee: string;
+    status: "Todo" | "In progress" | "Done";
+    attachmentSummary: string;
+    attachmentUrl?: string;
+  }>;
+}) {
   const base = await prisma.base.create({
     data: {
-      name,
-      workspaceId,
-      lastOpenedAt: new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000),
+      name: params.name,
+      color: "#dc043b",
+      workspaceId: params.workspaceId,
+      lastOpenedAt: new Date(Date.now() - params.daysAgo * 24 * 60 * 60 * 1000),
     },
   });
 
-  const table = await prisma.table.create({ data: { name: tableName, baseId: base.id } });
-  await createDefaultViews(table.id);
-
-  await prisma.column.createMany({
-    data: [
-      { name: "Name", type: ColumnType.TEXT, order: 0, width: 220, tableId: table.id },
-      { name: "Status", type: ColumnType.SINGLE_SELECT, order: 1, width: 140, tableId: table.id },
-      { name: "Notes", type: ColumnType.TEXT, order: 2, width: 260, tableId: table.id },
-    ],
+  await createDefaultTable({
+    baseId: base.id,
+    name: params.tableName,
+    availableTypes: params.availableTypes,
+    rowSeed: params.rowSeed,
   });
 }
 
 async function main() {
+  const availableTypes = await loadAvailableColumnTypes();
+
   await prisma.cell.deleteMany();
   await prisma.row.deleteMany();
   await prisma.selectOption.deleteMany();
@@ -48,87 +173,138 @@ async function main() {
     },
   });
 
-  const base = await prisma.base.create({
-    data: {
-      name: "Lyra Fellow Project Board (fake)",
-      workspaceId: workspace.id,
-      lastOpenedAt: new Date(),
-    },
-  });
-
-  const table = await prisma.table.create({ data: { name: "Tasks", baseId: base.id } });
-  await createDefaultViews(table.id);
-
-  const [colName, colAssignee, colStatus, colPriority, colEstimate, colNotes, colDue, colDone] =
-    await Promise.all([
-      prisma.column.create({ data: { name: "Name", type: ColumnType.TEXT, order: 0, width: 220, tableId: table.id } }),
-      prisma.column.create({ data: { name: "Assignee", type: ColumnType.TEXT, order: 1, width: 160, tableId: table.id } }),
-      prisma.column.create({ data: { name: "Status", type: ColumnType.SINGLE_SELECT, order: 2, width: 140, tableId: table.id } }),
-      prisma.column.create({ data: { name: "Priority", type: ColumnType.SINGLE_SELECT, order: 3, width: 130, tableId: table.id } }),
-      prisma.column.create({ data: { name: "Estimate (hrs)", type: ColumnType.NUMBER, order: 4, width: 130, tableId: table.id } }),
-      prisma.column.create({ data: { name: "Notes", type: ColumnType.TEXT, order: 5, width: 280, tableId: table.id } }),
-      prisma.column.create({ data: { name: "Due date", type: ColumnType.DATE, order: 6, width: 140, tableId: table.id } }),
-      prisma.column.create({ data: { name: "Done", type: ColumnType.CHECKBOX, order: 7, width: 80, tableId: table.id } }),
-    ]);
-
-  await prisma.selectOption.createMany({
-    data: [
-      { columnId: colStatus.id, label: "Todo", color: "#64748b", order: 0 },
-      { columnId: colStatus.id, label: "In Progress", color: "#5b6af7", order: 1 },
-      { columnId: colStatus.id, label: "Done", color: "#22c55e", order: 2 },
+  await createBaseWithDefaultTable({
+    workspaceId: workspace.id,
+    name: "Lyra Fellow Project Board (fake)",
+    tableName: "Tasks",
+    daysAgo: 0,
+    availableTypes,
+    rowSeed: [
+      {
+        name: "Design onboarding updates",
+        notes: "Refresh top-of-funnel copy and run two prototype checks.",
+        assignee: "Harvey Graham",
+        status: "In progress",
+        attachmentSummary: "Prototype notes indicate faster first-action completion.",
+      },
+      {
+        name: "Finalize release checklist",
+        notes: "Audit open blockers and align handoff owners.",
+        assignee: "Ed Wisoky",
+        status: "Todo",
+        attachmentSummary: "Checklist draft includes rollback and comms sections.",
+      },
+      {
+        name: "Prepare customer FAQ",
+        notes: "Collect support themes and publish concise answers.",
+        assignee: "Jasmine Quitzon",
+        status: "Todo",
+        attachmentSummary: "Draft FAQ covers migration, billing, and permissions.",
+      },
     ],
   });
 
-  await prisma.selectOption.createMany({
-    data: [
-      { columnId: colPriority.id, label: "Low", color: "#64748b", order: 0 },
-      { columnId: colPriority.id, label: "Medium", color: "#eab308", order: 1 },
-      { columnId: colPriority.id, label: "High", color: "#f97316", order: 2 },
-      { columnId: colPriority.id, label: "Ultra High", color: "#ef4444", order: 3 },
+  await createBaseWithDefaultTable({
+    workspaceId: workspace.id,
+    name: "Client Delivery Tracker",
+    tableName: "Deliverables",
+    daysAgo: 1,
+    availableTypes,
+    rowSeed: [
+      {
+        name: "Q2 reporting package",
+        notes: "Compile KPI snapshots and executive summary.",
+        assignee: "Ari Singh",
+        status: "Todo",
+        attachmentSummary: "Waiting on final source workbook from finance.",
+      },
+      {
+        name: "Contract amendment review",
+        notes: "Cross-check scope and updated milestones.",
+        assignee: "Mina Park",
+        status: "Todo",
+        attachmentSummary: "Legal requested revised wording for data retention.",
+      },
+      {
+        name: "Customer health readout",
+        notes: "Summarize churn risks and expansion opportunities.",
+        assignee: "Lucas Chen",
+        status: "Done",
+        attachmentSummary: "Delivered with action plan for top three accounts.",
+      },
     ],
   });
 
-  async function createRow(order: number, values: {
-    name: string;
-    assignee?: string;
-    status: string;
-    priority: string;
-    estimate?: number;
-    notes?: string;
-    due?: string;
-    done?: boolean;
-  }) {
-    const row = await prisma.row.create({ data: { tableId: table.id, order } });
-    await prisma.cell.createMany({
-      data: [
-        { rowId: row.id, columnId: colName.id, value: values.name },
-        { rowId: row.id, columnId: colAssignee.id, value: values.assignee ?? null },
-        { rowId: row.id, columnId: colStatus.id, value: values.status },
-        { rowId: row.id, columnId: colPriority.id, value: values.priority },
-        { rowId: row.id, columnId: colEstimate.id, value: values.estimate != null ? String(values.estimate) : null },
-        { rowId: row.id, columnId: colNotes.id, value: values.notes ?? null },
-        { rowId: row.id, columnId: colDue.id, value: values.due ?? null },
-        { rowId: row.id, columnId: colDone.id, value: values.done ? "true" : "false" },
-      ],
-    });
-  }
+  await createBaseWithDefaultTable({
+    workspaceId: workspace.id,
+    name: "Content Calendar",
+    tableName: "Campaigns",
+    daysAgo: 2,
+    availableTypes,
+    rowSeed: [
+      {
+        name: "Spring launch social pack",
+        notes: "Create copy variants for organic + paid.",
+        assignee: "Harvey Graham",
+        status: "In progress",
+        attachmentSummary: "Creative brief approved with two alternates.",
+      },
+      {
+        name: "Webinar landing updates",
+        notes: "Align headline with final speaker abstract.",
+        assignee: "Ed Wisoky",
+        status: "Todo",
+        attachmentSummary: "Needs final CTA wording from growth team.",
+      },
+      {
+        name: "Newsletter issue 32",
+        notes: "Collect product highlights and customer story.",
+        assignee: "Jasmine Quitzon",
+        status: "Todo",
+        attachmentSummary: "Draft is in editorial review for tone consistency.",
+      },
+    ],
+  });
 
-  await createRow(1, { name: "Design new onboarding flow", assignee: "John Doe", status: "In Progress", priority: "High", estimate: 8, notes: "Figma mockups in #design", due: "2025-04-10", done: false });
-  await createRow(2, { name: "Fix login crash on mobile", assignee: "Ryan Huang", status: "Todo", priority: "Ultra High", estimate: 3, notes: "Reproducible on iOS 17, Safari only", due: "2025-03-28", done: false });
-  await createRow(3, { name: "Write API documentation", status: "Todo", priority: "Low", estimate: 5, due: "2025-04-20", done: false });
-  await createRow(4, { name: "Set up CI/CD pipeline", assignee: "John Smith", status: "Done", priority: "High", estimate: 6, notes: "GitHub Actions to Vercel on merge to main", due: "2025-03-15", done: true });
-  await createRow(5, { name: "User interview synthesis", assignee: "Jona Smith", status: "In Progress", priority: "Medium", estimate: 4, notes: "Consolidate notes from 8 interviews into themes", due: "2025-04-05", done: false });
+  await createBaseWithDefaultTable({
+    workspaceId: workspace.id,
+    name: "Ops Runbook",
+    tableName: "Checklist",
+    daysAgo: 4,
+    availableTypes,
+    rowSeed: [
+      {
+        name: "Incident triage template",
+        notes: "Document severity matrix and escalation contacts.",
+        assignee: "Ari Singh",
+        status: "Done",
+        attachmentSummary: "Template now includes owner rotation schedule.",
+      },
+      {
+        name: "On-call handoff checklist",
+        notes: "Capture recurring handoff misses and tighten process.",
+        assignee: "Mina Park",
+        status: "In progress",
+        attachmentSummary: "Added explicit data quality checks before handoff.",
+      },
+      {
+        name: "Quarterly restore drill",
+        notes: "Run full backup restore and capture timing metrics.",
+        assignee: "Lucas Chen",
+        status: "Todo",
+        attachmentSummary: "Pending infra window approval for rehearsal.",
+      },
+    ],
+  });
 
-  await createSimpleBase(workspace.id, "Client Delivery Tracker", "Deliverables", 1);
-  await createSimpleBase(workspace.id, "Content Calendar", "Campaigns", 2);
-  await createSimpleBase(workspace.id, "Ops Runbook", "Checklist", 4);
-
-  console.log("Seeded: 1 workspace, 4 bases, and starter tables/views");
+  console.log("Seeded workspace + bases with current default table/column structure.");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
+  .catch((error) => {
+    console.error(error);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

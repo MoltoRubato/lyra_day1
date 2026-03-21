@@ -2,6 +2,10 @@
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { BaseWithTablesOutput, BaseOutput, BaseCreateInput, BaseRenameInput, BaseDeleteInput, BaseToggleStarInput, BaseMoveInput, BaseUpdateAppearanceInput } from "~/types/schemas";
+import {
+  loadAvailableColumnTypes,
+  resolveSupportedColumnType,
+} from "~/server/columnTypeCompat";
 import { z } from "zod";
 
 const INCLUDE = {
@@ -38,48 +42,66 @@ export const baseRouter = createTRPCRouter({
   create: publicProcedure
     .input(BaseCreateInput)
     .output(BaseOutput)
-    .mutation(({ ctx, input }) => ctx.db.base.create({
-      data: {
-        name: input.name,
-        color: "#dc043b",
-        workspaceId: input.workspaceId ?? null,
-        lastOpenedAt: new Date(),
-        tables: {
-          create: {
-            name: "Tasks",
-            columns: {
-              create: [
-                { name: "Name", type: "TEXT", order: 0, width: 179 },
-                { name: "Notes", type: "LONG_TEXT", order: 1, width: 179 },
-                { name: "Assignee", type: "USER", order: 2, width: 179 },
-                { name: "Status", type: "SINGLE_SELECT", order: 3, width: 179 },
-                { name: "Attachments", type: "ATTACHMENT", order: 4, width: 179 },
-                {
-                  name: "Attachment Summary",
-                  type: "LONG_TEXT",
-                  order: 5,
-                  width: 179,
-                  description:
-                    "An AI generated summary of the Attachments field. Upload files to Attachments to generate a summary.",
-                },
-              ],
-            },
-            views: {
-              create: [
-                { name: "Grid view", type: "GRID", order: 0 },
-              ],
-            },
-            rows: {
-              create: [
-                { order: 0 },
-                { order: 1 },
-                { order: 2 },
-              ],
+    .mutation(async ({ ctx, input }) => {
+      const availableTypes = await loadAvailableColumnTypes(ctx.db);
+      const longTextType = resolveSupportedColumnType("LONG_TEXT", availableTypes);
+      const userType = resolveSupportedColumnType("USER", availableTypes);
+
+      return ctx.db.base.create({
+        data: {
+          name: input.name,
+          color: "#dc043b",
+          workspaceId: input.workspaceId ?? null,
+          lastOpenedAt: new Date(),
+          tables: {
+            create: {
+              name: "Tasks",
+              columns: {
+                create: [
+                  { name: "Name", type: "TEXT", order: 0, width: 179 },
+                  { name: "Notes", type: longTextType, order: 1, width: 179 },
+                  { name: "Assignee", type: userType, order: 2, width: 179 },
+                  {
+                    name: "Status",
+                    type: "SINGLE_SELECT",
+                    order: 3,
+                    width: 179,
+                    selectOptions: {
+                      create: [
+                        { label: "Todo", color: "#f7c6d6", order: 0 },
+                        { label: "In progress", color: "#f3dfab", order: 1 },
+                        { label: "Done", color: "#bce8c2", order: 2 },
+                      ],
+                    },
+                  },
+                  { name: "Attachments", type: "ATTACHMENT", order: 4, width: 179 },
+                  {
+                    name: "Attachment Summary",
+                    type: longTextType,
+                    order: 5,
+                    width: 179,
+                    description:
+                      "An AI generated summary of the Attachments field. Upload files to Attachments to generate a summary.",
+                  },
+                ],
+              },
+              views: {
+                create: [
+                  { name: "Grid view", type: "GRID", order: 0 },
+                ],
+              },
+              rows: {
+                create: [
+                  { order: 0 },
+                  { order: 1 },
+                  { order: 2 },
+                ],
+              },
             },
           },
         },
-      },
-    })),
+      });
+    }),
 
   rename: publicProcedure
     .input(BaseRenameInput)
@@ -114,35 +136,33 @@ export const baseRouter = createTRPCRouter({
       });
       if (!base) return { id: input.id };
 
-      const ROW_BATCH_SIZE = 2_000;
-
-      // Delete very large bases in batches to avoid long single-statement cascades timing out.
-      while (true) {
-        const rows = await ctx.db.row.findMany({
-          where: { table: { baseId: input.id } },
+      const ROW_BATCH_SIZE = 5_000;
+      const tableIds = (
+        await ctx.db.table.findMany({
+          where: { baseId: input.id },
           select: { id: true },
-          take: ROW_BATCH_SIZE,
-        });
-        if (!rows.length) break;
+        })
+      ).map((table) => table.id);
 
-        const rowIds = rows.map((r) => r.id);
-        await ctx.db.$transaction(
-          [
-            ctx.db.cell.deleteMany({ where: { rowId: { in: rowIds } } }),
-            ctx.db.row.deleteMany({ where: { id: { in: rowIds } } }),
-          ],
-        );
+      // Drain rows in batches to keep each statement bounded for very large bases.
+      // Row -> Cell is ON DELETE CASCADE, so explicit cell deletes are unnecessary.
+      if (tableIds.length > 0) {
+        while (true) {
+          const rows = await ctx.db.row.findMany({
+            where: { tableId: { in: tableIds } },
+            select: { id: true },
+            orderBy: { id: "asc" },
+            take: ROW_BATCH_SIZE,
+          });
+          if (rows.length === 0) break;
+          await ctx.db.row.deleteMany({
+            where: { id: { in: rows.map((row) => row.id) } },
+          });
+        }
       }
 
-      await ctx.db.$transaction([
-        ctx.db.selectOption.deleteMany({
-          where: { column: { table: { baseId: input.id } } },
-        }),
-        ctx.db.column.deleteMany({ where: { table: { baseId: input.id } } }),
-        ctx.db.view.deleteMany({ where: { table: { baseId: input.id } } }),
-        ctx.db.table.deleteMany({ where: { baseId: input.id } }),
-        ctx.db.base.delete({ where: { id: input.id } }),
-      ]);
+      // Let FK cascades clean up remaining table/column/view/select-option records.
+      await ctx.db.base.delete({ where: { id: input.id } });
 
       return { id: input.id };
     }),

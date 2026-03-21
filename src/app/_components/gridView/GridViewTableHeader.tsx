@@ -242,18 +242,49 @@ export function GridViewTableHeader({
   return (
     <thead className="sticky top-0 z-20">
       <tr className="border-b border-[#e2e5e9] bg-white">
-        <th className="sticky left-0 z-[14] box-border w-[88px] border-r border-[#e2e5e9] bg-white px-3 py-0 text-left">
+        <th
+          className="sticky left-0 z-[14] box-border bg-white px-0 py-0 text-left"
+          style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
+        >
           <div className="flex items-center" style={{ height: rowH }}>
-            <input
-              type="checkbox"
-              checked={allInViewSelected}
-              ref={(el) => {
-                if (!el) return;
-                el.indeterminate = someInViewSelected;
-              }}
-              onChange={(e) => toggleAllRowsInView(e.currentTarget.checked)}
-              className={`w-3.5 h-3.5 rounded border-[#d1d5db] accent-[#1c76d2] cursor-pointer transition-opacity ${hasSelectedRows ? "opacity-100" : "opacity-0 hover:opacity-100"}`}
-            />
+            <div className="h-full w-[36px]" aria-hidden="true" />
+            <div className="relative h-full w-[44px]">
+              <button
+                type="button"
+                role="checkbox"
+                aria-label="Select all rows"
+                aria-checked={allInViewSelected ? true : someInViewSelected ? "mixed" : false}
+                onClick={() => toggleAllRowsInView(!allInViewSelected)}
+                className={`absolute left-1/2 top-1/2 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
+                  allInViewSelected || someInViewSelected
+                    ? "border-transparent bg-[#1c76d2] text-white shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
+                    : "border-[#d6d8dd] bg-white text-transparent shadow-[0_1px_2px_rgba(15,23,42,0.16)] hover:border-[#c7ccd5]"
+                }`}
+              >
+                {allInViewSelected ? (
+                  <svg width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
+                    <path
+                      d="M3.5 8.2l2.7 2.8L12.5 4.8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : someInViewSelected ? (
+                  <svg width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
+                    <path
+                      d="M4 8h8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                ) : null}
+              </button>
+            </div>
           </div>
         </th>
 

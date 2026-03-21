@@ -254,41 +254,69 @@ export function GridViewTableBody({
               }}
             >
               <td
-                className={`sticky left-0 z-[13] box-border w-[88px] border-r border-[#e2e5e9] px-2 py-0 transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                className={`sticky left-0 z-[13] box-border px-0 py-0 transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
               >
-                <div className="flex items-center gap-1.5" style={{ height: rowH }}>
-                  <button
-                    draggable={canReorderRows}
-                    onDragStart={(e) => {
-                      if (!canReorderRows) return;
-                      e.dataTransfer.effectAllowed = "move";
-                      e.dataTransfer.setData("text/plain", row.id);
-                      setDragRowId(row.id);
-                    }}
-                    onDragEnd={() => {
-                      setDragRowId(null);
-                      setDragOverRowId(null);
-                    }}
-                    className={`w-3 h-3 grid grid-cols-2 gap-[2px] place-items-center text-[#7c8494] ${rowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"} ${canReorderRows ? "cursor-grab active:cursor-grabbing" : "cursor-not-allowed opacity-20"}`}
-                    title={
-                      canReorderRows
-                        ? "Drag to reorder row"
-                        : "Disable sort/filter/group to reorder rows"
-                    }
-                  >
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <span key={i} className="w-[2px] h-[2px] rounded-full bg-current" />
-                    ))}
-                  </button>
-                  <div className="relative h-4 w-11 flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={rowSelected}
-                      onChange={() => toggleRowSelection(row.id)}
-                      className={`absolute inset-0 m-auto h-3.5 w-3.5 rounded border-[#d1d5db] accent-[#1c76d2] cursor-pointer transition-opacity ${rowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                    />
+                <div className="flex items-center" style={{ height: rowH }}>
+                  <div className="flex h-full w-[36px] items-center justify-center">
+                    <button
+                      draggable={canReorderRows}
+                      onDragStart={(e) => {
+                        if (!canReorderRows) return;
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", row.id);
+                        setDragRowId(row.id);
+                      }}
+                      onDragEnd={() => {
+                        setDragRowId(null);
+                        setDragOverRowId(null);
+                      }}
+                      className={`grid h-3 w-3 grid-cols-2 place-items-center gap-[2px] text-[#7c8494] ${
+                        rowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                      } ${
+                        canReorderRows
+                          ? "cursor-grab active:cursor-grabbing"
+                          : "cursor-not-allowed opacity-20"
+                      }`}
+                      title={
+                        canReorderRows
+                          ? "Drag to reorder row"
+                          : "Disable sort/filter/group to reorder rows"
+                      }
+                    >
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <span key={i} className="h-[2px] w-[2px] rounded-full bg-current" />
+                      ))}
+                    </button>
+                  </div>
+                  <div className="relative h-full w-[44px]">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-label={`Select row ${rowNum}`}
+                      aria-checked={rowSelected}
+                      onClick={() => toggleRowSelection(row.id)}
+                      className={`absolute left-1/2 top-1/2 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
+                        rowSelected
+                          ? "border-transparent bg-[#1c76d2] text-white opacity-100 shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
+                          : "border-[#d6d8dd] bg-white text-transparent opacity-0 shadow-[0_1px_2px_rgba(15,23,42,0.16)] group-hover:opacity-100"
+                      }`}
+                    >
+                      <svg width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
+                        <path
+                          d="M3.5 8.2l2.7 2.8L12.5 4.8"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
                     <span
-                      className={`pointer-events-none absolute inset-0 text-[11px] text-[#68707f] select-none text-right leading-4 ${rowSelected ? "opacity-0" : "opacity-100 group-hover:opacity-0"}`}
+                      className={`pointer-events-none absolute inset-0 flex select-none items-center justify-center text-[12px] leading-none text-[#616670] ${
+                        rowSelected ? "opacity-0" : "opacity-100 group-hover:opacity-0"
+                      }`}
                     >
                       {rowNum}
                     </span>
@@ -319,7 +347,10 @@ export function GridViewTableBody({
                       ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
                     }}
                     className={`relative box-border px-2 py-0 border-r border-[#e2e5e9] overflow-visible ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
-                    onClick={() => handleCellClick(row, col)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCellClick(row, col);
+                    }}
                     onContextMenu={(e) => openRowContextMenu(e, row.id)}
                   >
                     <div
@@ -473,7 +504,10 @@ export function GridViewTableBody({
 
       <tfoot className="sticky z-[20] bg-white" style={{ bottom: summaryBottomOffsetPx }}>
         <tr className="bg-white" style={{ height: summaryRowHeightPx }}>
-          <td className="sticky left-0 z-[13] box-border w-[88px] overflow-visible bg-white px-0 py-0">
+          <td
+            className="sticky left-0 z-[13] box-border overflow-visible bg-white px-0 py-0"
+            style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
+          >
             <div className="relative" style={{ height: summaryRowHeightPx }}>
               <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[12px] text-[#2f343c]">
                 {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}

@@ -161,16 +161,19 @@ export function useGridViewRowMutations({
   });
 
   const bulkDeleteRows = api.table.bulkDeleteRows.useMutation({
-    onMutate: async ({ rowIds }) => {
+    onMutate: async (value) => {
       await cancelCache();
       const snapshot = snapshotCache();
-      const doomed = new Set(rowIds);
+      const deleteAll = !("rowIds" in value);
+      const doomed = deleteAll ? new Set<string>() : new Set(value.rowIds);
       patchCache((p) =>
         p
           ? {
               ...p,
-              rows: p.rows.filter((r) => !doomed.has(r.id)),
-              rowCount: Math.max(0, p.rowCount - doomed.size),
+              rows: deleteAll ? [] : p.rows.filter((r) => !doomed.has(r.id)),
+              rowCount: deleteAll
+                ? 0
+                : Math.max(0, p.rowCount - doomed.size),
             }
           : p,
       );
