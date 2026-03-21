@@ -5,18 +5,22 @@ import type {
   FieldEditorState,
   VisibleColumn,
 } from "~/app/_components/gridView/tableTypes";
-import type {
-  FilterCondition,
-  GroupRule,
+import {
+  FILTER_OPS,
+  createFilterCondition,
+  normalizeFilterTree,
+  operatorsForFieldType,
+  type FilterTree,
+  type GroupRule,
 } from "~/app/_components/tableUtils";
 
 type GridViewTableColumnMenuProps = {
   col: VisibleColumn;
   tableId: string;
   visible: boolean;
-  filters: FilterCondition[];
+  filters: FilterTree;
   groups: GroupRule[];
-  onFiltersChange?: (filters: FilterCondition[]) => void;
+  onFiltersChange?: (filters: FilterTree) => void;
   onGroupsChange?: (groups: GroupRule[]) => void;
   onRequestOpenSortPanel?: () => void;
   onRequestOpenFilterPanel?: () => void;
@@ -70,10 +74,18 @@ export function GridViewTableColumnMenu({
   if (!visible) return null;
 
   function addFilterFor(colId: string) {
-    const next: FilterCondition[] = [
-      ...filters,
-      { id: uid("f"), columnId: colId, op: "contains", value: "" },
-    ];
+    const normalized = normalizeFilterTree(filters);
+    const ops = operatorsForFieldType(col.type);
+    const firstOp = ops[0] ?? "contains";
+    const nextCondition = createFilterCondition({
+      fieldId: colId,
+      operator: firstOp,
+      ...(FILTER_OPS[firstOp].needsValue ? { value: "" } : {}),
+    });
+    const next: FilterTree = {
+      ...normalized,
+      children: [...normalized.children, nextCondition],
+    };
     onFiltersChange?.(next);
     onRequestOpenFilterPanel?.();
   }

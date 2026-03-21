@@ -1,6 +1,6 @@
 import type { ColumnType } from "@prisma/client";
 import type {
-  FilterCondition,
+  FilterTree,
   GroupRule,
   RowWithCells,
   SortRule,
@@ -60,10 +60,10 @@ export type GridViewTableProps = {
   rowH: number;
   table: { rowCount: number } | null | undefined;
   sorts: SortRule[];
-  filters: FilterCondition[];
+  filters: FilterTree;
   groups: GroupRule[];
   onSortsChange?: (sorts: SortRule[]) => void;
-  onFiltersChange?: (filters: FilterCondition[]) => void;
+  onFiltersChange?: (filters: FilterTree) => void;
   onGroupsChange?: (groups: GroupRule[]) => void;
   onRequestOpenSortPanel?: () => void;
   onRequestOpenFilterPanel?: () => void;

@@ -3,10 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Column } from "@prisma/client";
 import type {
-  FilterCondition,
+  FilterTree,
   SortRule,
   GroupRule,
   RowHeight,
+} from "./tableUtils";
+import {
+  countFilterConditions,
+  createFilterTree,
+  getActiveFilterFieldIds,
+  hasActiveFilters,
+  normalizeFilterTree,
 } from "./tableUtils";
 import { FilterPanel, HideFieldsPanel, PanelWrapper } from "./viewToolbarPanelsA";
 import { GroupPanel, RowHeightPanel, SortPanel } from "./viewToolbarPanelsB";
@@ -14,7 +21,7 @@ import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
 export type ViewConfig = {
   hiddenFields: Record<string, boolean>;
-  filters: FilterCondition[];
+  filters: FilterTree;
   sorts: SortRule[];
   groups: GroupRule[];
   rowHeight: RowHeight;
@@ -23,7 +30,7 @@ export type ViewConfig = {
 
 export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   hiddenFields: {},
-  filters: [],
+  filters: createFilterTree(),
   sorts: [],
   groups: [],
   rowHeight: "short",
@@ -123,14 +130,22 @@ export default function ViewToolbar({
     if (nonHideableColumnSet.has(column.id)) return count;
     return count + (config.hiddenFields[column.id] ? 1 : 0);
   }, 0);
-  const hasFilters = config.filters.length > 0;
+  const normalizedFilters = useMemo(
+    () => normalizeFilterTree(config.filters),
+    [config.filters],
+  );
+  const hasFilters = hasActiveFilters(normalizedFilters);
+  const totalFilterConditions = countFilterConditions(normalizedFilters);
   const hasGroups = config.groups.length > 0;
   const hasSorts = config.sorts.length > 0;
   const activeViewMeta = VIEW_META[activeViewType] ?? { asset: 236, color: "#2d7ff9" };
   const columnNameById = new Map(sortedColumns.map((column) => [column.id, column.name]));
-  const firstFilterColumnName = hasFilters
-    ? columnNameById.get(config.filters[0]?.columnId ?? "")
-    : undefined;
+  const activeFilterFieldNames = useMemo(() => {
+    if (!hasFilters) return [];
+    return getActiveFilterFieldIds(normalizedFilters)
+      .map((id) => columnNameById.get(id))
+      .filter((name): name is string => Boolean(name));
+  }, [columnNameById, hasFilters, normalizedFilters]);
 
   const sanitizeHiddenFields = useCallback((nextHiddenFields: Record<string, boolean>) => {
     if (nonHideableColumnIds.length === 0) return nextHiddenFields;
@@ -171,7 +186,7 @@ export default function ViewToolbar({
       id: "filter",
       label:
         hasFilters
-          ? `Filtered by ${firstFilterColumnName ?? `${config.filters.length} field${config.filters.length > 1 ? "s" : ""}`}`
+          ? `Filtered by ${activeFilterFieldNames.length > 0 ? activeFilterFieldNames.join(", ") : `${totalFilterConditions} field${totalFilterConditions > 1 ? "s" : ""}`}`
           : "Filter",
       active: open === "filter" || hasFilters,
       iconAsset: 255,
@@ -295,8 +310,8 @@ export default function ViewToolbar({
               {btn.id === "filter" && (
                 <FilterPanel
                   columns={columns}
-                  filters={config.filters}
-                  onChange={(f) => onConfigChange({ filters: f })}
+                  filters={normalizedFilters}
+                  onChange={(f) => onConfigChange({ filters: normalizeFilterTree(f) })}
                 />
               )}
               {btn.id === "group" && (

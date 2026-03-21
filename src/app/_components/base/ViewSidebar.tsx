@@ -5,6 +5,7 @@ import type { ViewConfig } from "~/app/_components/ViewToolbar";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { StarIco } from "~/app/_components/home/icons";
 import { AddViewModal, CreateViewMenu, ViewOptionsMenu } from "~/app/_components/base/ViewSidebarPanels";
+import { hasActiveFilters } from "~/app/_components/tableUtils";
 
 const VIEW_META: Record<ViewType, { icon: React.ReactNode; color: string }> = {
   GRID: {
@@ -237,7 +238,7 @@ export function ViewSidebar({
           const isFavorite = !!favorites[view.id];
           const isHovered = hoveredViewId === view.id;
           const hasActive =
-            vcfg.filters.length > 0 ||
+            hasActiveFilters(vcfg.filters) ||
             vcfg.sorts.length > 0 ||
             vcfg.groups.length > 0 ||
             Object.values(vcfg.hiddenFields).some(Boolean);

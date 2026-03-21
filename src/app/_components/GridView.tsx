@@ -8,8 +8,11 @@ import {
   applyFilters,
   applyGroups,
   applySorts,
+  createFilterTree,
   flattenGroupTree,
-  type FilterCondition,
+  hasActiveFilters,
+  normalizeFilterTree,
+  type FilterTree,
   type GroupRule,
   type RowHeight,
   type RowWithCells,
@@ -180,7 +183,7 @@ function isBulkGeneratedRowId(rowId: string) {
 export default function GridView({
   tableId,
   hiddenFields = {},
-  filters = [],
+  filters = createFilterTree(),
   sorts = [],
   groups = [],
   rowHeight = "short",
@@ -196,14 +199,14 @@ export default function GridView({
 }: {
   tableId: string;
   hiddenFields?: Record<string, boolean>;
-  filters?: FilterCondition[];
+  filters?: FilterTree;
   sorts?: SortRule[];
   groups?: GroupRule[];
   rowHeight?: RowHeight;
   frozenColumnCount?: number;
   recordLabel?: string;
   onSortsChange?: (sorts: SortRule[]) => void;
-  onFiltersChange?: (filters: FilterCondition[]) => void;
+  onFiltersChange?: (filters: FilterTree) => void;
   onGroupsChange?: (groups: GroupRule[]) => void;
   onFrozenColumnCountChange?: (count: number) => void;
   onRequestOpenSortPanel?: () => void;
@@ -389,6 +392,7 @@ export default function GridView({
     () => new Map(allCols.map((column) => [column.id, column])),
     [allCols],
   );
+  const normalizedFilters = useMemo(() => normalizeFilterTree(filters), [filters]);
   const combinedRows = useMemo(
     () =>
       preloadedRows
@@ -415,7 +419,7 @@ export default function GridView({
     [columnById],
   );
 
-  const noTransform = filters.length === 0 && sorts.length === 0 && groups.length === 0;
+  const noTransform = !hasActiveFilters(normalizedFilters) && sorts.length === 0 && groups.length === 0;
   const rowsForTransforms = useMemo(() => {
     if (noTransform) return combinedRows;
     return combinedRows.map((row) => ({
@@ -436,11 +440,11 @@ export default function GridView({
     if (noTransform) {
       return combinedRows.map((row) => ({ kind: "row" as const, row }));
     }
-    const filtered = applyFilters(rowsForTransforms, filters);
+    const filtered = applyFilters(rowsForTransforms, normalizedFilters);
     const sorted = applySorts(filtered, sorts, table.columns);
     const grouped = applyGroups(sorted, groups);
     return flattenGroupTree(grouped);
-  }, [table, noTransform, combinedRows, rowsForTransforms, filters, sorts, groups]);
+  }, [table, noTransform, combinedRows, rowsForTransforms, normalizedFilters, sorts, groups]);
 
   const rowNumbers = useMemo(() => {
     let n = 0;
@@ -768,7 +772,7 @@ export default function GridView({
       duplicateColumn={duplicateColumn}
       insertColumnLeft={insertColumnLeft}
       insertColumnRight={insertColumnRight}
-      filters={filters}
+      filters={normalizedFilters}
       groups={groups}
       onSortsChange={onSortsChange}
       onFiltersChange={onFiltersChange}

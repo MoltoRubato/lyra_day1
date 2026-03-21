@@ -72,6 +72,7 @@ type GridViewTableBodyProps = {
   totalRows: number;
   summaryRowHeightPx: number;
   summaryBottomOffsetPx: number;
+  highlightedFilterColumnIds: Set<string>;
 };
 
 // Smaller chunks avoid large single-row spacer glitches in table layout engines.
@@ -173,6 +174,7 @@ export function GridViewTableBody({
   totalRows,
   summaryRowHeightPx,
   summaryBottomOffsetPx,
+  highlightedFilterColumnIds,
 }: GridViewTableBodyProps) {
   const hasLoadingGap = loadingGapHeight > 0;
   const colSpan = visCols.length + 2;
@@ -237,7 +239,7 @@ export function GridViewTableBody({
           return (
             <tr
               key={row.id}
-              className={`relative border-b border-[#e2e5e9] group transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-inset ring-[#1c76d2]" : ""}`}
+              className={`dataRow relative border-b border-[#e2e5e9] group transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-inset ring-[#1c76d2]" : ""}`}
               style={{ height: rowH, zIndex: editingLongTextRow ? 15 : undefined }}
               onContextMenu={(e) => openRowContextMenu(e, row.id)}
               onDragOver={(e) => {
@@ -330,9 +332,11 @@ export function GridViewTableBody({
                 const value = getCellValue(row, col.id);
                 const isFrozen = colIndex < freezeCount;
                 const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
+                const isFilterHighlighted = highlightedFilterColumnIds.has(col.id);
                 return (
                   <td
                     key={col.id}
+                    data-columnid={col.id}
                     style={{
                       width: col.width,
                       maxWidth: col.width,
@@ -345,8 +349,9 @@ export function GridViewTableBody({
                         : {}),
                       ...(isLongTextEditing && !isFrozen ? { zIndex: 30 } : {}),
                       ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
+                      ...(isFilterHighlighted ? { backgroundColor: "#ebfbec" } : {}),
                     }}
-                    className={`relative box-border px-2 py-0 border-r border-[#e2e5e9] overflow-visible ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                    className={`cell relative box-border overflow-visible border-r border-[#e2e5e9] px-2 py-0 ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCellClick(row, col);

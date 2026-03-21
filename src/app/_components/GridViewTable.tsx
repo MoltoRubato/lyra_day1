@@ -14,6 +14,7 @@ import type {
   GridViewTableProps,
   SummaryOption,
 } from "~/app/_components/gridView/tableTypes";
+import { getActiveFilterFieldIds } from "~/app/_components/tableUtils";
 
 export function GridViewTable({
   containerRef,
@@ -165,6 +166,10 @@ export function GridViewTable({
     : "Drag to adjust the number of frozen columns";
   const hasSelectedRows = selectedRowIds.length > 0;
   const selectedSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+  const highlightedFilterColumnIds = useMemo(
+    () => new Set(getActiveFilterFieldIds(filters)),
+    [filters],
+  );
 
   useEffect(() => {
     if (!allRowsForSummary.length) {
@@ -489,7 +494,11 @@ export function GridViewTable({
           setRowContextMenu(null);
         }}
       >
-        <table className="min-h-full border-collapse bg-white text-sm" style={{ tableLayout: "fixed" }}>
+        <table
+          id="table"
+          className="min-h-full border-collapse bg-white text-sm"
+          style={{ tableLayout: "fixed" }}
+        >
           <GridViewTableHeader
             rowH={rowH}
             rowNumberWidth={rowNumberWidth}
@@ -534,6 +543,7 @@ export function GridViewTable({
             allInViewSelected={allInViewSelected}
             someInViewSelected={someInViewSelected}
             toggleAllRowsInView={toggleAllRowsInView}
+            highlightedFilterColumnIds={highlightedFilterColumnIds}
           />
 
           <GridViewTableBody
@@ -584,6 +594,7 @@ export function GridViewTable({
             totalRows={totalRows}
             summaryRowHeightPx={summaryRowHeightPx}
             summaryBottomOffsetPx={summaryBottomOffsetPx}
+            highlightedFilterColumnIds={highlightedFilterColumnIds}
           />
         </table>
       </div>

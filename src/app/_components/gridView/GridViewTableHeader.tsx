@@ -10,7 +10,7 @@ import type {
   VisibleColumn,
 } from "~/app/_components/gridView/tableTypes";
 import type {
-  FilterCondition,
+  FilterTree,
   GroupRule,
 } from "~/app/_components/tableUtils";
 import { FIELD_TYPES } from "~/app/_components/tableUtils";
@@ -64,9 +64,9 @@ type GridViewTableHeaderProps = {
     v: { colId: string; name: string; duplicateCells: boolean } | null,
   ) => void;
   tableId: string;
-  filters: FilterCondition[];
+  filters: FilterTree;
   groups: GroupRule[];
-  onFiltersChange?: (filters: FilterCondition[]) => void;
+  onFiltersChange?: (filters: FilterTree) => void;
   onGroupsChange?: (groups: GroupRule[]) => void;
   onRequestOpenSortPanel?: () => void;
   onRequestOpenFilterPanel?: () => void;
@@ -75,6 +75,7 @@ type GridViewTableHeaderProps = {
   allInViewSelected: boolean;
   someInViewSelected: boolean;
   toggleAllRowsInView: (checked: boolean) => void;
+  highlightedFilterColumnIds: Set<string>;
 };
 
 export function GridViewTableHeader({
@@ -121,6 +122,7 @@ export function GridViewTableHeader({
   allInViewSelected,
   someInViewSelected,
   toggleAllRowsInView,
+  highlightedFilterColumnIds,
 }: GridViewTableHeaderProps) {
   const [fieldTypeQuery, setFieldTypeQuery] = useState("");
   const [hoveredFieldAgent, setHoveredFieldAgent] = useState<string | null>(null);
@@ -241,7 +243,7 @@ export function GridViewTableHeader({
 
   return (
     <thead className="sticky top-0 z-20">
-      <tr className="border-b border-[#e2e5e9] bg-white">
+      <tr className="headerRow border-b border-[#e2e5e9] bg-white">
         <th
           className="sticky left-0 z-[14] box-border bg-white px-0 py-0 text-left"
           style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
@@ -294,17 +296,26 @@ export function GridViewTableHeader({
           const isFrozen = colIndex < freezeCount;
           const frozenLeft = frozenOffsets[colIndex] ?? rowNumberWidth;
           const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
+          const isFilterHighlighted = highlightedFilterColumnIds.has(col.id);
+          const headerCellBackground =
+            dragOverColId === col.id
+              ? "#e8f5f1"
+              : isFilterHighlighted
+                ? "#ebfbec4D"
+                : undefined;
 
           return (
             <th
               key={col.id}
+              data-columnid={col.id}
               style={{
                 width: col.width,
                 minWidth: col.width,
                 ...(isFrozen ? { left: frozenLeft, zIndex: 12 } : {}),
                 ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
+                ...(headerCellBackground ? { backgroundColor: headerCellBackground } : {}),
               }}
-              className={`relative box-border px-0 py-0 text-left group/col border-r border-[#e2e5e9] bg-white ${isFrozen ? "sticky" : ""} ${dragOverColId === col.id ? "bg-[#e8f5f1]" : ""}`}
+              className={`cell header relative box-border px-0 py-0 text-left group/col border-r border-[#e2e5e9] bg-white ${isFrozen ? "sticky" : ""}`}
               draggable
               onDragStart={() => setDragColId(col.id)}
               onDragOver={(e) => {
