@@ -10,7 +10,6 @@ import { UserAccountMenu } from "~/app/_components/home/UserAccountMenu";
 import { WorkspacesOverview } from "~/app/_components/home/WorkspacesOverview";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { ChevronRight, GridIco, HomeIco, ListIco, PencilIco, SharedIco, SidebarStarIco, StarIco, WsIco } from "~/app/_components/home/icons";
-import type { BaseItem, WsFull } from "~/app/_components/home/types";
 import { ActionBtn, BaseIcon, NavBtn } from "~/app/_components/home/ui";
 import { useHomePageController } from "~/app/_components/home/useHomePageController";
 
@@ -57,7 +56,7 @@ export default function HomePage() {
   const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
   const starredBases = useMemo(
     () =>
-      [...(bases as BaseItem[])]
+      [...bases]
         .filter((base) => base.starred)
         .sort((a, b) => {
           const at = a.lastOpenedAt ? new Date(a.lastOpenedAt).getTime() : 0;
@@ -67,7 +66,7 @@ export default function HomePage() {
     [bases],
   );
   const selectedWorkspaceName =
-    (workspaces as WsFull[]).find((ws) => ws.id === createBaseWorkspaceId)?.name ?? "No workspace";
+    workspaces.find((ws) => ws.id === createBaseWorkspaceId)?.name ?? "No workspace";
   const requestDeleteBase = (id: string | null | undefined) => {
     if (typeof id !== "string" || id.length === 0) return;
     deleteBase.mutate({ id });
@@ -220,7 +219,7 @@ export default function HomePage() {
 
               {sidebarOpen && wsExpanded && (
                 <div className="pl-4 pr-1 space-y-0.5">
-                  {(workspaces as WsFull[]).map((ws) => (
+                  {workspaces.map((ws) => (
                     <button key={ws.id} onClick={() => setPage(ws.id)}
                       className={`w-full flex items-center gap-2 px-2 py-[5px] rounded text-[13px] transition-colors text-left ${
                         page === ws.id
@@ -289,7 +288,7 @@ export default function HomePage() {
           {page === "workspaces" && (
             <WorkspacesOverview
               workspaces={filteredWs}
-              allBases={bases as BaseItem[]}
+              allBases={bases}
               onNavigate={setPage}
               onCreateBase={(wsId) => open({ kind: "createBase", workspaceId: wsId })}
               onCreateWorkspace={() => open({ kind: "createWorkspace" })}
@@ -459,8 +458,8 @@ export default function HomePage() {
 
       {searchOpen && (
         <SearchModal
-          bases={bases as BaseItem[]}
-          workspaces={workspaces as WsFull[]}
+          bases={bases}
+          workspaces={workspaces}
           onClose={() => setSearchOpen(false)}
         />
       )}
@@ -494,7 +493,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-col px-[24px] pb-[24px] pt-[22px]">
-                {(workspaces as WsFull[]).length > 0 && (
+                {workspaces.length > 0 && (
                   <div className="relative mb-[20px] flex items-center" ref={workspaceMenuRef}>
                     <p
                       className="mr-[4px] text-[15px] font-medium leading-[22.5px] text-[#1d1f25]"
@@ -538,7 +537,7 @@ export default function HomePage() {
                         <div className="p-[8px]">
                           <div role="listbox" aria-label="Options" className="relative">
                             <ul className="w-full">
-                              {(workspaces as WsFull[]).map((ws) => {
+                              {workspaces.map((ws) => {
                                 const selected = ws.id === createBaseWorkspaceId;
                                 return (
                                   <li
@@ -691,7 +690,7 @@ export default function HomePage() {
                   <select value={moveTo} onChange={(e) => setMoveTo(e.target.value)}
                     className="w-full border border-[#d8d8d8] rounded px-3 py-2 text-[13px] outline-none focus:border-[#0069ff] bg-white transition-colors">
                     <option value="">— No workspace —</option>
-                    {(workspaces as WsFull[]).map((ws) => (
+                {workspaces.map((ws) => (
                       <option key={ws.id} value={ws.id}>{ws.name}</option>
                     ))}
                   </select>
