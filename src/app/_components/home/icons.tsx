@@ -28,9 +28,19 @@ function AssetIco({
   );
 }
 
-export const HomeIco = () => <AssetIco asset={217} size={15} />;
-export const SidebarStarIco = ({ size = 15, className = "" }: { size?: number; className?: string }) => (
-  <AssetIco asset={70} size={size} className={className} />
+function NavIconFrame({ children }: { children: React.ReactNode }) {
+  return <span className="inline-flex h-[20px] w-[20px] items-center justify-center">{children}</span>;
+}
+
+export const HomeIco = () => (
+  <NavIconFrame>
+    <AssetIco asset={217} width={15} height={15.4} />
+  </NavIconFrame>
+);
+export const SidebarStarIco = () => (
+  <NavIconFrame>
+    <AssetIco asset={70} width={17.5} height={16.87} />
+  </NavIconFrame>
 );
 export const StarIco = ({ size = 15, active = false, className = "" }: { size?: number; active?: boolean; className?: string }) => (
   active ? (
@@ -43,8 +53,19 @@ export const StarIco = ({ size = 15, active = false, className = "" }: { size?: 
     </svg>
   )
 );
-export const SharedIco = () => <AssetIco asset={96} size={15} />;
-export const WsIco = ({ size = 15 }: { size?: number } = {}) => <AssetIco asset={14} size={size} />;
+export const SharedIco = () => (
+  <NavIconFrame>
+    <AssetIco asset={96} width={16.25} height={13.75} />
+  </NavIconFrame>
+);
+export const WsIco = ({ size }: { size?: number } = {}) =>
+  size ? (
+    <AssetIco asset={14} size={size} />
+  ) : (
+    <NavIconFrame>
+      <AssetIco asset={14} width={19.38} height={14.04} />
+    </NavIconFrame>
+  );
 export const PencilIco = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" strokeLinejoin="round"/></svg>;
 export const MoveIco = ({ size = 11 }: { size?: number }) => <AssetIco asset={152} size={size + 4} />;
 export const TrashIco = ({ size = 11 }: { size?: number }) => <svg width={size} height={size} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 2L10 10M10 2L2 10" strokeLinecap="round"/></svg>;

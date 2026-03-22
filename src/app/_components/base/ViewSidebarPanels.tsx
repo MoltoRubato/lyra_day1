@@ -132,7 +132,7 @@ export function AddViewModal({ open, name, setName, onClose, onSubmit, left }: A
             </span>
           </label>
         </div>
-        <div className="mt-2 text-[12px] text-[#6b7280]">All collaborators can edit the configuration</div>
+        <div className="mt-2 text-[13px] text-[#6b7280]">All collaborators can edit the configuration</div>
 
         <div className="mt-6 flex items-center justify-end gap-3">
           <button onClick={onClose} className="text-[13px] text-[#555] px-2 py-1.5">
@@ -236,3 +236,4 @@ export function ViewOptionsMenu({
     </>
   );
 }
+

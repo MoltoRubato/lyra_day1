@@ -184,7 +184,7 @@ export function GridViewTableBody({
       <tbody>
         {loadedCount === 0 && !hasLoadingGap && !chunkLoading && (
           <tr>
-            <td colSpan={colSpan} className="px-4 py-8 text-center text-xs text-[#9ca3af]">
+            <td colSpan={colSpan} className="px-4 py-8 text-center text-[13px] text-[#9ca3af]">
               No {pluralLabel(2)} match the current filters.
             </td>
           </tr>
@@ -316,7 +316,7 @@ export function GridViewTableBody({
                       </svg>
                     </button>
                     <span
-                      className={`pointer-events-none absolute inset-0 flex select-none items-center justify-center text-[12px] leading-none text-[#616670] ${
+                      className={`pointer-events-none absolute inset-0 flex select-none items-center justify-center text-[13px] leading-none text-[#616670] ${
                         rowSelected ? "opacity-0" : "opacity-100 group-hover:opacity-0"
                       }`}
                     >
@@ -389,7 +389,7 @@ export function GridViewTableBody({
                           <textarea
                             autoFocus
                             rows={3}
-                            className="relative z-[3] border-2 border-[#166254] rounded px-2 py-1 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm resize-y min-h-[56px]"
+                            className="relative z-[3] border-2 border-[#166254] rounded px-2 py-1 w-full outline-none text-[13px] bg-white text-[#1f2937] shadow-sm resize-y min-h-[56px]"
                             value={editing.value}
                             onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                             onBlur={commitEdit}
@@ -401,7 +401,7 @@ export function GridViewTableBody({
                         ) : (
                           <input
                             autoFocus
-                            className="border-2 border-[#166254] rounded px-2 py-0.5 w-full outline-none text-xs bg-white text-[#1f2937] shadow-sm"
+                            className="border-2 border-[#166254] rounded px-2 py-0.5 w-full outline-none text-[13px] bg-white text-[#1f2937] shadow-sm"
                             value={editing.value}
                             type={inputTypeForField(col.type)}
                             onChange={(e) => setEditing({ ...editing, value: e.target.value })}
@@ -414,7 +414,7 @@ export function GridViewTableBody({
                         )
                       ) : (
                         <span
-                          className={`cursor-pointer text-xs transition-colors ${isTall ? "whitespace-normal break-words line-clamp-4" : "block truncate"} ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}
+                          className={`cursor-pointer text-[13px] transition-colors ${isTall ? "whitespace-normal break-words line-clamp-4" : "block truncate"} ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}
                         >
                           {formatCellValue(value, col.type) || ""}
                         </span>
@@ -426,7 +426,7 @@ export function GridViewTableBody({
 
               <td className="w-8 px-1">
                 <button
-                  className="opacity-0 group-hover:opacity-100 text-[#6d7480] text-xs p-1.5 transition-all rounded-md bg-[#f3f4f6] border border-[#d4d7dc]"
+                  className="opacity-0 group-hover:opacity-100 text-[#6d7480] text-[13px] p-1.5 transition-all rounded-md bg-[#f3f4f6] border border-[#d4d7dc]"
                   title="Expand row"
                 >
                   <svg
@@ -469,7 +469,7 @@ export function GridViewTableBody({
           <td colSpan={colSpan} className="px-0 py-0">
             <button
               onClick={() => addRow.mutate({ tableId })}
-              className="flex h-full items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-xs"
+              className="flex h-full items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-[13px]"
               title={`Add ${labelLower}`}
             >
               <svg
@@ -514,7 +514,7 @@ export function GridViewTableBody({
             style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
           >
             <div className="relative" style={{ height: summaryRowHeightPx }}>
-              <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[12px] text-[#2f343c]">
+              <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[13px] text-[#2f343c]">
                 {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
               </div>
             </div>
@@ -580,7 +580,7 @@ export function GridViewTableBody({
                           strokeLinejoin="round"
                         />
                       </svg>
-                      <span className="text-[12px]">Summary</span>
+                      <span className="text-[13px]">Summary</span>
                     </>
                   ) : null}
                 </button>
@@ -594,3 +594,4 @@ export function GridViewTableBody({
     </>
   );
 }
+

@@ -64,14 +64,14 @@ export function StarredListView({
                 <button
                   type="button"
                   onClick={() => onOpenWorkspace(item.workspace.id)}
-                  className="min-w-0 flex-1 truncate text-left text-[13px] font-normal leading-[18px] text-[#1d1f25]"
+                  className="min-w-0 flex-1 truncate text-left text-[13px] font-semibold leading-[18px] text-[#1d1f25]"
                 >
                   {item.name}
                 </button>
               ) : (
                 <Link
                   href={`/base/${item.base.id}`}
-                  className="min-w-0 flex-1 truncate text-[13px] font-normal leading-[18px] text-[#1d1f25]"
+                  className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-[18px] text-[#1d1f25]"
                 >
                   {item.name}
                 </Link>

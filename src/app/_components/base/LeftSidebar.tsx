@@ -61,9 +61,10 @@ export function LeftSidebar() {
         </svg>
       </button>
 
-      <button className="w-8 h-8 rounded-full bg-[#c0392b] flex items-center justify-center text-white text-[12px] font-bold mt-1 flex-shrink-0" title="Account">
+      <button className="w-8 h-8 rounded-full bg-[#c0392b] flex items-center justify-center text-white text-[13px] font-bold mt-1 flex-shrink-0" title="Account">
         R
       </button>
     </aside>
   );
 }
+

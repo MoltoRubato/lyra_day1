@@ -59,6 +59,7 @@ export type GridViewTableProps = {
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   rowH: number;
   table: { rowCount: number } | null | undefined;
+  allCols: VisibleColumn[];
   sorts: SortRule[];
   filters: FilterTree;
   groups: GroupRule[];
@@ -103,6 +104,10 @@ export type GridViewTableProps = {
       name: string;
       type: ColumnType;
     }) => void;
+  };
+  changePrimaryField: {
+    mutate: (v: { tableId: string; columnId: string }) => void;
+    isPending?: boolean;
   };
   addOption: { mutate: (v: { columnId: string; label: string; color: string }) => void };
   deleteOption: { mutate: (v: { optionId: string }) => void };

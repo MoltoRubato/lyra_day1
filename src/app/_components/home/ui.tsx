@@ -83,12 +83,20 @@ export function NavBtn({
   return (
     <button
       onClick={onClick}
-      className={`flex h-10 w-full items-center gap-2 rounded px-3 text-[13px] leading-[18px] transition-colors ${
-        active ? "bg-[#f2f4f8] text-[#172b4d] font-medium" : "text-[#374151] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
-      } ${collapsed ? "justify-center" : ""}`}
+      className={`box-border flex flex-grow items-center overflow-hidden rounded text-left transition-colors ${
+        collapsed
+          ? "h-10 w-10 justify-center p-0"
+          : "h-[38.5px] w-[216px] pl-2 pr-0 py-2"
+      } ${
+        active ? "bg-[#f2f4f8] text-[#1d1f25]" : "text-[#1d1f25] hover:bg-[#f5f5f4]"
+      } text-[15px] font-medium leading-[22.5px]`}
+      style={{
+        fontFamily:
+          '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+      }}
     >
-      <span className={`flex-shrink-0 ${active ? "text-[#172b4d]" : "text-[#6b7280]"}`}>{icon}</span>
-      {!collapsed && <span className="flex-1 text-left text-[13px] leading-[18px]">{label}</span>}
+      <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center ${active ? "text-[#1d1f25]" : "text-[#1d1f25]"}`}>{icon}</span>
+      {!collapsed && <span className="block flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-[15px] font-medium leading-[22.5px]">{label}</span>}
       {!collapsed && children}
     </button>
   );

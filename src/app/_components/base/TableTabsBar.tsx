@@ -124,7 +124,7 @@ export function TableTabsBar({
               <input
                 autoFocus
                 value={renamingTable.value}
-                className="mx-2 my-1 bg-white border border-[#0069ff] rounded px-2 py-0.5 text-[12px] outline-none w-28"
+                className="mx-2 my-1 bg-white border border-[#0069ff] rounded px-2 py-0.5 text-[13px] outline-none w-28"
                 onChange={(e) => setRenamingTable({ ...renamingTable, value: e.target.value })}
                 onBlur={commitTableRename}
                 onKeyDown={(e) => {
@@ -137,7 +137,7 @@ export function TableTabsBar({
                 <button
                   onClick={() => onSelectTable(table.id)}
                   onDoubleClick={() => setRenamingTable({ id: table.id, value: table.name })}
-                  className={`flex h-8 min-h-8 items-center gap-1 px-3 text-[12px] font-medium box-border transition-colors ${
+                  className={`flex h-8 min-h-8 items-center gap-1 px-3 text-[13px] font-medium box-border transition-colors ${
                     isActive ? "text-[#172b4d]" : "text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded-t"
                   }`}
                 >
@@ -379,9 +379,7 @@ export function TableTabsBar({
           title={showAddOrImportLabel ? "Add or import table" : "Add table"}
           aria-label={showAddOrImportLabel ? "Add or import table" : "Add table"}
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M6 1v10M1 6h10" />
-          </svg>
+          <AirtableAssetIcon asset={127} alt="" size={16} />
           {showAddOrImportLabel && <span>Add or import</span>}
         </button>
 
@@ -392,7 +390,7 @@ export function TableTabsBar({
               className="fixed z-30 w-[280px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden text-[13px]"
               style={{ left: addMenuLeft, top: (addMenuAnchor?.top ?? 0) + (addMenuAnchor?.height ?? 0) + 8 }}
             >
-              <div className="px-4 pt-3 text-[12px] text-[#999]">Add a blank table</div>
+              <div className="px-4 pt-3 text-[13px] text-[#999]">Add a blank table</div>
               <button onClick={openStartFromScratch} className="w-full text-left px-4 py-3 hover:bg-[#f8f8f8] font-medium">
                 Start from scratch
               </button>
@@ -409,7 +407,7 @@ export function TableTabsBar({
       </div>
 
       <div className="ml-auto flex-shrink-0">
-        <button className="flex items-center gap-1 px-2 py-1 text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded text-[12px] transition-colors">
+        <button className="flex items-center gap-1 px-2 py-1 text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded text-[13px] transition-colors">
           Tools
           <DownArrowIcon />
         </button>
@@ -454,7 +452,7 @@ export function TableTabsBar({
               </svg>
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 text-[12px] text-[#888]">
+              <div className="flex items-center gap-4 text-[13px] text-[#888]">
                 <span className="flex items-center gap-1.5">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
                     <path d="M6 1v10M1 6h10" />
@@ -486,3 +484,4 @@ export function TableTabsBar({
     </div>
   );
 }
+

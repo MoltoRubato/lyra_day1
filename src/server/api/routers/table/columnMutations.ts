@@ -8,6 +8,7 @@ import {
 import {
   ColumnAddInput,
   ColumnChangeTypeInput,
+  ColumnChangePrimaryFieldInput,
   ColumnDeleteInput,
   ColumnDescriptionInput,
   ColumnDuplicateInput,
@@ -22,6 +23,12 @@ import {
   SelectOptionOutput,
   SelectOptionUpdateInput,
 } from "~/types/schemas";
+import {
+  PRIMARY_FIELD_SUPPORTED_TYPES,
+  isPrimaryFieldSupportedType,
+} from "~/shared/primaryField";
+
+const PRIMARY_FIELD_SUPPORTED_TYPE_LABEL = PRIMARY_FIELD_SUPPORTED_TYPES.join(", ");
 
 export const columnMutationProcedures = {
   addColumn: publicProcedure
@@ -81,6 +88,12 @@ export const columnMutationProcedures = {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Anchor column not found in the target table",
+        });
+      }
+      if (anchor.order === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Primary field cannot be moved. Insert new fields to the right instead.",
         });
       }
 
@@ -177,11 +190,23 @@ export const columnMutationProcedures = {
     .input(ColumnDeleteInput)
     .output(ColumnOutput)
     .mutation(async ({ ctx, input }) => {
-      const exists = await ctx.db.column.findUnique({ where: { id: input.columnId } });
+      const exists = await ctx.db.column.findUnique({
+        where: { id: input.columnId },
+        select: {
+          id: true,
+          order: true,
+        },
+      });
       if (!exists) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Column with id "${input.columnId}" not found`,
+        });
+      }
+      if (exists.order === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Primary field cannot be deleted.",
         });
       }
       return ctx.db.column.delete({ where: { id: input.columnId } });
@@ -225,11 +250,23 @@ export const columnMutationProcedures = {
     .input(ColumnChangeTypeInput)
     .output(ColumnOutput)
     .mutation(async ({ ctx, input }) => {
-      const exists = await ctx.db.column.findUnique({ where: { id: input.columnId } });
+      const exists = await ctx.db.column.findUnique({
+        where: { id: input.columnId },
+        select: {
+          id: true,
+          order: true,
+        },
+      });
       if (!exists) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: `Column "${input.columnId}" not found`,
+        });
+      }
+      if (exists.order === 0 && !isPrimaryFieldSupportedType(input.type)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Unsupported primary field type. Supported types: ${PRIMARY_FIELD_SUPPORTED_TYPE_LABEL}.`,
         });
       }
       const availableTypes = await loadAvailableColumnTypes(ctx.db);
@@ -240,10 +277,99 @@ export const columnMutationProcedures = {
       });
     }),
 
+  changePrimaryField: publicProcedure
+    .input(ColumnChangePrimaryFieldInput)
+    .output(z.array(ColumnOutput))
+    .mutation(async ({ ctx, input }) => {
+      const columns = await ctx.db.column.findMany({
+        where: { tableId: input.tableId },
+        orderBy: { order: "asc" },
+      });
+      if (!columns.length) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `No columns found for table "${input.tableId}".`,
+        });
+      }
+
+      const nextPrimary = columns.find((column) => column.id === input.columnId);
+      if (!nextPrimary) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Column "${input.columnId}" not found in table "${input.tableId}".`,
+        });
+      }
+      if (!isPrimaryFieldSupportedType(nextPrimary.type)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Unsupported primary field type. Supported types: ${PRIMARY_FIELD_SUPPORTED_TYPE_LABEL}.`,
+        });
+      }
+
+      const currentPrimary = columns[0];
+      if (currentPrimary?.id === nextPrimary.id) {
+        return columns;
+      }
+
+      const reordered = [nextPrimary, ...columns.filter((column) => column.id !== nextPrimary.id)];
+      await ctx.db.$transaction(
+        reordered.map((column, index) =>
+          ctx.db.column.update({
+            where: { id: column.id },
+            data: { order: index },
+          }),
+        ),
+      );
+
+      return ctx.db.column.findMany({
+        where: { tableId: input.tableId },
+        orderBy: { order: "asc" },
+      });
+    }),
+
   reorderColumns: publicProcedure
     .input(ColumnReorderInput)
     .output(z.array(ColumnOutput))
     .mutation(async ({ ctx, input }) => {
+      const existingColumns = await ctx.db.column.findMany({
+        where: { tableId: input.tableId },
+        select: {
+          id: true,
+          order: true,
+        },
+        orderBy: { order: "asc" },
+      });
+      if (existingColumns.length !== input.orderedIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Reordered column set does not match table columns.",
+        });
+      }
+
+      const existingIds = new Set(existingColumns.map((column) => column.id));
+      const uniqueNextIds = new Set(input.orderedIds);
+      if (uniqueNextIds.size !== input.orderedIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Reordered column set contains duplicates.",
+        });
+      }
+      const hasUnknownColumn = input.orderedIds.some((columnId) => !existingIds.has(columnId));
+      if (hasUnknownColumn) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Reordered column set contains unknown columns.",
+        });
+      }
+
+      const primaryColumnId = existingColumns[0]?.id;
+      if (primaryColumnId && input.orderedIds[0] !== primaryColumnId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Primary field cannot be moved.",
+        });
+      }
+
       await Promise.all(
         input.orderedIds.map((id, index) =>
           ctx.db.column.update({ where: { id }, data: { order: index } }),

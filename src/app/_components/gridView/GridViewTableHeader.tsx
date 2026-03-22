@@ -63,6 +63,7 @@ type GridViewTableHeaderProps = {
   setDuplicatingField: (
     v: { colId: string; name: string; duplicateCells: boolean } | null,
   ) => void;
+  onRequestChangePrimaryField: () => void;
   tableId: string;
   filters: FilterTree;
   groups: GroupRule[];
@@ -110,6 +111,7 @@ export function GridViewTableHeader({
   setEditingField,
   setFieldTypeListOpen,
   setDuplicatingField,
+  onRequestChangePrimaryField,
   tableId,
   filters,
   groups,
@@ -118,7 +120,7 @@ export function GridViewTableHeader({
   onRequestOpenSortPanel,
   onRequestOpenFilterPanel,
   onRequestOpenGroupPanel,
-  hasSelectedRows,
+  hasSelectedRows: _hasSelectedRows,
   allInViewSelected,
   someInViewSelected,
   toggleAllRowsInView,
@@ -293,6 +295,7 @@ export function GridViewTableHeader({
         {visCols.map((col, colIndex) => {
           const ft = FIELD_TYPES[col.type] ?? FIELD_TYPES.TEXT!;
           const isCurrentPanel = headerPanel?.colId === col.id;
+          const isPrimaryField = colIndex === 0;
           const isFrozen = colIndex < freezeCount;
           const frozenLeft = frozenOffsets[colIndex] ?? rowNumberWidth;
           const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
@@ -316,9 +319,13 @@ export function GridViewTableHeader({
                 ...(headerCellBackground ? { backgroundColor: headerCellBackground } : {}),
               }}
               className={`cell header relative box-border px-0 py-0 text-left group/col border-r border-[#e2e5e9] bg-white ${isFrozen ? "sticky" : ""}`}
-              draggable
-              onDragStart={() => setDragColId(col.id)}
+              draggable={!isPrimaryField}
+              onDragStart={() => {
+                if (isPrimaryField) return;
+                setDragColId(col.id);
+              }}
               onDragOver={(e) => {
+                if (isPrimaryField) return;
                 e.preventDefault();
                 setDragOverColId(col.id);
               }}
@@ -332,7 +339,7 @@ export function GridViewTableHeader({
                 {renamingCol?.id === col.id ? (
                   <input
                     autoFocus
-                    className="bg-transparent border-b-2 border-[#166254] px-1 text-xs outline-none flex-1 min-w-0 text-[#1f2937]"
+                    className="bg-transparent border-b-2 border-[#166254] px-1 text-[13px] outline-none flex-1 min-w-0 text-[#1f2937]"
                     value={renamingCol.value}
                     onChange={(e) => setRenamingCol({ ...renamingCol, value: e.target.value })}
                     onBlur={() => {
@@ -401,7 +408,7 @@ export function GridViewTableHeader({
                     e.stopPropagation();
                     openColMenu(col.id, e);
                   }}
-                  className="opacity-0 group-hover/col:opacity-100 text-[#9ca3af] hover:text-[#6b7280] text-xs flex-shrink-0 transition-all p-0.5 rounded hover:bg-[#eef0f3]"
+                  className="opacity-0 group-hover/col:opacity-100 text-[#9ca3af] hover:text-[#6b7280] text-[13px] flex-shrink-0 transition-all p-0.5 rounded hover:bg-[#eef0f3]"
                   title="Field actions"
                 >
                   <svg
@@ -450,6 +457,8 @@ export function GridViewTableHeader({
                 setEditingField={setEditingField}
                 setFieldTypeListOpen={setFieldTypeListOpen}
                 setDuplicatingField={setDuplicatingField}
+                isPrimaryField={isPrimaryField}
+                onRequestChangePrimaryField={onRequestChangePrimaryField}
               />
 
               <div
@@ -631,3 +640,4 @@ export function GridViewTableHeader({
     </thead>
   );
 }
+

@@ -141,7 +141,7 @@ export function BaseListView({
                 <div className="flex min-w-0 items-center gap-3">
                   <BaseIcon base={base} size={24} />
                   {base.id.startsWith("temp-") ? (
-                    <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate whitespace-nowrap text-[13px] font-normal leading-[18px] text-[#9ca3af]">
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate whitespace-nowrap text-[13px] font-semibold leading-[18px] text-[#9ca3af]">
                       {base.name}
                       <span className="h-2.5 w-2.5 flex-shrink-0 animate-spin rounded-full border border-[#ccc] border-t-[#888]" />
                     </span>
@@ -149,7 +149,7 @@ export function BaseListView({
                     <>
                       <Link
                         href={`/base/${base.id}`}
-                        className="flex min-w-0 flex-1 items-center truncate whitespace-nowrap text-[13px] font-normal leading-[18px] text-[#1d1f25] transition-colors hover:text-[#0069ff]"
+                        className="flex min-w-0 flex-1 items-center truncate whitespace-nowrap text-[13px] font-semibold leading-[18px] text-[#1d1f25] transition-colors hover:text-[#0069ff]"
                       >
                         {base.name}
                       </Link>

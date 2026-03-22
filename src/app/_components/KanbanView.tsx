@@ -147,7 +147,7 @@ export default function KanbanView({ tableId, groupByColumnId }: {
             <div className="flex items-center justify-between mb-2 px-1">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: style.dot }}/>
-                <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{group}</span>
+                <span className="text-[13px] font-semibold text-gray-700 uppercase tracking-wide">{group}</span>
                 <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500 font-medium">{groupRows.length}</span>
               </div>
               <button
@@ -216,11 +216,11 @@ export default function KanbanView({ tableId, groupByColumnId }: {
                     }}/>
                   <div className="flex gap-2">
                     <button onClick={() => void handleAddCard(group)}
-                      className="px-3 py-1 bg-[#166a5b] hover:bg-[#125a4d] text-white rounded text-xs font-medium transition-colors">
+                      className="px-3 py-1 bg-[#166a5b] hover:bg-[#125a4d] text-white rounded text-[13px] font-medium transition-colors">
                       Add
                     </button>
                     <button onClick={() => setAddingTo(null)}
-                      className="px-2 text-gray-400 hover:text-gray-600 text-xs transition-colors">
+                      className="px-2 text-gray-400 hover:text-gray-600 text-[13px] transition-colors">
                       Cancel
                     </button>
                   </div>
@@ -228,7 +228,7 @@ export default function KanbanView({ tableId, groupByColumnId }: {
               ) : (
                 <button
                   onClick={() => { setAddingTo(group); setNewCardName(""); }}
-                  className="w-full text-left text-xs text-gray-400 hover:text-gray-600 hover:bg-white hover:border hover:border-[#e5e5e4] transition-all py-2 px-3 rounded-lg">
+                  className="w-full text-left text-[13px] text-gray-400 hover:text-gray-600 hover:bg-white hover:border hover:border-[#e5e5e4] transition-all py-2 px-3 rounded-lg">
                   + Add card
                 </button>
               )}

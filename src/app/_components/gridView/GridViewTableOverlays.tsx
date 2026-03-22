@@ -275,7 +275,7 @@ export function GridViewTableOverlays({
                   <div className="space-y-1">
                     {editingField.selectOptions.map((option, idx) => (
                       <div key={option.id} className="flex items-center gap-2">
-                        <span className="w-4 text-center text-[12px] text-[#c1c7d0]">⋮⋮</span>
+                        <span className="w-4 text-center text-[13px] text-[#c1c7d0]">⋮⋮</span>
                         <button
                           type="button"
                           className="h-5 w-5 rounded-full border border-[#d3d8df]"
@@ -511,3 +511,4 @@ export function GridViewTableOverlays({
     </>
   );
 }
+

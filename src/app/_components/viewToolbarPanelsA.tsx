@@ -3,7 +3,6 @@ import type { Column } from "@prisma/client";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
 import {
-  FIELD_TYPES,
   FILTER_OPS,
   MAX_FILTER_CONDITIONS,
   MAX_FILTER_DEPTH,
@@ -44,13 +43,17 @@ export function HideFieldsPanel({
   hiddenFields,
   nonHideableColumnIds = [],
   onChange,
+  onReorderColumns,
 }: {
   columns: Column[];
   hiddenFields: Record<string, boolean>;
   nonHideableColumnIds?: string[];
   onChange: (hf: Record<string, boolean>) => void;
+  onReorderColumns?: (orderedIds: string[]) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [dragColumnId, setDragColumnId] = useState<string | null>(null);
+  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const sortedColumns = [...columns].sort((a, b) => a.order - b.order);
   const lockedColumnIds = new Set(nonHideableColumnIds);
   const hideableColumns = sortedColumns.filter((column) => !lockedColumnIds.has(column.id));
@@ -58,65 +61,152 @@ export function HideFieldsPanel({
     (c) => !search.trim() || c.name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  return (
-    <div className="w-64 p-3">
-      <input
-        autoFocus
-        className="mb-3 w-full rounded-md border border-[#e0e0e0] px-2.5 py-1.5 text-xs outline-none placeholder-[#aaa] focus:border-[#0069ff]"
-        placeholder="Find a field"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+  function reorderFromHidePanel(draggedId: string, targetId: string) {
+    if (!onReorderColumns || draggedId === targetId) return;
+    const from = hideableColumns.findIndex((column) => column.id === draggedId);
+    const to = hideableColumns.findIndex((column) => column.id === targetId);
+    if (from < 0 || to < 0) return;
 
-      <div className="mb-3 max-h-64 space-y-0.5 overflow-y-auto">
+    const reorderedHideable = [...hideableColumns];
+    const moved = reorderedHideable.splice(from, 1)[0];
+    if (!moved) return;
+    reorderedHideable.splice(to, 0, moved);
+
+    const lockedIds = sortedColumns
+      .filter((column) => lockedColumnIds.has(column.id))
+      .map((column) => column.id);
+    onReorderColumns([...lockedIds, ...reorderedHideable.map((column) => column.id)]);
+  }
+
+  return (
+    <div className="w-[320px] max-w-[calc(100vw-32px)]">
+      <div className="px-4 pt-3">
+        <div className="flex items-center border-b border-[#d6d8dc] pb-2">
+          <input
+            autoFocus
+            type="text"
+            placeholder="Find a field"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 flex-1 border-none bg-transparent px-0 text-[13px] text-[#1d1f25] outline-none placeholder:text-[#9ca3af]"
+          />
+          <a
+            href="https://support.airtable.com/docs/hiding-fields-in-airtable"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Learn more about hiding fields"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full hover:bg-[#f5f7fa]"
+          >
+            <AirtableAssetIcon asset={118} alt="" size={16} tintColor="#9ca3af" />
+          </a>
+        </div>
+      </div>
+
+      <div className="overflow-auto px-4 pb-1 pt-2" style={{ minHeight: 100, maxHeight: "calc(-380px + 100vh)" }}>
+        {filtered.length === 0 && (
+          <p className="py-6 text-center text-[13px] text-[#9ca3af]">No fields found</p>
+        )}
         {filtered.map((col) => {
-          const ft = FIELD_TYPES[col.type];
           const visible = !hiddenFields[col.id];
+          const dragOver = dragColumnId !== col.id && dragOverColumnId === col.id;
           return (
             <div
               key={col.id}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 hover:bg-[#f5f5f4]"
-              onClick={() => onChange({ ...hiddenFields, [col.id]: !hiddenFields[col.id] })}
+              className="mb-1 mt-1 flex items-center"
+              onDragOver={(event) => {
+                if (!onReorderColumns || !dragColumnId || dragColumnId === col.id) return;
+                event.preventDefault();
+                setDragOverColumnId(col.id);
+              }}
+              onDrop={(event) => {
+                if (!dragColumnId) return;
+                event.preventDefault();
+                reorderFromHidePanel(dragColumnId, col.id);
+                setDragColumnId(null);
+                setDragOverColumnId(null);
+              }}
             >
-              <div
-                className={`relative h-4 w-8 flex-shrink-0 rounded-full transition-colors ${
-                  visible ? "bg-[#22c55e]" : "bg-[#d1d5db]"
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={visible}
+                onClick={() => {
+                  onChange({ ...hiddenFields, [col.id]: !hiddenFields[col.id] });
+                }}
+                className={`flex h-[18px] flex-1 cursor-pointer items-center rounded px-1 ${
+                  dragOver ? "bg-[#0000000d]" : "hover:bg-[#0000000d]"
                 }`}
               >
-                <div
-                  className="absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all"
-                  style={{ left: visible ? "18px" : "2px" }}
-                />
-              </div>
-              <span className="w-3.5 flex-shrink-0 text-center text-xs text-[#888]">{ft?.icon}</span>
-              <span className="flex-1 truncate text-xs text-[#1f2937]">{col.name}</span>
-              <svg width="10" height="12" viewBox="0 0 10 12" fill="none" className="flex-shrink-0 text-[#ccc]">
-                <circle cx="3" cy="3" r="1.2" fill="currentColor" />
-                <circle cx="7" cy="3" r="1.2" fill="currentColor" />
-                <circle cx="3" cy="9" r="1.2" fill="currentColor" />
-                <circle cx="7" cy="9" r="1.2" fill="currentColor" />
-              </svg>
+                <span
+                  className="relative inline-flex flex-none items-center justify-end rounded-full px-[2px]"
+                  style={{
+                    width: 12.8,
+                    height: 8,
+                    backgroundColor: visible ? "#166ee1" : "#d8dbe1",
+                  }}
+                >
+                  <span
+                    className="h-1 w-1 rounded-full bg-white transition-all"
+                    style={{ transform: visible ? "translateX(0)" : "translateX(-4px)" }}
+                  />
+                </span>
+                <span className="ml-4 mr-2 inline-flex flex-none items-center justify-center text-[#616670]">
+                  <FieldTypeIcon type={col.type} className="text-[#616670]" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-left text-[13px] leading-[18px] text-[#1d1f25]">
+                  {col.name}
+                </span>
+              </button>
+              <button
+                type="button"
+                draggable={Boolean(onReorderColumns)}
+                onDragStart={(event) => {
+                  if (!onReorderColumns) return;
+                  setDragColumnId(col.id);
+                  setDragOverColumnId(col.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", col.id);
+                }}
+                onDragEnd={() => {
+                  setDragColumnId(null);
+                  setDragOverColumnId(null);
+                }}
+                aria-label={`Reorder ${col.name}`}
+                className={`ml-2 inline-flex h-[18px] w-4 items-center justify-center rounded text-[#c4c8cf] ${
+                  onReorderColumns ? "cursor-grab active:cursor-grabbing" : ""
+                }`}
+              >
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
+                  <circle cx="3" cy="3" r="1" fill="currentColor" />
+                  <circle cx="7" cy="3" r="1" fill="currentColor" />
+                  <circle cx="3" cy="7" r="1" fill="currentColor" />
+                  <circle cx="7" cy="7" r="1" fill="currentColor" />
+                  <circle cx="3" cy="11" r="1" fill="currentColor" />
+                  <circle cx="7" cy="11" r="1" fill="currentColor" />
+                </svg>
+              </button>
             </div>
           );
         })}
-        {filtered.length === 0 && <p className="py-3 text-center text-xs text-[#aaa]">No fields found</p>}
       </div>
 
-      <div className="flex gap-2 border-t border-[#f0f0f0] pt-2.5">
-        <button
-          onClick={() =>
-            onChange(Object.fromEntries(hideableColumns.map((column) => [column.id, true])))
-          }
-          className="flex-1 rounded-md border border-[#e0e0e0] py-1 text-xs text-[#555] transition-colors hover:bg-[#f5f5f4]"
-        >
-          Hide all
-        </button>
-        <button
-          onClick={() => onChange({})}
-          className="flex-1 rounded-md border border-[#e0e0e0] py-1 text-xs text-[#555] transition-colors hover:bg-[#f5f5f4]"
-        >
-          Show all
-        </button>
+      <div className="my-1 -mx-2 flex px-4 text-[11px] font-semibold">
+          <button
+            type="button"
+            onClick={() =>
+              onChange(Object.fromEntries(hideableColumns.map((column) => [column.id, true])))
+            }
+            className="mx-1 h-[26px] flex-1 rounded-[4px] bg-[#f3f3f4] text-[#1d1f25] hover:bg-[#ecedef]"
+          >
+            Hide all
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({})}
+            className="mx-1 h-[26px] flex-1 rounded-[4px] bg-[#f3f3f4] text-[#1d1f25] hover:bg-[#ecedef]"
+          >
+            Show all
+          </button>
       </div>
     </div>
   );
@@ -987,9 +1077,7 @@ export function FilterPanel({
             className={`focusFirstInModal flex items-center gap-1 text-[13px] font-semibold ${
               maxConditionsReached
                 ? "cursor-not-allowed text-[#a9afba]"
-                : emptyState
-                  ? "text-[#166ee1] hover:text-[#0d52ac]"
-                  : "text-[#616670] hover:text-[#1d1f25]"
+                : "text-[#616670] hover:text-[#1d1f25]"
             }`}
             aria-label="Add condition"
             disabled={maxConditionsReached}
@@ -1000,7 +1088,7 @@ export function FilterPanel({
                 asset={127}
                 alt=""
                 className="mr-half"
-                tintColor={emptyState ? "rgb(22, 110, 225)" : "rgb(97, 102, 112)"}
+                tintColor="rgb(97, 102, 112)"
                 style={{ width: 12, height: 12 }}
               />
             Add condition
@@ -1043,7 +1131,7 @@ export function FilterPanel({
         </div>
       </div>
 
-      {footerNotice && <div className="px-4 pb-3 text-[12px] text-[#a16207]">{footerNotice}</div>}
+      {footerNotice && <div className="px-4 pb-3 text-[13px] text-[#a16207]">{footerNotice}</div>}
 
       {menu && (
         <div
@@ -1089,7 +1177,7 @@ export function FilterPanel({
                   );
                 })}
                 {fieldOptions.length === 0 && (
-                  <div className="px-3 py-2 text-[12px] text-[#8f96a3]">No fields found</div>
+                  <div className="px-3 py-2 text-[13px] text-[#8f96a3]">No fields found</div>
                 )}
               </div>
             </div>
@@ -1173,3 +1261,4 @@ export function FilterPanel({
     </div>
   );
 }
+

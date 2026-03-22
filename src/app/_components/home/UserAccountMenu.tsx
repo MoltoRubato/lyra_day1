@@ -155,7 +155,7 @@ function ChevronRight() {
 
 function BetaPill() {
   return (
-    <span className="rounded-full bg-[#f4cf81] px-2 py-[2px] text-[12px] font-medium leading-none text-[#8a5a08]">
+    <span className="rounded-full bg-[#f4cf81] px-2 py-[2px] text-[13px] font-medium leading-none text-[#8a5a08]">
       Beta
     </span>
   );
@@ -163,7 +163,7 @@ function BetaPill() {
 
 function BusinessPill() {
   return (
-    <span className="rounded-full bg-[#caebff] px-2 py-[2px] text-[12px] font-medium leading-none text-[#1277b0]">
+    <span className="rounded-full bg-[#caebff] px-2 py-[2px] text-[13px] font-medium leading-none text-[#1277b0]">
       <span className="mr-1 inline-block h-[6px] w-[6px] rounded-full bg-[#1283c0]" />
       Business
     </span>
@@ -252,12 +252,11 @@ export function UserAccountMenu({ showBell = true }: UserAccountMenuProps) {
   return (
     <div className="relative flex items-center gap-2" ref={wrapRef}>
       <button
-        className="flex h-[28px] items-center gap-1.5 rounded-full px-3 text-[13px] font-normal text-[#3c4045] transition-colors hover:bg-[#f5f6f8]"
+        className="flex h-[28px] w-[28px] items-center justify-center rounded-full text-[#3c4045] transition-colors hover:bg-[#f5f6f8]"
         title="Help"
         type="button"
       >
         <AirtableAssetIcon asset={118} alt="" size={14} />
-        <span>Help</span>
       </button>
 
       {showBell ? (
@@ -316,3 +315,4 @@ export function UserAccountMenu({ showBell = true }: UserAccountMenuProps) {
     </div>
   );
 }
+

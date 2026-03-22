@@ -42,7 +42,7 @@ export function FieldTypePicker({
               <button
                 key={t}
                 onClick={() => onSelect(t)}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors ${
                   current === t
                     ? "bg-[#e8f5f1] text-[#166254]"
                     : "text-[#4b5563] hover:bg-[#f5f6f8] hover:text-[#1f2937]"
@@ -93,7 +93,7 @@ export function OptionsPanel({
             {editingId === opt.id ? (
               <input
                 autoFocus
-                className="flex-1 rounded-lg border border-[#166254] bg-white px-2 py-0.5 text-xs text-[#1f2937] outline-none"
+                className="flex-1 rounded-lg border border-[#166254] bg-white px-2 py-0.5 text-[13px] text-[#1f2937] outline-none"
                 value={editLabel}
                 onChange={(e) => setEditLabel(e.target.value)}
                 onBlur={() => {
@@ -115,7 +115,7 @@ export function OptionsPanel({
                   style={{ background: opt.color }}
                 />
                 <span
-                  className="flex-1 cursor-pointer text-xs text-[#4b5563]"
+                  className="flex-1 cursor-pointer text-[13px] text-[#4b5563]"
                   onDoubleClick={() => {
                     setEditingId(opt.id);
                     setEditLabel(opt.label);
@@ -144,7 +144,7 @@ export function OptionsPanel({
           </div>
         ))}
         {options.length === 0 && (
-          <p className="text-xs italic text-[#9ca3af]">No options yet</p>
+          <p className="text-[13px] italic text-[#9ca3af]">No options yet</p>
         )}
       </div>
 
@@ -178,7 +178,7 @@ export function OptionsPanel({
           )}
         </div>
         <input
-          className="flex-1 rounded-lg border border-[#e2e5e9] bg-white px-2 py-0.5 text-xs text-[#1f2937] outline-none placeholder-[#9ca3af] focus:border-[#166254]"
+          className="flex-1 rounded-lg border border-[#e2e5e9] bg-white px-2 py-0.5 text-[13px] text-[#1f2937] outline-none placeholder-[#9ca3af] focus:border-[#166254]"
           placeholder="New option..."
           value={newLabel}
           onChange={(e) => setNewLabel(e.target.value)}
@@ -196,7 +196,7 @@ export function OptionsPanel({
               setNewLabel("");
             }
           }}
-          className="rounded-lg bg-[#166254] px-2 py-0.5 text-xs text-white transition-colors hover:bg-[#124f43]"
+          className="rounded-lg bg-[#166254] px-2 py-0.5 text-[13px] text-white transition-colors hover:bg-[#124f43]"
         >
           +
         </button>
@@ -382,7 +382,7 @@ export function AttachmentCell({
   if (value) {
     const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(value);
     return (
-      <div className="flex items-center gap-1 text-xs">
+      <div className="flex items-center gap-1 text-[13px]">
         {isImage ? (
           <Image
             src={value}
@@ -431,3 +431,4 @@ export function AttachmentCell({
     </button>
   );
 }
+

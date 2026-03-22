@@ -109,6 +109,10 @@ export const ColumnInsertRightInput = z.object({
   name: z.string().min(1).default("New field"),
   type: z.nativeEnum(ColumnType).default("TEXT"),
 });
+export const ColumnChangePrimaryFieldInput = z.object({
+  tableId: z.string(),
+  columnId: z.string(),
+});
 export const ColumnReorderInput  = z.object({ tableId: z.string(), orderedIds: z.array(z.string()).min(1) });
 export const ColumnResizeInput   = z.object({ columnId: z.string(), width: z.number().int().min(80).max(1200) });
 

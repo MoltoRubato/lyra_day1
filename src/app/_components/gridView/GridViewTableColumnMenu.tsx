@@ -16,6 +16,7 @@ import {
 
 type GridViewTableColumnMenuProps = {
   col: VisibleColumn;
+  isPrimaryField: boolean;
   tableId: string;
   visible: boolean;
   filters: FilterTree;
@@ -49,10 +50,12 @@ type GridViewTableColumnMenuProps = {
   setDuplicatingField: (
     v: { colId: string; name: string; duplicateCells: boolean } | null,
   ) => void;
+  onRequestChangePrimaryField: () => void;
 };
 
 export function GridViewTableColumnMenu({
   col,
+  isPrimaryField,
   tableId,
   visible,
   filters,
@@ -70,6 +73,7 @@ export function GridViewTableColumnMenu({
   setEditingField,
   setFieldTypeListOpen,
   setDuplicatingField,
+  onRequestChangePrimaryField,
 }: GridViewTableColumnMenuProps) {
   if (!visible) return null;
 
@@ -105,7 +109,8 @@ export function GridViewTableColumnMenu({
         label: string;
         icon: React.ReactNode;
         danger?: boolean;
-        onClick: () => void;
+        disabled?: boolean;
+        onClick?: () => void;
       }
     | { divider: true }
   > = [
@@ -147,15 +152,18 @@ export function GridViewTableColumnMenu({
     {
       label: "Insert left",
       icon: <AirtableAssetIcon asset={437} alt="" size={16} />,
-      onClick: () => {
-        insertColumnLeft.mutate({
-          tableId,
-          anchorColumnId: col.id,
-          name: "New field",
-          type: "TEXT",
-        });
-        closeColMenu();
-      },
+      disabled: isPrimaryField,
+      onClick: isPrimaryField
+        ? undefined
+        : () => {
+            insertColumnLeft.mutate({
+              tableId,
+              anchorColumnId: col.id,
+              name: "New field",
+              type: "TEXT",
+            });
+            closeColMenu();
+          },
     },
     {
       label: "Insert right",
@@ -170,11 +178,18 @@ export function GridViewTableColumnMenu({
         closeColMenu();
       },
     },
-    {
-      label: "Change primary field",
-      icon: <AirtableAssetIcon asset={436} alt="" size={16} />,
-      onClick: () => closeColMenu(),
-    },
+    ...(isPrimaryField
+      ? [
+          {
+            label: "Change primary field",
+            icon: <AirtableAssetIcon asset={436} alt="" size={16} />,
+            onClick: () => {
+              onRequestChangePrimaryField();
+              closeColMenu();
+            },
+          } as const,
+        ]
+      : []),
     { divider: true },
     {
       label: "Copy field URL",
@@ -235,16 +250,20 @@ export function GridViewTableColumnMenu({
     {
       label: "Hide field",
       icon: <AirtableAssetIcon asset={283} alt="" size={16} />,
-      onClick: () => closeColMenu(),
+      disabled: isPrimaryField,
+      onClick: isPrimaryField ? undefined : () => closeColMenu(),
     },
     {
       label: "Delete field",
       icon: <AirtableAssetIcon asset={32} alt="" size={16} />,
       danger: true,
-      onClick: () => {
-        deleteColumn.mutate({ columnId: col.id });
-        closeColMenu();
-      },
+      disabled: isPrimaryField,
+      onClick: isPrimaryField
+        ? undefined
+        : () => {
+            deleteColumn.mutate({ columnId: col.id });
+            closeColMenu();
+          },
     },
   ];
 
@@ -259,8 +278,15 @@ export function GridViewTableColumnMenu({
         ) : (
           <button
             key={`${item.label}-${idx}`}
-            onClick={item.onClick}
-            className={`w-full px-4 py-2 text-left inline-flex items-center gap-2 font-normal ${item.danger ? "text-[#d71a5f]" : "text-[#1f2937]"} hover:bg-[#f5f7fa]`}
+            onClick={() => item.onClick?.()}
+            disabled={item.disabled}
+            className={`w-full px-4 py-2 text-left inline-flex items-center gap-2 font-normal ${
+              item.disabled
+                ? "cursor-not-allowed text-[#a3aab6]"
+                : item.danger
+                  ? "text-[#d71a5f]"
+                  : "text-[#1f2937] hover:bg-[#f5f7fa]"
+            }`}
           >
             <span className="w-4 inline-flex justify-center font-normal">{item.icon}</span>
             {item.label}

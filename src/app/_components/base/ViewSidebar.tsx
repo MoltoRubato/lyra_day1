@@ -161,11 +161,9 @@ export function ViewSidebar({
             setCreateMenuAnchor({ left: rect.left, top: rect.top, height: rect.height });
             setCreateMenuOpen((p) => !p);
           }}
-          className="flex items-center gap-2 w-full px-2.5 py-2 text-[13px] text-[#222] font-medium rounded hover:bg-[#f5f5f4] transition-colors"
+          className="flex items-center gap-2 w-full px-2.5 py-2 text-[13px] text-[#222] font-normal rounded hover:bg-[#f5f5f4] transition-colors"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <path d="M7 2v10M2 7h10" />
-          </svg>
+          <AirtableAssetIcon asset={127} alt="" size={16} />
           Create new...
         </button>
       </div>
@@ -185,7 +183,7 @@ export function ViewSidebar({
         }}
       />
       <div className="px-2 py-1.5 flex-shrink-0">
-        <div className="flex items-center gap-2 px-2 py-1 bg-white rounded text-[12px] text-[#666] hover:bg-[#f5f5f4] transition-colors">
+        <div className="flex items-center gap-2 px-2 py-1 bg-white rounded text-[13px] text-[#666] hover:bg-[#f5f5f4] transition-colors">
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
             <circle cx="5" cy="5" r="3.5" />
             <path d="M8 8L10 10" />
@@ -194,7 +192,7 @@ export function ViewSidebar({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Find a view"
-            className="flex-1 bg-transparent outline-none text-[12px] text-[#444] placeholder-[#aaa]"
+            className="flex-1 bg-transparent outline-none text-[13px] text-[#444] placeholder-[#aaa]"
           />
         </div>
       </div>
@@ -204,7 +202,7 @@ export function ViewSidebar({
           <div className="px-2 pt-2 pb-1">
             <button
               onClick={() => setFavoritesOpen((p) => !p)}
-              className="w-full flex items-center gap-2 px-1.5 py-1 text-[12px] text-[#555] hover:text-[#222]"
+              className="w-full flex items-center gap-2 px-1.5 py-1 text-[13px] text-[#555] hover:text-[#222]"
             >
               <span className="text-yellow-400"><StarIco/></span>
               <span className="font-medium">My favorites</span>
@@ -219,7 +217,7 @@ export function ViewSidebar({
               {(favoritesOpen ? favoriteViews : favoriteViews.slice(0, 1)).map((view) => (
                 <div
                   key={`fav-${view.id}`}
-                  className="flex items-center gap-2 mx-1 px-2 py-1.5 rounded cursor-pointer hover:bg-[#f5f5f4] text-[12px]"
+                  className="flex items-center gap-2 mx-1 px-2 py-1.5 rounded cursor-pointer hover:bg-[#f5f5f4] text-[13px]"
                   onClick={() => onSelectView(view.id)}
                 >
                   <span className="text-[#2d7ff9]">{VIEW_META.GRID.icon}</span>
@@ -285,7 +283,7 @@ export function ViewSidebar({
                 <input
                   autoFocus
                   value={renamingView.value}
-                  className="flex-1 bg-white border border-[#0069ff] rounded px-1.5 py-0.5 text-[12px] outline-none min-w-0"
+                  className="flex-1 bg-white border border-[#0069ff] rounded px-1.5 py-0.5 text-[13px] outline-none min-w-0"
                   onChange={(e) => setRenamingView({ ...renamingView, value: e.target.value })}
                   onClick={(e) => e.stopPropagation()}
                   onBlur={commitViewRename}
@@ -302,7 +300,7 @@ export function ViewSidebar({
                     setRenamingView({ id: view.id, value: view.name });
                   }}
                 >
-                  <div className={`text-[12px] truncate ${isActive ? "text-[#172b4d] font-medium" : "text-[#444]"}`}>
+                  <div className={`text-[13px] truncate ${isActive ? "text-[#172b4d] font-medium" : "text-[#444]"}`}>
                     {view.name}
                   </div>
                   {desc && <div className="text-[11px] text-[#999] truncate">{desc}</div>}
@@ -357,7 +355,7 @@ export function ViewSidebar({
           </div>
         )}
         {q && otherViews.map((view) => (
-          <div key={view.id} className="mx-1 px-2 py-1.5 rounded hover:bg-[#f5f5f4] flex items-center gap-2 text-[12px] text-[#444]">
+          <div key={view.id} className="mx-1 px-2 py-1.5 rounded hover:bg-[#f5f5f4] flex items-center gap-2 text-[13px] text-[#444]">
             <span className="text-[#2d7ff9]">
               {VIEW_META.GRID.icon}
             </span>
@@ -420,3 +418,4 @@ export function ViewSidebar({
     </aside>
   );
 }
+

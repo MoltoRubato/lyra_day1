@@ -278,7 +278,7 @@ export default function GridView({
     [table?.columns],
   );
   const visCols = useMemo(
-    () => allCols.filter((c) => !hiddenFields[c.id]),
+    () => allCols.filter((column, index) => index === 0 || !hiddenFields[column.id]),
     [allCols, hiddenFields],
   );
 
@@ -378,6 +378,7 @@ export default function GridView({
     insertColumnLeft,
     insertColumnRight,
     reorderColumns,
+    changePrimaryField,
     resizeColumn,
     addOption,
     deleteOption,
@@ -700,11 +701,21 @@ export default function GridView({
 
   function onDragEnd() {
     if (dragColId && dragOverColId && dragColId !== dragOverColId) {
-      const from = allCols.findIndex((c) => c.id === dragColId);
-      const to = allCols.findIndex((c) => c.id === dragOverColId);
-      const reordered = [...allCols];
-      reordered.splice(to, 0, reordered.splice(from, 1)[0]!);
-      reorderColumns.mutate({ tableId, orderedIds: reordered.map((c) => c.id) });
+      const primaryColumn = allCols[0];
+      const movableColumns = allCols.slice(1);
+      const from = movableColumns.findIndex((column) => column.id === dragColId);
+      const to = movableColumns.findIndex((column) => column.id === dragOverColId);
+      if (primaryColumn && from >= 0 && to >= 0) {
+        const reordered = [...movableColumns];
+        const moved = reordered.splice(from, 1)[0];
+        if (moved) {
+          reordered.splice(to, 0, moved);
+          reorderColumns.mutate({
+            tableId,
+            orderedIds: [primaryColumn.id, ...reordered.map((column) => column.id)],
+          });
+        }
+      }
     }
     setDragColId(null);
     setDragOverColId(null);
@@ -753,6 +764,7 @@ export default function GridView({
       handleScroll={handleScroll}
       rowH={rowH}
       table={table}
+      allCols={allCols}
       sorts={sorts}
       visCols={visCols}
       freezeCount={freezeCount}
@@ -772,6 +784,7 @@ export default function GridView({
       duplicateColumn={duplicateColumn}
       insertColumnLeft={insertColumnLeft}
       insertColumnRight={insertColumnRight}
+      changePrimaryField={changePrimaryField}
       filters={normalizedFilters}
       groups={groups}
       onSortsChange={onSortsChange}

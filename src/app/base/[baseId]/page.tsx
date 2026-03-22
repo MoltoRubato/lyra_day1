@@ -222,6 +222,32 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
     },
     onSettled: () => setBulkAdding(false),
   });
+  const reorderColumns = api.table.reorderColumns.useMutation({
+    onMutate: async ({ tableId, orderedIds }) => {
+      await utils.table.getById.cancel({ id: tableId });
+      const snapshot = utils.table.getById.getData({ id: tableId });
+      utils.table.getById.setData({ id: tableId }, (prev) => {
+        if (!prev) return prev;
+        const columnsById = new Map(prev.columns.map((column) => [column.id, column]));
+        return {
+          ...prev,
+          columns: orderedIds
+            .map((columnId, order) => {
+              const column = columnsById.get(columnId);
+              return column ? { ...column, order } : null;
+            })
+            .filter((column): column is (typeof prev.columns)[number] => column !== null),
+        };
+      });
+      return { snapshot };
+    },
+    onError: (_error, vars, ctx) => {
+      utils.table.getById.setData({ id: vars.tableId }, ctx?.snapshot);
+    },
+    onSettled: (_data, _error, vars) => {
+      void utils.table.getById.invalidate({ id: vars.tableId });
+    },
+  });
 
   function handleBulkAddRows() {
     if (!currentTableId || bulkAdding) return;
@@ -326,13 +352,19 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   // ── Loading / error ────────────────────────────────────────────────────────
   if (isLoading || (!base && !error)) return (
     <div className="min-h-screen bg-white flex items-center justify-center"
-      style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
+      style={{
+        fontFamily:
+          '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+      }}>
       <div className="text-[13px] text-[#aaa] animate-pulse">Loading…</div>
     </div>
   );
   if (!base) return (
     <div className="min-h-screen bg-white flex items-center justify-center"
-      style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
+      style={{
+        fontFamily:
+          '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+      }}>
       <div className="text-center">
         <p className="text-[#aaa] mb-4 text-[13px]">Base not found</p>
         <Link href="/" className="text-[#0069ff] text-[13px] hover:underline">← Home</Link>
@@ -347,7 +379,11 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
 
   return (
     <div className="h-screen flex overflow-hidden"
-      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", fontSize: "13px" }}>
+      style={{
+        fontFamily:
+          '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+        fontSize: "13px",
+      }}>
 
       <LeftSidebar/>
 
@@ -450,6 +486,10 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
             columns={currentTable.columns}
             config={currentCfg}
             onConfigChange={(patch) => updateViewConfig(activeView.id, patch)}
+            onReorderColumns={(orderedIds) => {
+              if (!currentTableId) return;
+              reorderColumns.mutate({ tableId: currentTableId, orderedIds });
+            }}
             frozenColumnCount={currentCfg.frozenColumnCount}
             activeViewName={activeView.name}
             activeViewType={activeView.type}

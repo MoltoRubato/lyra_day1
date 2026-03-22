@@ -359,6 +359,31 @@ export function useGridViewColumnMutations({
     onSettled: invalidate,
   });
 
+  const changePrimaryField = api.table.changePrimaryField.useMutation({
+    onMutate: async ({ columnId, tableId: targetTableId }) => {
+      await cancelCache();
+      const snapshot = snapshotCache();
+      patchCache((prev) => {
+        if (!prev) return prev;
+        const sorted = [...prev.columns].sort((a, b) => a.order - b.order);
+        const nextPrimary = sorted.find((column) => column.id === columnId);
+        if (!nextPrimary) return prev;
+        const reordered = [nextPrimary, ...sorted.filter((column) => column.id !== columnId)];
+        return {
+          ...prev,
+          columns: reordered.map((column, index) => ({
+            ...column,
+            tableId: targetTableId,
+            order: index,
+          })),
+        };
+      });
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => restoreCache(ctx?.snapshot),
+    onSettled: invalidate,
+  });
+
   const resizeColumn = api.table.resizeColumn.useMutation({
     onMutate: ({ columnId, width }) =>
       patchCache((p) =>
@@ -465,6 +490,7 @@ export function useGridViewColumnMutations({
     insertColumnLeft,
     insertColumnRight,
     reorderColumns,
+    changePrimaryField,
     resizeColumn,
     addOption,
     deleteOption,

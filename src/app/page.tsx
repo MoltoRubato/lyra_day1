@@ -10,8 +10,201 @@ import { UserAccountMenu } from "~/app/_components/home/UserAccountMenu";
 import { WorkspacesOverview } from "~/app/_components/home/WorkspacesOverview";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { ChevronRight, GridIco, HomeIco, ListIco, PencilIco, SharedIco, SidebarStarIco, StarIco, WsIco } from "~/app/_components/home/icons";
-import { ActionBtn, BaseIcon, NavBtn } from "~/app/_components/home/ui";
+import { ActionBtn, BaseIcon } from "~/app/_components/home/ui";
 import { useHomePageController } from "~/app/_components/home/useHomePageController";
+
+const SIDEBAR_FONT_FAMILY =
+  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
+const SIDEBAR_ROW_TEXT_CLASS = "text-[15px] font-medium leading-[22.5px] text-[#1d1f25]";
+const SIDEBAR_ROW_PADDING_CLASS = "px-3";
+
+function SidebarHomeRow({
+  active,
+  onClick,
+}: {
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href="/"
+      onClick={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
+      className={`mb-1 flex h-[38.5px] items-center rounded ${SIDEBAR_ROW_PADDING_CLASS} text-decoration-none ${
+        active ? "bg-[#f2f4f8]" : "hover:bg-[#f2f4f8]"
+      }`}
+    >
+      <HomeIco />
+      <h4
+        className={`grow truncate py-2 pl-2 text-left ${SIDEBAR_ROW_TEXT_CLASS}`}
+        style={{ fontFamily: SIDEBAR_FONT_FAMILY }}
+      >
+        Home
+      </h4>
+    </Link>
+  );
+}
+
+function SidebarSharedRow({
+  onClick,
+}: {
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href="/shared"
+      onClick={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
+      className={`mb-1 flex h-[38.5px] items-center rounded ${SIDEBAR_ROW_PADDING_CLASS} text-decoration-none hover:bg-[#f2f4f8]`}
+    >
+      <SharedIco />
+      <h4
+        className={`grow truncate py-2 pl-2 text-left ${SIDEBAR_ROW_TEXT_CLASS}`}
+        style={{ fontFamily: SIDEBAR_FONT_FAMILY }}
+      >
+        <div className="flex items-center">Shared</div>
+      </h4>
+    </Link>
+  );
+}
+
+function SidebarExpandableRow({
+  href,
+  label,
+  icon,
+  active,
+  expanded,
+  onNavigate,
+  onToggleExpand,
+  expandLabel,
+  onPlus,
+  plusLabel,
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  expanded: boolean;
+  onNavigate: () => void;
+  onToggleExpand: () => void;
+  expandLabel: string;
+  onPlus?: () => void;
+  plusLabel?: string;
+}) {
+  return (
+    <div
+      className={`mb-2 flex h-10 items-center justify-between rounded ${
+        active ? "bg-[#f2f4f8]" : "hover:bg-[#f2f4f8]"
+      }`}
+    >
+      <Link
+        href={href}
+        onClick={(event) => {
+          event.preventDefault();
+          onNavigate();
+        }}
+        className={`w-[220px] max-w-[220px] rounded ${SIDEBAR_ROW_PADDING_CLASS} py-2 text-left`}
+      >
+        <h4
+          className={SIDEBAR_ROW_TEXT_CLASS}
+          style={{ fontFamily: SIDEBAR_FONT_FAMILY }}
+        >
+          {onPlus ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="mr-2 flex-none">{icon}</span>
+                <div className="left-align grow truncate">Workspaces</div>
+              </div>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={plusLabel}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onPlus();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onPlus();
+                  }
+                }}
+                className="flex h-6 w-6 items-center justify-center rounded p-1 hover:bg-[#0000000d]"
+                style={{ marginRight: -16 }}
+              >
+                <AirtableAssetIcon asset={127} alt="" size={12} />
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center">
+              {icon}
+              <div className="left-align grow pl-2 truncate">{label}</div>
+            </div>
+          )}
+        </h4>
+      </Link>
+
+      <button
+        type="button"
+        aria-label={expandLabel}
+        aria-expanded={expanded}
+        onClick={onToggleExpand}
+        className="m-2 flex h-6 w-6 flex-none items-center justify-center rounded p-1 hover:bg-[#0000000d]"
+        style={{ width: 24, height: 24 }}
+      >
+        <span className={`inline-flex transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}>
+          <ChevronRight />
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function SidebarUtilityRow({
+  label,
+  asset,
+  href,
+  onClick,
+}: {
+  label: string;
+  asset: number;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <p
+      className="flex h-8 items-center px-2 text-[13px] font-normal leading-[18px] text-[#1d1f25]"
+      style={{ fontFamily: SIDEBAR_FONT_FAMILY }}
+    >
+      <AirtableAssetIcon asset={asset} alt="" size={16} />
+      <span className="ml-1">{label}</span>
+    </p>
+  );
+
+  if (href) {
+    return (
+      <a href={href} className="block rounded focus-visible hover:bg-[#f2f4f8]">
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="block w-full rounded text-left focus-visible hover:bg-[#f2f4f8]"
+    >
+      {content}
+    </button>
+  );
+}
 
 export default function HomePage() {
   const {
@@ -93,7 +286,10 @@ export default function HomePage() {
   return (
     <div
       className="flex min-h-screen bg-[#f9fafb]"
-      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" }}
+      style={{
+        fontFamily:
+          '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+      }}
     >
 
       <header className="fixed left-0 right-0 top-0 z-30 flex h-[56px] items-center border-b border-[#d8dbe1] bg-white">
@@ -131,139 +327,140 @@ export default function HomePage() {
         </div>
       </header>
 
-      <aside className={`fixed top-[56px] left-0 bottom-0 bg-white border-r border-[#e0e0e0] transition-all duration-200 z-20 overflow-hidden ${sidebarOpen ? "w-[300px]" : "w-[56px]"}`}>
-        <div className="h-full overflow-y-auto overflow-x-hidden">
-          <nav className={`flex min-h-full flex-col ${sidebarOpen ? "p-3" : "p-2"}`}>
-            <div className="space-y-0.5">
-              <NavBtn icon={<HomeIco/>} label="Home"
-                active={page === "home"} collapsed={!sidebarOpen} onClick={() => setPage("home")}/>
+      <aside className={`fixed bottom-0 left-0 top-[56px] z-20 border-r border-[#d8dbe1] bg-white transition-all duration-200 ${sidebarOpen ? "w-[300px]" : "w-[56px]"}`}>
+        {sidebarOpen ? (
+          <div className="relative h-full overflow-y-auto bg-white px-3 py-3">
+            <nav
+              className="flex h-full flex-col"
+              data-testid="homescreen2-sidebar"
+              style={{ minHeight: 579,
+              }}
+            >
+              <div className="flex flex-none flex-col" style={{ height: 410 }}>
+                <SidebarHomeRow active={page === "home"} onClick={() => setPage("home")} />
 
-              <NavBtn icon={<SidebarStarIco />} label="Starred"
-                active={page === "starred"} collapsed={!sidebarOpen} onClick={() => {
-                  if (!sidebarOpen) {
-                    setSidebar(true);
-                    setStarredExpanded(true);
-                  }
-                  if (page === "starred") {
-                    setStarredExpanded((prev) => !prev);
-                  } else {
-                    setStarredExpanded(true);
-                  }
-                  setPage("starred");
-                }}>
-                {sidebarOpen && <ChevronRight className={`text-[#aaa] transition-transform duration-150 ${starredExpanded ? "rotate-90" : ""}`}/>}
-              </NavBtn>
+                <SidebarExpandableRow
+                  href="/starred"
+                  label="Starred"
+                  icon={<SidebarStarIco />}
+                  active={page === "starred"}
+                  expanded={starredExpanded}
+                  onNavigate={() => {
+                    setPage("starred");
+                  }}
+                  onToggleExpand={() => setStarredExpanded((prev) => !prev)}
+                  expandLabel="Expand starred"
+                />
 
-              {sidebarOpen && starredExpanded && (
-                <div>
-                  {[...starredWs, ...starredBases].map((entry) =>
-                    "bases" in entry ? (
-                      <button
-                        key={`starred-ws-${entry.id}`}
-                        onClick={() => setPage(entry.id)}
-                        className="mb-1 flex h-[35.5px] w-full items-center rounded px-3 text-left text-[13px] font-normal leading-[19.5px] text-[#1d1f25] transition-colors hover:bg-[#f5f6f8]"
-                      >
-                        <span className="mr-2 flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-[6px] bg-[#eef1f4]">
-                          <WsIco size={16} />
-                        </span>
-                        <span className="block w-[111.844px] max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                          {entry.name}
-                        </span>
-                      </button>
-                    ) : (
-                      <Link
-                        key={`starred-base-${entry.id}`}
-                        href={`/base/${entry.id}`}
-                        className="mb-1 flex h-[35.5px] w-full items-center rounded px-3 text-left text-[13px] font-normal leading-[19.5px] text-[#1d1f25] transition-colors hover:bg-[#f5f6f8]"
-                      >
-                        <BaseIcon base={entry} size={28} />
-                        <span className="ml-2 block w-[111.844px] max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
-                          {entry.name}
-                        </span>
-                      </Link>
-                    ),
-                  )}
-                </div>
-              )}
-
-              <NavBtn icon={<SharedIco/>} label="Shared"
-                active={false} collapsed={!sidebarOpen} onClick={() => void 0}/>
-
-              <NavBtn
-                icon={<WsIco/>} label="Workspaces"
-                active={page === "workspaces" || !!currentWorkspace}
-                collapsed={!sidebarOpen}
-                onClick={() => {
-                  if (!sidebarOpen) { setSidebar(true); setWsExpanded(true); }
-                  setPage("workspaces");
-                  setWsExpanded((p) => !p);
-                }}>
-                {sidebarOpen && (
-                  <div className="flex items-center gap-1">
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => { e.stopPropagation(); open({ kind: "createWorkspace" }); }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          open({ kind: "createWorkspace" });
-                        }
-                      }}
-                      className="flex h-4 w-4 items-center justify-center cursor-pointer text-[#aaa] hover:text-[#555]"><AirtableAssetIcon asset={127} alt="" size={10} /></span>
-                    <ChevronRight className={`transition-transform duration-150 text-[#aaa] ${wsExpanded ? "rotate-90" : ""}`}/>
+                {starredExpanded && (
+                  <div className="mb-1">
+                    {[...starredWs, ...starredBases].map((entry) =>
+                      "bases" in entry ? (
+                        <button
+                          key={`starred-ws-${entry.id}`}
+                          onClick={() => setPage(entry.id)}
+                          className="mb-1 flex h-[35.5px] w-full items-center rounded px-3 text-left text-[13px] font-normal leading-[19.5px] text-[#1d1f25] transition-colors hover:bg-[#f5f6f8]"
+                        >
+                          <span className="mr-2 flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-[6px] bg-[#eef1f4]">
+                            <WsIco size={16} />
+                          </span>
+                          <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                            {entry.name}
+                          </span>
+                        </button>
+                      ) : (
+                        <Link
+                          key={`starred-base-${entry.id}`}
+                          href={`/base/${entry.id}`}
+                          className="mb-1 flex h-[35.5px] w-full items-center rounded px-3 text-left text-[13px] font-normal leading-[19.5px] text-[#1d1f25] transition-colors hover:bg-[#f5f6f8]"
+                        >
+                          <BaseIcon base={entry} size={28} />
+                          <span className="ml-2 block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                            {entry.name}
+                          </span>
+                        </Link>
+                      ),
+                    )}
                   </div>
                 )}
-              </NavBtn>
 
-              {sidebarOpen && wsExpanded && (
-                <div className="pl-4 pr-1 space-y-0.5">
-                  {workspaces.map((ws) => (
-                    <button key={ws.id} onClick={() => setPage(ws.id)}
-                      className={`w-full flex items-center gap-2 px-2 py-[5px] rounded text-[13px] transition-colors text-left ${
-                        page === ws.id
-                          ? "bg-[#f0f0ef] text-[#172b4d] font-medium"
-                          : "text-[#555] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
-                      }`}>
-                      <span className="flex-1 truncate">{ws.name}</span>
-                      {ws.starred && <span className="text-[10px]"><StarIco size={16} active /></span>}
-                    </button>
-                  ))}
-                  <button onClick={() => open({ kind: "createWorkspace" })}
-                    className="w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-[12px] text-[#aaa] hover:text-[#555] hover:bg-[#f5f5f4] transition-colors">
-                    <AirtableAssetIcon asset={127} alt="" size={10} /> Add workspace
+                <SidebarSharedRow onClick={() => void 0} />
+
+                <SidebarExpandableRow
+                  href="/workspaces"
+                  label="Workspaces"
+                  icon={<WsIco />}
+                  active={page === "workspaces" || !!currentWorkspace}
+                  expanded={wsExpanded}
+                  onNavigate={() => setPage("workspaces")}
+                  onToggleExpand={() => setWsExpanded((prev) => !prev)}
+                  expandLabel="Expand All workspaces"
+                  onPlus={() => open({ kind: "createWorkspace" })}
+                  plusLabel="Create a workspace"
+                />
+
+                {wsExpanded && (
+                  <div className="pl-4 pr-1 space-y-0.5">
+                    {workspaces.map((ws) => (
+                      <button
+                        key={ws.id}
+                        onClick={() => setPage(ws.id)}
+                        className={`w-full rounded px-2 py-[5px] text-left text-[13px] transition-colors ${
+                          page === ws.id
+                            ? "bg-[#f2f4f8] font-medium text-[#172b4d]"
+                            : "text-[#555] hover:bg-[#f5f5f4] hover:text-[#172b4d]"
+                        }`}
+                      >
+                        <span className="truncate">{ws.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="mb-4 mt-auto border-t border-[#d8dbe1]" />
+                <div>
+                  <SidebarUtilityRow label="Templates and apps" asset={389} />
+                  <SidebarUtilityRow label="Marketplace" asset={91} href="https://airtable.com/marketplace" />
+                  <SidebarUtilityRow label="Import" asset={21} />
+
+                  <button
+                    onClick={() => open({ kind: "createBase" })}
+                    className="mb-1 mt-2 inline-flex h-8 w-full items-center justify-center rounded-[6px] bg-[#166ee1] px-3 text-[13px] font-semibold text-white shadow-[0px_0px_1px_rgba(0,0,0,0.32),0px_0px_2px_rgba(0,0,0,0.08),0px_1px_3px_rgba(0,0,0,0.08)] transition-colors hover:bg-[#0d52ac]"
+                    style={{ fontFamily: SIDEBAR_FONT_FAMILY }}
+                  >
+                    <AirtableAssetIcon asset={127} alt="" size={16} tintColor="white" className="mr-2" />
+                    <span className="truncate">Create</span>
                   </button>
                 </div>
-              )}
-            </div>
-
-            <div className="mt-auto">
-              {sidebarOpen && (
-                <div className="border-t border-[#e0e0e0] px-2 py-2 space-y-0.5">
-                  {[
-                    { label: "Templates and apps", asset: 389 },
-                    { label: "Marketplace", asset: 91 },
-                    { label: "Import", asset: 21 },
-                  ].map((item) => (
-                    <button key={item.label} className="w-full flex items-center gap-2 px-2 py-[6px] rounded text-[13px] text-[#555] hover:bg-[#f5f5f4] hover:text-[#374151] transition-colors text-left">
-                      <AirtableAssetIcon asset={item.asset} alt="" size={14} className="opacity-80" />
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className={`border-t border-[#e0e0e0] ${sidebarOpen ? "p-3" : "p-2"}`}>
-                <button onClick={() => open({ kind: "createBase" })}
-                  className="w-full flex items-center justify-center gap-1.5 py-[7px] bg-[#0069ff] hover:bg-[#0055d4] text-white text-[13px] font-medium rounded transition-colors">
-                  <AirtableAssetIcon asset={127} alt="" size={10} className="invert brightness-0 saturate-0" />
-                  {sidebarOpen && "Create"}
-                </button>
               </div>
+            </nav>
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center gap-2 px-2 py-3">
+            <button onClick={() => setPage("home")} className="flex h-10 w-10 items-center justify-center rounded hover:bg-[#f2f4f8]">
+              <HomeIco />
+            </button>
+            <button onClick={() => setPage("starred")} className="flex h-10 w-10 items-center justify-center rounded hover:bg-[#f2f4f8]">
+              <SidebarStarIco />
+            </button>
+            <button onClick={() => void 0} className="flex h-10 w-10 items-center justify-center rounded hover:bg-[#f2f4f8]">
+              <SharedIco />
+            </button>
+            <button onClick={() => setPage("workspaces")} className="flex h-10 w-10 items-center justify-center rounded hover:bg-[#f2f4f8]">
+              <WsIco />
+            </button>
+            <div className="mt-auto w-full px-1">
+              <button
+                onClick={() => open({ kind: "createBase" })}
+                className="flex h-8 w-full items-center justify-center rounded-[6px] bg-[#166ee1] text-white shadow-[0px_0px_1px_rgba(0,0,0,0.32),0px_0px_2px_rgba(0,0,0,0.08),0px_1px_3px_rgba(0,0,0,0.08)]"
+              >
+                <AirtableAssetIcon asset={127} alt="" size={16} tintColor="white" />
+              </button>
             </div>
-          </nav>
-        </div>
+          </div>
+        )}
       </aside>
 
       <main className={`flex-1 flex flex-col min-h-screen transition-all duration-200 pt-[56px] ${sidebarOpen ? "ml-[300px]" : "ml-[56px]"}`}>
@@ -354,9 +551,9 @@ export default function HomePage() {
                     </button>
                     <ActionBtn title="Rename workspace" onClick={() => open({ kind: "renameWorkspace", id: currentWorkspace.id, value: currentWorkspace.name })}><PencilIco/></ActionBtn>
                     <button onClick={() => open({ kind: "editDesc", id: currentWorkspace.id, value: currentWorkspace.description ?? "" })}
-                      className="text-[12px] text-[#0069ff] hover:underline px-2 py-1">Edit description</button>
+                      className="text-[13px] text-[#0069ff] hover:underline px-2 py-1">Edit description</button>
                     <button onClick={() => open({ kind: "createBase", workspaceId: currentWorkspace.id })}
-                      className="text-[12px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-3 py-1.5 rounded transition-colors font-medium">
+                      className="text-[13px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-3 py-1.5 rounded transition-colors font-medium">
                       + Create base
                     </button>
                   </div>
@@ -391,13 +588,13 @@ export default function HomePage() {
                     <rect x="6" y="10" width="36" height="30" rx="3"/><path d="M6 18h36M16 10v8"/>
                   </svg>
                   <p className="text-[13px] text-[#888]">
-                    {page === "starred" ? "Nothing starred yet — star a base or workspace to pin it here." :
-                      page === "home" ? "No bases yet — click Create to get started." :
+                    {page === "starred" ? "Nothing starred yet - star a base or workspace to pin it here." :
+                      page === "home" ? "No bases yet - click Create to get started." :
                         "No bases in this workspace yet."}
                   </p>
                   {currentWorkspace && (
                     <button onClick={() => open({ kind: "createBase", workspaceId: currentWorkspace.id })}
-                      className="mt-4 text-[12px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-4 py-2 rounded transition-colors font-medium">
+                      className="mt-4 text-[13px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-4 py-2 rounded transition-colors font-medium">
                       + Create base
                     </button>
                   )}
@@ -648,7 +845,7 @@ export default function HomePage() {
 
               {(modal.kind === "renameBase" || modal.kind === "renameWorkspace") && (
                 <div className="mb-4">
-                  <label className="block text-[12px] text-[#555] mb-1.5">
+                  <label className="block text-[13px] text-[#555] mb-1.5">
                     {modal.kind === "renameWorkspace" ? "Workspace name" : "Base name"}
                   </label>
                   <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
@@ -661,14 +858,14 @@ export default function HomePage() {
               {modal.kind === "createWorkspace" && (
                 <>
                   <div className="mb-3">
-                    <label className="block text-[12px] text-[#555] mb-1.5">Workspace name</label>
+                    <label className="block text-[13px] text-[#555] mb-1.5">Workspace name</label>
                     <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") close(); }}
                       className="w-full border border-[#d8d8d8] rounded px-3 py-2 text-[13px] outline-none focus:border-[#0069ff] focus:ring-2 focus:ring-[#0069ff]/10 transition-colors"
                       placeholder="My workspace..."/>
                   </div>
                   <div className="mb-4">
-                    <label className="block text-[12px] text-[#555] mb-1.5">Description <span className="text-[#bbb]">(optional)</span></label>
+                    <label className="block text-[13px] text-[#555] mb-1.5">Description <span className="text-[#bbb]">(optional)</span></label>
                     <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={2}
                       className="w-full border border-[#d8d8d8] rounded px-3 py-2 text-[13px] outline-none focus:border-[#0069ff] transition-colors resize-none"
                       placeholder="Describe this workspace..."/>
@@ -686,10 +883,10 @@ export default function HomePage() {
 
               {modal.kind === "moveBase" && (
                 <div className="mb-4">
-                  <label className="block text-[12px] text-[#555] mb-1.5">Select workspace</label>
+                  <label className="block text-[13px] text-[#555] mb-1.5">Select workspace</label>
                   <select value={moveTo} onChange={(e) => setMoveTo(e.target.value)}
                     className="w-full border border-[#d8d8d8] rounded px-3 py-2 text-[13px] outline-none focus:border-[#0069ff] bg-white transition-colors">
-                    <option value="">— No workspace —</option>
+                    <option value="">- No workspace -</option>
                 {workspaces.map((ws) => (
                       <option key={ws.id} value={ws.id}>{ws.name}</option>
                     ))}
@@ -715,4 +912,5 @@ export default function HomePage() {
     </div>
   );
 }
+
 

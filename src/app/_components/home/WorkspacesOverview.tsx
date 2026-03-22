@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { timeAgo } from "~/app/_components/home/helpers";
 import { MoveIco, PencilIco, StarIco, TrashIco } from "~/app/_components/home/icons";
 import type { BaseItem, WorkspaceBaseItem, WsFull } from "~/app/_components/home/types";
@@ -30,7 +30,7 @@ export function WorkspacesOverview({
       <div className="flex flex-col items-center justify-center py-20 text-[#aaa]">
         <p className="text-[13px] mb-4">No workspaces yet.</p>
         <button onClick={onCreateWorkspace}
-          className="text-[12px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-4 py-2 rounded transition-colors font-medium">
+          className="text-[13px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-4 py-2 rounded transition-colors font-medium">
           + Create workspace
         </button>
       </div>
@@ -51,7 +51,7 @@ export function WorkspacesOverview({
                     ws.starred ? "text-yellow-400" : "opacity-0 group-hover:opacity-100 text-[#ddd] hover:text-yellow-400"
                   }`}><StarIco size={16} active={ws.starred} /></button>
               </div>
-              {ws.description && <p className="text-[12px] text-[#888] mt-0.5">{ws.description}</p>}
+              {ws.description && <p className="text-[13px] text-[#888] mt-0.5">{ws.description}</p>}
             </div>
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
               <ActionBtn title="Rename" onClick={() => onRenameWs(ws)}><PencilIco/></ActionBtn>
@@ -66,13 +66,13 @@ export function WorkspacesOverview({
               <ActionBtn title="Delete workspace" danger onClick={() => onDeleteWs(ws.id)}><TrashIco/></ActionBtn>
             </div>
             <button onClick={() => onNavigate(ws.id)}
-              className="text-[12px] text-[#0069ff] hover:underline flex-shrink-0 ml-2 font-medium">
+              className="text-[13px] text-[#0069ff] hover:underline flex-shrink-0 ml-2 font-medium">
               View workspace
             </button>
           </div>
 
           {ws.bases.length === 0 ? (
-            <p className="ml-[44px] text-[12px] text-[#aaa] py-2">
+            <p className="ml-[44px] text-[13px] text-[#aaa] py-2">
               No bases.{" "}
               <button onClick={() => onCreateBase(ws.id)} className="text-[#0069ff] hover:underline">Create one</button>
             </p>
@@ -103,8 +103,8 @@ export function WorkspacesOverview({
                 </div>
               ))}
               {ws.bases.length > 6 && (
-                <button onClick={() => onNavigate(ws.id)} className="ml-[30px] text-[12px] text-[#0069ff] hover:underline py-1">
-                  +{ws.bases.length - 6} more — View workspace
+                <button onClick={() => onNavigate(ws.id)} className="ml-[30px] text-[13px] text-[#0069ff] hover:underline py-1">
+                  +{ws.bases.length - 6} more - View workspace
                 </button>
               )}
             </div>
@@ -144,4 +144,5 @@ export function WorkspacesOverview({
     </div>
   );
 }
+
 

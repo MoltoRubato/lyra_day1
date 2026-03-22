@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { timeAgo } from "~/app/_components/home/helpers";
 import { StarIco } from "~/app/_components/home/icons";
@@ -82,7 +82,7 @@ export function SearchModal({ bases, workspaces, onClose }: {
                 <div className="flex items-center gap-1.5">
                   <span className="text-[13px] font-medium text-[#172b4d] truncate">{base.name}</span>
                   {base.starred && <span className="text-yellow-400 text-[11px]"><StarIco/></span>}
-                  <span className="text-[12px] text-[#aaa]">· Base</span>
+                  <span className="text-[13px] text-[#aaa]">- Base</span>
                 </div>
                 <p className="text-[11px] text-[#888]">{base.workspace?.name ?? "No workspace"}</p>
               </div>
@@ -95,12 +95,13 @@ export function SearchModal({ bases, workspaces, onClose }: {
         </div>
 
         <div className="border-t border-[#f0f0f0] px-4 py-2.5 flex items-center gap-1.5">
-          <span className="text-[12px] text-[#aaa]">Press</span>
+          <span className="text-[13px] text-[#aaa]">Press</span>
           <kbd className="text-[11px] text-[#555] bg-[#f5f5f4] border border-[#e0e0e0] rounded px-1.5 py-0.5 font-mono">CTRL K</kbd>
-          <span className="text-[12px] text-[#aaa]">any time to search</span>
+          <span className="text-[13px] text-[#aaa]">any time to search</span>
         </div>
       </div>
     </>
   );
 }
+
 

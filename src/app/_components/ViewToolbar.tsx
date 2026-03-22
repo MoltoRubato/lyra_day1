@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 // src/app/_components/ViewToolbar.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Column } from "@prisma/client";
@@ -58,6 +58,7 @@ export default function ViewToolbar({
   columns,
   config,
   onConfigChange,
+  onReorderColumns,
   activeViewName,
   activeViewType = "GRID",
   activeViewId,
@@ -67,13 +68,14 @@ export default function ViewToolbar({
   onBulkAddRows,
   bulkAdding = false,
   onToggleSidebar,
-  frozenColumnCount = 0,
+  frozenColumnCount: _frozenColumnCount = 0,
   forcedOpenPanel,
   onForcedOpenHandled,
 }: {
   columns: Column[];
   config: ViewConfig;
   onConfigChange: (patch: Partial<ViewConfig>) => void;
+  onReorderColumns?: (orderedIds: string[]) => void;
   activeViewName?: string;
   activeViewType?: string;
   activeViewId?: string | null;
@@ -109,19 +111,10 @@ export default function ViewToolbar({
     () => [...columns].sort((a, b) => a.order - b.order),
     [columns],
   );
-  const visibleColumns = useMemo(
-    () => sortedColumns.filter((column, index) => index === 0 || !config.hiddenFields[column.id]),
-    [config.hiddenFields, sortedColumns],
-  );
-  const clampedFrozenColumnCount = Math.max(
-    0,
-    Math.min(frozenColumnCount, visibleColumns.length),
-  );
+  const primaryColumnId = sortedColumns[0]?.id ?? null;
   const nonHideableColumnIds = useMemo(() => {
-    return visibleColumns
-      .slice(0, clampedFrozenColumnCount)
-      .map((column) => column.id);
-  }, [clampedFrozenColumnCount, visibleColumns]);
+    return primaryColumnId ? [primaryColumnId] : [];
+  }, [primaryColumnId]);
   const nonHideableColumnSet = useMemo(
     () => new Set(nonHideableColumnIds),
     [nonHideableColumnIds],
@@ -241,7 +234,7 @@ export default function ViewToolbar({
                 }
                 if (e.key === "Escape") setRenamingView(false);
               }}
-              className="px-2 py-1 rounded border border-[#c9c9c9] text-[12px] text-[#172b4d] font-medium outline-none w-[160px]"
+              className="px-2 py-1 rounded border border-[#c9c9c9] text-[13px] text-[#172b4d] font-medium outline-none w-[160px]"
             />
           ) : (
             <button
@@ -253,7 +246,7 @@ export default function ViewToolbar({
                 setDraftName(activeViewName ?? "");
                 setDraftDesc(activeViewDescription ?? "");
               }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f2f3f5] text-[#1d1f25] font-medium text-[12px] transition-colors"
+              className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f2f3f5] text-[#1d1f25] font-medium text-[13px] transition-colors"
             >
               <AirtableAssetIcon asset={activeViewMeta.asset} alt="" size={16} tintColor={activeViewMeta.color} />
               {activeViewName}
@@ -302,6 +295,7 @@ export default function ViewToolbar({
                   columns={sortedColumns}
                   hiddenFields={config.hiddenFields}
                   nonHideableColumnIds={nonHideableColumnIds}
+                  onReorderColumns={onReorderColumns}
                   onChange={(hf) =>
                     onConfigChange({ hiddenFields: sanitizeHiddenFields(hf) })
                   }
@@ -375,7 +369,7 @@ export default function ViewToolbar({
         <button
           onClick={onBulkAddRows}
           disabled={bulkAdding}
-          className="h-7 inline-flex items-center justify-center rounded-[8px] border border-[#d8dbe1] px-2.5 text-[12px] font-medium text-[#1d1f25] hover:bg-[#f5f5f4] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+          className="h-7 inline-flex items-center justify-center rounded-[8px] border border-[#d8dbe1] px-2.5 text-[13px] font-medium text-[#1d1f25] hover:bg-[#f5f5f4] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
           title="Testing only: add 100,000 filled rows"
         >
           {bulkAdding ? "Adding..." : "+100k rows"}
@@ -467,7 +461,7 @@ export default function ViewToolbar({
                       rows={2}
                       value={draftDesc}
                       onChange={(e) => setDraftDesc(e.target.value)}
-                      className="w-full border border-[#d9d9d9] rounded px-2 py-1 text-[12px] outline-none focus:border-[#0069ff] resize-none"
+                      className="w-full border border-[#d9d9d9] rounded px-2 py-1 text-[13px] outline-none focus:border-[#0069ff] resize-none"
                     />
                   </>
                 )}
@@ -477,7 +471,7 @@ export default function ViewToolbar({
                       setRenamingView(false);
                       setEditingDesc(false);
                     }}
-                    className="text-[12px] text-[#777] hover:text-[#444]"
+                    className="text-[13px] text-[#777] hover:text-[#444]"
                   >
                     Cancel
                   </button>
@@ -486,7 +480,7 @@ export default function ViewToolbar({
                       if (editingDesc && onUpdateViewDescription && activeViewId) onUpdateViewDescription(activeViewId, draftDesc);
                       setEditingDesc(false);
                     }}
-                    className="text-[12px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-2.5 py-1 rounded"
+                    className="text-[13px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-2.5 py-1 rounded"
                   >
                     Save
                   </button>
@@ -499,3 +493,4 @@ export default function ViewToolbar({
     </div>
   );
 }
+

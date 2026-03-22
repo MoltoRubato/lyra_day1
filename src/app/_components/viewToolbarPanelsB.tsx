@@ -1,4 +1,4 @@
-﻿import type { Column } from "@prisma/client";
+import type { Column } from "@prisma/client";
 import type { GroupRule, RowHeight, SortRule } from "~/app/_components/tableUtils";
 
 function uid(): string {
@@ -35,14 +35,14 @@ export function GroupPanel({
     <div className="w-[480px] p-4">
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-semibold text-[#172b4d]">Group by</span>
-        <div className="flex gap-3 text-xs text-[#0069ff]">
+        <div className="flex gap-3 text-[13px] text-[#0069ff]">
           <button className="hover:underline">Collapse all</button>
           <button className="hover:underline">Expand all</button>
         </div>
       </div>
 
       {groups.length === 0 && (
-        <p className="text-xs text-[#bbb] italic mb-4">No groups — add one below.</p>
+        <p className="text-[13px] text-[#bbb] italic mb-4">No groups - add one below.</p>
       )}
 
       <div className="space-y-2 mb-4">
@@ -51,12 +51,12 @@ export function GroupPanel({
           const availCols = groupableCols.filter((c) => !usedIds.has(c.id) || c.id === g.columnId);
           return (
             <div key={g.id} className="flex items-center gap-2">
-              <span className="text-xs text-[#888] w-16 flex-shrink-0 text-right font-medium">
+              <span className="text-[13px] text-[#888] w-16 flex-shrink-0 text-right font-medium">
                 {i === 0 ? "Group by" : "then by"}
               </span>
 
               <select
-                className="flex-1 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-xs outline-none focus:border-[#0069ff] bg-white"
+                className="flex-1 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-[13px] outline-none focus:border-[#0069ff] bg-white"
                 value={g.columnId}
                 onChange={(e) => update(g.id, { columnId: e.target.value })}
               >
@@ -66,12 +66,12 @@ export function GroupPanel({
               </select>
 
               <select
-                className="w-24 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-xs outline-none focus:border-[#0069ff] bg-white"
+                className="w-24 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-[13px] outline-none focus:border-[#0069ff] bg-white"
                 value={g.dir}
                 onChange={(e) => update(g.id, { dir: e.target.value as "asc" | "desc" })}
               >
-                <option value="asc">A → Z</option>
-                <option value="desc">Z → A</option>
+                <option value="asc">A ? Z</option>
+                <option value="desc">Z ? A</option>
               </select>
 
               <button className="p-1 text-[#ccc] hover:text-[#888]">
@@ -96,7 +96,7 @@ export function GroupPanel({
       {groups.length < groupableCols.length && (
         <button
           onClick={add}
-          className="flex items-center gap-1.5 text-xs text-[#555] hover:text-[#172b4d] font-medium transition-colors"
+          className="flex items-center gap-1.5 text-[13px] text-[#555] hover:text-[#172b4d] font-medium transition-colors"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 1v8M1 5h8" strokeLinecap="round" />
@@ -135,7 +135,7 @@ export function SortPanel({
       <p className="text-sm font-semibold text-[#172b4d] mb-4">Sort within groups by</p>
 
       {sorts.length === 0 && (
-        <p className="text-xs text-[#bbb] italic mb-4">No sort rules — add one below.</p>
+        <p className="text-[13px] text-[#bbb] italic mb-4">No sort rules - add one below.</p>
       )}
 
       <div className="space-y-2 mb-4">
@@ -145,7 +145,7 @@ export function SortPanel({
           return (
             <div key={s.id} className="flex items-center gap-2">
               <select
-                className="flex-1 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-xs outline-none focus:border-[#0069ff] bg-white"
+                className="flex-1 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-[13px] outline-none focus:border-[#0069ff] bg-white"
                 value={s.columnId}
                 onChange={(e) => update(s.id, { columnId: e.target.value })}
               >
@@ -155,12 +155,12 @@ export function SortPanel({
               </select>
 
               <select
-                className="w-24 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-xs outline-none focus:border-[#0069ff] bg-white"
+                className="w-24 border border-[#e0e0e0] rounded-md px-2 py-1.5 text-[13px] outline-none focus:border-[#0069ff] bg-white"
                 value={s.dir}
                 onChange={(e) => update(s.id, { dir: e.target.value as "asc" | "desc" })}
               >
-                <option value="asc">A → Z</option>
-                <option value="desc">Z → A</option>
+                <option value="asc">A ? Z</option>
+                <option value="desc">Z ? A</option>
               </select>
 
               <button className="p-1 text-[#ccc] hover:text-[#888]">
@@ -185,7 +185,7 @@ export function SortPanel({
       <button
         onClick={add}
         disabled={sorts.length >= columns.length}
-        className="flex items-center gap-1.5 text-xs text-[#555] hover:text-[#172b4d] font-medium transition-colors disabled:opacity-40 mb-4"
+        className="flex items-center gap-1.5 text-[13px] text-[#555] hover:text-[#172b4d] font-medium transition-colors disabled:opacity-40 mb-4"
       >
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M5 1v8M1 5h8" strokeLinecap="round" />
@@ -197,7 +197,7 @@ export function SortPanel({
         <div className="w-8 h-4 rounded-full bg-[#22c55e] relative flex-shrink-0">
           <div className="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full shadow" />
         </div>
-        <span className="text-xs text-[#555]">Automatically sort records</span>
+        <span className="text-[13px] text-[#555]">Automatically sort records</span>
       </div>
     </div>
   );
@@ -283,3 +283,4 @@ export function RowHeightPanel({
     </div>
   );
 }
+

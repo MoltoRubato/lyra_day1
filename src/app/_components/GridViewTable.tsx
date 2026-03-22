@@ -14,13 +14,16 @@ import type {
   GridViewTableProps,
   SummaryOption,
 } from "~/app/_components/gridView/tableTypes";
+import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
 import { getActiveFilterFieldIds } from "~/app/_components/tableUtils";
+import { isPrimaryFieldSupportedType } from "~/shared/primaryField";
 
 export function GridViewTable({
   containerRef,
   handleScroll,
   rowH,
   table,
+  allCols,
   sorts: _sorts,
   filters,
   groups,
@@ -48,6 +51,7 @@ export function GridViewTable({
   duplicateColumn,
   insertColumnLeft,
   insertColumnRight,
+  changePrimaryField,
   addOption,
   deleteOption,
   updateOption,
@@ -104,6 +108,10 @@ export function GridViewTable({
     name: string;
     duplicateCells: boolean;
   } | null>(null);
+  const [changingPrimaryField, setChangingPrimaryField] = useState(false);
+  const [primaryFieldPickerOpen, setPrimaryFieldPickerOpen] = useState(false);
+  const [primaryFieldSearch, setPrimaryFieldSearch] = useState("");
+  const [selectedPrimaryFieldId, setSelectedPrimaryFieldId] = useState<string | null>(null);
 
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [dragRowId, setDragRowId] = useState<string | null>(null);
@@ -120,6 +128,24 @@ export function GridViewTable({
   const [isFreezeDragging, setIsFreezeDragging] = useState(false);
   const [freezeTooltipTop, setFreezeTooltipTop] = useState(220);
   const dividerBottomInset = Math.max(34, horizontalScrollbarHeight + 21.5);
+  const primaryColumn = allCols[0] ?? null;
+  const selectedPrimaryField = useMemo(
+    () => allCols.find((column) => column.id === selectedPrimaryFieldId) ?? null,
+    [allCols, selectedPrimaryFieldId],
+  );
+  const filteredPrimaryFieldOptions = useMemo(() => {
+    const query = primaryFieldSearch.trim().toLowerCase();
+    return allCols.filter((column) =>
+      query.length === 0 ? true : column.name.toLowerCase().includes(query),
+    );
+  }, [allCols, primaryFieldSearch]);
+  const canApplyPrimaryFieldChange = Boolean(
+    primaryColumn &&
+      selectedPrimaryField &&
+      selectedPrimaryField.id !== primaryColumn.id &&
+      isPrimaryFieldSupportedType(selectedPrimaryField.type) &&
+      !changePrimaryField.isPending,
+  );
 
   const label = (recordLabel || "record").trim() || "record";
   const labelLower = label.toLowerCase();
@@ -179,6 +205,15 @@ export function GridViewTable({
     const valid = new Set(allRowsForSummary.map((r) => r.id));
     setSelectedRowIds((prev) => prev.filter((id) => valid.has(id)));
   }, [allRowsForSummary]);
+
+  useEffect(() => {
+    if (!changingPrimaryField) return;
+    if (!primaryColumn) {
+      setChangingPrimaryField(false);
+      return;
+    }
+    setSelectedPrimaryFieldId((prev) => prev ?? primaryColumn.id);
+  }, [changingPrimaryField, primaryColumn]);
 
   useEffect(() => {
     const containerEl = containerRef.current;
@@ -356,6 +391,31 @@ export function GridViewTable({
     setMenuForCol(null);
   }
 
+  function openChangePrimaryFieldDialog() {
+    if (!primaryColumn) return;
+    setSelectedPrimaryFieldId(primaryColumn.id);
+    setPrimaryFieldSearch("");
+    setPrimaryFieldPickerOpen(false);
+    setChangingPrimaryField(true);
+    closeColMenu();
+  }
+
+  function closeChangePrimaryFieldDialog() {
+    setChangingPrimaryField(false);
+    setPrimaryFieldPickerOpen(false);
+    setPrimaryFieldSearch("");
+    setSelectedPrimaryFieldId(primaryColumn?.id ?? null);
+  }
+
+  function applyPrimaryFieldChange() {
+    if (!primaryColumn || !selectedPrimaryField || !canApplyPrimaryFieldChange) return;
+    changePrimaryField.mutate({
+      tableId,
+      columnId: selectedPrimaryField.id,
+    });
+    closeChangePrimaryFieldDialog();
+  }
+
   function applyFieldEdit() {
     if (!editingField) return;
     const selectFieldTypes = new Set(["SINGLE_SELECT", "MULTI_SELECT"]);
@@ -531,6 +591,7 @@ export function GridViewTable({
             setEditingField={setEditingField}
             setFieldTypeListOpen={setFieldTypeListOpen}
             setDuplicatingField={setDuplicatingField}
+            onRequestChangePrimaryField={openChangePrimaryFieldDialog}
             tableId={tableId}
             filters={filters}
             groups={groups}
@@ -700,6 +761,143 @@ export function GridViewTable({
         updateColumnDescription={updateColumnDescription}
       />
 
+      {changingPrimaryField && primaryColumn && (
+        <>
+          <div
+            className="fixed inset-0 z-[70] bg-black/25"
+            onClick={closeChangePrimaryFieldDialog}
+          />
+          <div
+            aria-label="Change primary field"
+            role="dialog"
+            className="fixed left-1/2 top-1/2 z-[80] w-[min(525px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-[10px] border border-[#d6d8dc] bg-white px-6 pb-5 pt-6 shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="mb-6 text-[35px] font-semibold leading-[1.05] text-[#2a2d34]">
+              Change the primary field
+            </h3>
+
+            <div className="mb-6">
+              <div className="mb-2 text-[13px] leading-[18px] text-[#616670]">Primary field</div>
+              <div className="relative">
+                <button
+                  type="button"
+                  className="flex h-10 w-full items-center justify-between rounded-[6px] border border-[#d8dbe1] bg-white px-3 text-left text-[13px] text-[#1d1f25]"
+                  onClick={() => setPrimaryFieldPickerOpen((open) => !open)}
+                >
+                  <span className="inline-flex min-w-0 items-center gap-2 truncate">
+                    {selectedPrimaryField && <FieldTypeIcon type={selectedPrimaryField.type} />}
+                    <span className="truncate text-[13px] leading-[18px]">
+                      {selectedPrimaryField?.name ?? primaryColumn.name}
+                    </span>
+                  </span>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    className="text-[#616670]"
+                    aria-hidden="true"
+                  >
+                    <path d="M4.5 6.5L8 10l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {primaryFieldPickerOpen && (
+                  <div className="absolute left-0 top-full z-[90] mt-1 w-full overflow-hidden rounded-[6px] border border-[#d8dbe1] bg-white shadow-[0_4px_10px_rgba(0,0,0,0.16)]">
+                    <div className="border-b border-[#e5e8ed] px-3 py-2">
+                      <input
+                        autoFocus
+                        value={primaryFieldSearch}
+                        onChange={(event) => setPrimaryFieldSearch(event.target.value)}
+                        placeholder="Find a field"
+                        className="h-8 w-full border-none bg-transparent px-0 text-[13px] text-[#1d1f25] outline-none placeholder:text-[#9ca3af]"
+                      />
+                    </div>
+                    <div className="max-h-[260px] overflow-y-auto py-1">
+                      {filteredPrimaryFieldOptions.map((column) => {
+                        const supported = isPrimaryFieldSupportedType(column.type);
+                        const selected = selectedPrimaryFieldId === column.id;
+                        return (
+                          <button
+                            key={column.id}
+                            type="button"
+                            disabled={!supported}
+                            className={`flex h-10 w-full items-center gap-2 px-3 text-left text-[13px] leading-[18px] ${
+                              selected ? "bg-[#ececec]" : "bg-white"
+                            } ${
+                              supported
+                                ? "text-[#1d1f25] hover:bg-[#f5f7fa]"
+                                : "cursor-not-allowed text-[#9ca3af]"
+                            }`}
+                            onClick={() => {
+                              if (!supported) return;
+                              setSelectedPrimaryFieldId(column.id);
+                              setPrimaryFieldPickerOpen(false);
+                              setPrimaryFieldSearch("");
+                            }}
+                          >
+                            <FieldTypeIcon type={column.type} className={supported ? "text-[#1d1f25]" : "text-[#9ca3af]"} />
+                            <span className="truncate">{column.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mb-4 text-[13px] leading-[18px] text-[#41454d]">
+              &quot;{primaryColumn.name}&quot; is currently the primary field.
+            </div>
+
+            <div className="flex items-center justify-end gap-4">
+              <button
+                type="button"
+                className="h-9 rounded-[6px] px-3 text-[13px] text-[#31353e] hover:bg-[#f5f7fa]"
+                onClick={closeChangePrimaryFieldDialog}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!canApplyPrimaryFieldChange}
+                className={`h-9 rounded-[6px] px-4 text-[13px] font-semibold text-white ${
+                  canApplyPrimaryFieldChange
+                    ? "bg-[#166ee1] shadow-[0_1px_3px_rgba(0,0,0,0.2)] hover:bg-[#0d52ac]"
+                    : "cursor-not-allowed bg-[#a0c5f7]"
+                }`}
+                onClick={applyPrimaryFieldChange}
+              >
+                Change primary field
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[#7f8794] hover:bg-[#f5f7fa]"
+              onClick={closeChangePrimaryFieldDialog}
+              aria-label="Close dialog"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                aria-hidden="true"
+              >
+                <path d="M4.5 4.5L11.5 11.5M11.5 4.5L4.5 11.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </>
+      )}
+
       {scrollLocked && (
         <div
           data-testid="grid-loading-overlay"
@@ -707,7 +905,7 @@ export function GridViewTable({
         >
           <div className="w-full max-w-md rounded-xl border border-[#d1d5db] bg-white px-5 py-4 shadow-lg">
             <div className="text-sm font-semibold text-[#1f2937]">Loading all rows</div>
-            <div className="mt-2 text-xs text-[#4b5563]">
+            <div className="mt-2 text-[13px] text-[#4b5563]">
               {progressLoaded.toLocaleString()} / {progressTotal.toLocaleString()} rows ready.
               Scrolling is disabled until this completes.
             </div>
@@ -722,11 +920,11 @@ export function GridViewTable({
               {progressPercent}% complete
             </div>
             {loadAllError ? (
-              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
                 {loadAllError}
               </div>
             ) : (
-              <div className="mt-3 flex items-center gap-2 text-xs text-[#6b7280]">
+              <div className="mt-3 flex items-center gap-2 text-[13px] text-[#6b7280]">
                 <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
                 {loadAllPhase === "finalizing"
                   ? "Finalizing rows and unlocking scroll..."
@@ -736,7 +934,7 @@ export function GridViewTable({
             {loadAllError && (
               <button
                 onClick={onRetryLoadAll}
-                className="mt-3 rounded-md border border-[#d1d5db] px-3 py-1.5 text-xs font-medium text-[#111827] hover:bg-[#f9fafb]"
+                className="mt-3 rounded-md border border-[#d1d5db] px-3 py-1.5 text-[13px] font-medium text-[#111827] hover:bg-[#f9fafb]"
               >
                 Retry Full Load
               </button>
@@ -747,3 +945,4 @@ export function GridViewTable({
     </div>
   );
 }
+
