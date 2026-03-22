@@ -3,13 +3,14 @@
 import { api } from "~/trpc/react";
 import Link from "next/link";
 import { useState, use, useRef } from "react";
-import GridView from "~/app/_components/GridView";
+import GridView, { type BulkGeneratedRowsHint } from "~/app/_components/GridView";
 import KanbanView from "~/app/_components/KanbanView";
 import ViewToolbar, {
   DEFAULT_VIEW_CONFIG,
   type OpenPanel,
   type ViewConfig,
 } from "~/app/_components/ViewToolbar";
+import { BrowserPageMetadata, createHomepageStyleBaseFavicon } from "~/app/_components/BrowserPageMetadata";
 import { AppearancePanel } from "~/app/_components/base/AppearancePanel";
 import { BaseIconSVG } from "~/app/_components/base/BaseIconSVG";
 import { LeftSidebar } from "~/app/_components/base/LeftSidebar";
@@ -216,16 +217,25 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   });
 
   const [bulkAdding, setBulkAdding] = useState(false);
+  const [bulkAddPendingTableId, setBulkAddPendingTableId] = useState<string | null>(null);
+  const [bulkGeneratedRowsHint, setBulkGeneratedRowsHint] = useState<BulkGeneratedRowsHint>(null);
   const bulkAddRows = api.table.bulkAddRows.useMutation({
     onMutate: async ({ tableId, count }) => {
       await utils.table.getById.cancel({ id: tableId });
       const snapshot = utils.table.getById.getData({ id: tableId });
+      setBulkGeneratedRowsHint(null);
       utils.table.getById.setData({ id: tableId }, (prev) =>
         prev ? { ...prev, rowCount: prev.rowCount + count } : prev,
       );
-      return { snapshot, count };
+      return { count, previousRowCount: snapshot?.rowCount ?? 0, snapshot };
     },
-    onSuccess: ({ inserted }, vars) => {
+    onSuccess: ({ inserted, startOrder }, vars, ctx) => {
+      setBulkGeneratedRowsHint({
+        inserted,
+        previousRowCount: ctx?.previousRowCount ?? 0,
+        startOrder,
+        tableId: vars.tableId,
+      });
       if (inserted !== vars.count) {
         utils.table.getById.setData({ id: vars.tableId }, (prev) =>
           prev
@@ -241,9 +251,13 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
       void utils.base.getAll.invalidate();
     },
     onError: (_error, vars, ctx) => {
+      setBulkGeneratedRowsHint(null);
       utils.table.getById.setData({ id: vars.tableId }, ctx?.snapshot);
     },
-    onSettled: () => setBulkAdding(false),
+    onSettled: () => {
+      setBulkAdding(false);
+      setBulkAddPendingTableId(null);
+    },
   });
   const reorderColumns = api.table.reorderColumns.useMutation({
     onMutate: async ({ tableId, orderedIds }) => {
@@ -275,6 +289,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   function handleBulkAddRows() {
     if (!currentTableId || bulkAdding) return;
     setBulkAdding(true);
+    setBulkAddPendingTableId(currentTableId);
     bulkAddRows.mutate({ tableId: currentTableId, count: 100_000 });
   }
 
@@ -399,14 +414,29 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
   const baseIcon  = base.icon  ?? "default";
   const toolbarIconSubtle = "rgb(97, 102, 112)";
   const shareTextColor = getContrastTextColor(baseColor);
+  const currentTableName =
+    base.tables.find((table) => table.id === currentTableId)?.name ??
+    currentTable?.name ??
+    null;
+  const browserTitle = currentTableName
+    ? `${base.name}: ${currentTableName} - Airtable`
+    : `${base.name} - Airtable`;
+  const browserIconHref = createHomepageStyleBaseFavicon({
+    baseId: base.id,
+    baseName: base.name,
+    color: base.color,
+    iconId: base.icon,
+  });
 
   return (
-    <div className="h-screen flex overflow-hidden"
-      style={{
-        fontFamily:
-          '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
-        fontSize: "13px",
-      }}>
+    <>
+      <BrowserPageMetadata title={browserTitle} iconHref={browserIconHref} />
+      <div className="h-screen flex overflow-hidden"
+        style={{
+          fontFamily:
+            '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+          fontSize: "13px",
+        }}>
 
       <LeftSidebar/>
 
@@ -584,6 +614,8 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
                   onRequestOpenSortPanel={() => setForcedToolbarPanel("sort")}
                   onRequestOpenFilterPanel={() => setForcedToolbarPanel("filter")}
                   onRequestOpenGroupPanel={() => setForcedToolbarPanel("group")}
+                  bulkGeneratedRowsHint={bulkGeneratedRowsHint}
+                  bulkAddInFlight={bulkAdding && bulkAddPendingTableId === currentTableId}
                 />
               ) : (
                 <KanbanView
@@ -598,23 +630,24 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
       </div>
 
       {/* Appearance panel */}
-      {panelOpen && (
-        <AppearancePanel
-          base={{
-            name:    base.name,
-            color:   base.color ?? "#dc043b",
-            icon:    base.icon  ?? "default",
-            guide:   base.guide ?? null,
-            starred: base.starred,
-          }}
-          onClose={() => setPanelOpen(false)}
-          onRename={(name) => renameBase.mutate({ id: baseId, name })}
-          onUpdateColor={(c) => updateApp.mutate({ id: baseId, color: c })}
-          onUpdateIcon={(i) => updateApp.mutate({ id: baseId, icon: i })}
-          onUpdateGuide={(g) => updateApp.mutate({ id: baseId, guide: g })}
-          onToggleStar={() => toggleStar.mutate({ id: baseId, starred: !base.starred })}
-        />
-      )}
-    </div>
+        {panelOpen && (
+          <AppearancePanel
+            base={{
+              name:    base.name,
+              color:   base.color ?? "#dc043b",
+              icon:    base.icon  ?? "default",
+              guide:   base.guide ?? null,
+              starred: base.starred,
+            }}
+            onClose={() => setPanelOpen(false)}
+            onRename={(name) => renameBase.mutate({ id: baseId, name })}
+            onUpdateColor={(c) => updateApp.mutate({ id: baseId, color: c })}
+            onUpdateIcon={(i) => updateApp.mutate({ id: baseId, icon: i })}
+            onUpdateGuide={(g) => updateApp.mutate({ id: baseId, guide: g })}
+            onToggleStar={() => toggleStar.mutate({ id: baseId, starred: !base.starred })}
+          />
+        )}
+      </div>
+    </>
   );
 }

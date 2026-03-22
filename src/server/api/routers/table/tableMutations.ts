@@ -316,7 +316,7 @@ export const tableMutationProcedures = {
 
   bulkAddRows: publicProcedure
     .input(z.object({ tableId: z.string(), count: z.number().min(1).max(100000) }))
-    .output(z.object({ inserted: z.number() }))
+    .output(z.object({ inserted: z.number(), startOrder: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
       const [table, columnCount] = await Promise.all([
         ctx.db.table.findUnique({ where: { id: input.tableId }, select: { id: true } }),
@@ -428,7 +428,7 @@ export const tableMutationProcedures = {
             { timeout: 15 * 60 * 1000, maxWait: 10 * 1000 },
           );
 
-          return { inserted };
+          return { inserted, startOrder: baseOrder };
         }
 
         await ctx.db.$transaction(
@@ -470,6 +470,6 @@ export const tableMutationProcedures = {
         throw error;
       }
 
-      return { inserted };
+      return { inserted, startOrder: baseOrder };
     }),
 };

@@ -82,7 +82,6 @@ export function GridViewTable({
   chunkLoading,
   loadAllPhase,
   scrollLocked,
-  rawLoadedRows,
   loadAllError,
   onRetryLoadAll,
   trueTotal: _trueTotal,
@@ -530,12 +529,6 @@ export function GridViewTable({
   const summarySolidFillHeightPx = summaryBottomOffsetPx + summaryRowHeightPx;
   const summaryTopBorderBottomPx =
     summaryBottomOffsetPx + summaryRowHeightPx + horizontalScrollbarHeight;
-  const progressTotal = Math.max(1, totalRows);
-  const progressLoaded = Math.min(progressTotal, Math.max(0, rawLoadedRows));
-  const progressPercent = Math.min(
-    100,
-    Math.round((progressLoaded / progressTotal) * 100),
-  );
 
   return (
     <div className="relative h-full w-full bg-[#f6f8fc]">
@@ -903,32 +896,20 @@ export function GridViewTable({
           data-testid="grid-loading-overlay"
           className="absolute inset-0 z-[40] flex items-center justify-center bg-white/70 px-4 backdrop-blur-[1px]"
         >
-          <div className="w-full max-w-md rounded-xl border border-[#d1d5db] bg-white px-5 py-4 shadow-lg">
-            <div className="text-sm font-semibold text-[#1f2937]">Loading all rows</div>
-            <div className="mt-2 text-[13px] text-[#4b5563]">
-              {progressLoaded.toLocaleString()} / {progressTotal.toLocaleString()} rows ready.
-              Scrolling is disabled until this completes.
-            </div>
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#e5e7eb]">
-              <div
-                data-testid="grid-loading-progress-bar"
-                className="h-full rounded-full bg-[#2563eb] transition-[width] duration-300 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <div data-testid="grid-loading-progress-text" className="mt-1 text-[11px] text-[#6b7280]">
-              {progressPercent}% complete
-            </div>
+          <div className="w-full max-w-xs rounded-xl border border-[#d1d5db] bg-white px-5 py-5 text-center shadow-lg">
             {loadAllError ? (
-              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
                 {loadAllError}
               </div>
             ) : (
-              <div className="mt-3 flex items-center gap-2 text-[13px] text-[#6b7280]">
-                <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
+              <div className="flex flex-col items-center gap-3 text-[13px] text-[#4b5563]">
+                <span
+                  data-testid="grid-loading-spinner"
+                  className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-[#f97316] border-t-transparent"
+                />
                 {loadAllPhase === "finalizing"
-                  ? "Finalizing rows and unlocking scroll..."
-                  : "Fetching rows..."}
+                  ? "Finalizing rows..."
+                  : "Loading rows..."}
               </div>
             )}
             {loadAllError && (

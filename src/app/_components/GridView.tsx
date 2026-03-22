@@ -32,6 +32,13 @@ type PreloadRow = {
   cells: Array<{ columnId: string; value: string | null }>;
 };
 
+export type BulkGeneratedRowsHint = {
+  inserted: number;
+  previousRowCount: number;
+  startOrder: number;
+  tableId: string;
+} | null;
+
 const OVERSCAN = 15;
 const MAX_FULL_LOAD_ROWS = 300_000;
 const MIN_PRELOAD_BATCH_ROWS = 2_000;
@@ -40,7 +47,9 @@ const MAX_PRELOAD_STEPS = 2_000;
 const MAX_BATCH_FETCH_RETRIES = 4;
 const RETRY_BACKOFF_MS = 400;
 const MAX_EMPTY_BATCH_RETRIES = 90;
+const MAX_HINT_FETCH_ROWS = 100_000;
 const BULK_GENERATED_ROW_ID_RE = /^r[a-z0-9]{6}[0-9a-f]+$/i;
+const EMPTY_PRELOAD_CELLS: PreloadRow["cells"] = [];
 const FALLBACK_STATUS_LABELS = [
   "Todo",
   "In progress",
@@ -180,6 +189,38 @@ function isBulkGeneratedRowId(rowId: string) {
   return BULK_GENERATED_ROW_ID_RE.test(rowId);
 }
 
+function makeBulkGeneratedRowId(tableId: string, rowOrder: number) {
+  return `r${tableId.slice(-6)}${rowOrder.toString(16)}`;
+}
+
+function makeBulkGeneratedRow(tableId: string, rowOrder: number): PreloadRow {
+  return {
+    id: makeBulkGeneratedRowId(tableId, rowOrder),
+    order: rowOrder,
+    tableId,
+    cells: EMPTY_PRELOAD_CELLS,
+  };
+}
+
+function mapBatchRowsToPreloadRows(params: {
+  batch: {
+    columnId: string;
+    rows: Array<{ id: string; order: number; value: string | null }>;
+  };
+  tableId: string;
+}) {
+  const { batch, tableId } = params;
+  return batch.rows.map<PreloadRow>((row) => ({
+    id: row.id,
+    order: row.order,
+    tableId,
+    cells:
+      batch.columnId.length > 0
+        ? [{ columnId: batch.columnId, value: row.value }]
+        : EMPTY_PRELOAD_CELLS,
+  }));
+}
+
 export default function GridView({
   tableId,
   hiddenFields = {},
@@ -196,6 +237,8 @@ export default function GridView({
   onRequestOpenSortPanel,
   onRequestOpenFilterPanel,
   onRequestOpenGroupPanel,
+  bulkGeneratedRowsHint = null,
+  bulkAddInFlight = false,
 }: {
   tableId: string;
   hiddenFields?: Record<string, boolean>;
@@ -212,6 +255,8 @@ export default function GridView({
   onRequestOpenSortPanel?: () => void;
   onRequestOpenFilterPanel?: () => void;
   onRequestOpenGroupPanel?: () => void;
+  bulkGeneratedRowsHint?: BulkGeneratedRowsHint;
+  bulkAddInFlight?: boolean;
 }) {
   const { data: table, isLoading, error } = api.table.getById.useQuery(
     { id: tableId },
@@ -248,7 +293,6 @@ export default function GridView({
   const [loadAllLoading, setLoadAllLoading] = useState(false);
   const [loadAllPhase, setLoadAllPhase] = useState<"fetching" | "finalizing">("fetching");
   const [loadAllError, setLoadAllError] = useState<string | null>(null);
-  const [preloadProgressRows, setPreloadProgressRows] = useState<number | null>(null);
   const [preloadedRows, setPreloadedRows] = useState<PreloadRow[] | null>(null);
   const [loadAllRetryTick, setLoadAllRetryTick] = useState(0);
 
@@ -486,7 +530,6 @@ export default function GridView({
   const visItems = flatItems.slice(sliceStart, sliceEnd);
 
   const tableLoadedRows = combinedRows.length;
-  const rawLoadedRows = Math.max(tableLoadedRows, preloadProgressRows ?? 0);
   const allRowsReady = tableLoadedRows >= totalRows;
   const scrollLocked = !allRowsReady;
   const effectiveLoadingGapHeight = allRowsReady ? loadingGapHeight : 0;
@@ -496,7 +539,6 @@ export default function GridView({
     setLoadAllLoading(false);
     setLoadAllPhase("fetching");
     setLoadAllError(null);
-    setPreloadProgressRows(null);
     setPreloadedRows(null);
     scrollTopRef.current = 0;
     if (containerRef.current) {
@@ -511,11 +553,29 @@ export default function GridView({
 
     const total = table.rowCount;
     const loaded = (table.rows.length ?? 0) + (preloadedRows?.length ?? 0);
+    const rowLimit = Math.min(1_000, total);
+    const pendingBulkGeneratedRowsHint =
+      bulkGeneratedRowsHint?.tableId === tableId &&
+      (bulkGeneratedRowsHint?.inserted ?? 0) > 0 &&
+      total === (bulkGeneratedRowsHint?.previousRowCount ?? 0) + (bulkGeneratedRowsHint?.inserted ?? 0)
+        ? bulkGeneratedRowsHint
+        : null;
+    const activeBulkGeneratedRowsHint =
+      pendingBulkGeneratedRowsHint && table.rows.length === rowLimit
+        ? pendingBulkGeneratedRowsHint
+        : null;
+
+    if (bulkAddInFlight || (pendingBulkGeneratedRowsHint && !activeBulkGeneratedRowsHint)) {
+      setLoadAllLoading(true);
+      setLoadAllPhase("fetching");
+      setLoadAllError(null);
+      return;
+    }
+
     if (loaded >= total) {
       setLoadAllLoading(false);
       setLoadAllPhase("fetching");
       setLoadAllError(null);
-      setPreloadProgressRows(null);
       return;
     }
 
@@ -525,7 +585,6 @@ export default function GridView({
       setLoadAllError(
         `Too many rows to load at once (${total.toLocaleString()}). Reduce row count or raise MAX_FULL_LOAD_ROWS.`,
       );
-      setPreloadProgressRows(loaded);
       return;
     }
 
@@ -535,13 +594,80 @@ export default function GridView({
     setLoadAllLoading(true);
     setLoadAllPhase("fetching");
     setLoadAllError(null);
-    setPreloadProgressRows(loaded);
 
     void (async () => {
       const existingRows = [
         ...(table.rows as unknown as PreloadRow[]),
         ...(preloadedRows ?? []),
       ];
+      const tryBuildBulkGeneratedRows = async () => {
+        if (!activeBulkGeneratedRowsHint) return null;
+
+        const hintRows: PreloadRow[] = [];
+        const hintSeenIds = new Set(existingRows.map((row) => row.id));
+        const alreadyLoadedExistingRows = existingRows.filter(
+          (row) => row.order < activeBulkGeneratedRowsHint.startOrder,
+        );
+        const missingExistingRowsCount = Math.max(
+          0,
+          activeBulkGeneratedRowsHint.previousRowCount - alreadyLoadedExistingRows.length,
+        );
+
+        if (missingExistingRowsCount > 0) {
+          let remainingExistingRows = missingExistingRowsCount;
+          let afterExistingOrder =
+            alreadyLoadedExistingRows.length > 0
+              ? alreadyLoadedExistingRows[alreadyLoadedExistingRows.length - 1]!.order
+              : undefined;
+
+          while (remainingExistingRows > 0) {
+            const batch = await loadRowsAfterOrder.mutateAsync({
+              tableId,
+              afterOrder: afterExistingOrder,
+              take: Math.min(MAX_HINT_FETCH_ROWS, remainingExistingRows),
+            });
+            const gapRows = mapBatchRowsToPreloadRows({ batch, tableId });
+
+            if (preloadCycle.current !== cycleId) return [];
+            if (gapRows.length === 0) {
+              return null;
+            }
+            if (gapRows.some((row) => row.order >= activeBulkGeneratedRowsHint.startOrder)) {
+              return null;
+            }
+
+            for (const row of gapRows) {
+              if (hintSeenIds.has(row.id)) continue;
+              hintSeenIds.add(row.id);
+              hintRows.push(row);
+            }
+
+            afterExistingOrder = gapRows[gapRows.length - 1]!.order;
+            remainingExistingRows -= gapRows.length;
+          }
+        }
+
+        for (let offset = 0; offset < activeBulkGeneratedRowsHint.inserted; offset += 1) {
+          const generatedRow = makeBulkGeneratedRow(
+            tableId,
+            activeBulkGeneratedRowsHint.startOrder + offset,
+          );
+          if (hintSeenIds.has(generatedRow.id)) continue;
+          hintSeenIds.add(generatedRow.id);
+          hintRows.push(generatedRow);
+        }
+
+        return hintSeenIds.size === total ? hintRows : null;
+      };
+
+      const hintedRows = await tryBuildBulkGeneratedRows();
+      if (preloadCycle.current !== cycleId) return;
+      if (hintedRows) {
+        setLoadAllPhase("finalizing");
+        setPreloadedRows((prev) => (prev ? [...prev, ...hintedRows] : hintedRows));
+        return;
+      }
+
       const seenIds = new Set(existingRows.map((row) => row.id));
       let lastOrder = existingRows.length > 0 ? existingRows[existingRows.length - 1]!.order : -1;
       const newRows: PreloadRow[] = [];
@@ -565,15 +691,7 @@ export default function GridView({
               afterOrder: lastOrder,
               take: requestTake,
             });
-            rows = batch.rows.map((row) => ({
-              id: row.id,
-              order: row.order,
-              tableId,
-              cells:
-                batch.columnId.length > 0
-                  ? [{ columnId: batch.columnId, value: row.value }]
-                  : [],
-            }));
+            rows = mapBatchRowsToPreloadRows({ batch, tableId });
             lastBatchError = null;
             break;
           } catch (err) {
@@ -614,13 +732,11 @@ export default function GridView({
           seenIds.add(row.id);
           newRows.push(row);
         }
-        setPreloadProgressRows(seenIds.size);
       }
 
       if (preloadCycle.current !== cycleId) return;
       setLoadAllPhase("finalizing");
       setPreloadedRows((prev) => (prev ? [...prev, ...newRows] : newRows));
-      setPreloadProgressRows(null);
     })()
       .catch((err: unknown) => {
         if (preloadCycle.current !== cycleId) return;
@@ -642,6 +758,8 @@ export default function GridView({
     table?.columns.length,
     preloadedRows?.length,
     tableId,
+    bulkAddInFlight,
+    bulkGeneratedRowsHint,
     loadAllRetryTick,
     loadRowsAfterOrder.mutateAsync,
   ]);
@@ -823,7 +941,6 @@ export default function GridView({
       chunkLoading={loadAllLoading}
       loadAllPhase={loadAllPhase}
       scrollLocked={scrollLocked}
-      rawLoadedRows={rawLoadedRows}
       loadAllError={loadAllError}
       onRetryLoadAll={() => setLoadAllRetryTick((n) => n + 1)}
       trueTotal={visibleTotal}

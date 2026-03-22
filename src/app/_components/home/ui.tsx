@@ -1,5 +1,5 @@
 import { BASE_ICONS } from "~/app/_components/baseIcons";
-import { getContrastTextColor } from "~/app/_components/baseAppearanceColors";
+import { getBaseIconForegroundColor } from "~/app/_components/baseAppearanceColors";
 import { fallbackColor } from "~/app/_components/home/helpers";
 import type { BaseItem } from "~/app/_components/home/types";
 
@@ -12,7 +12,7 @@ export function BaseIcon({
 }) {
   const color = base.color ?? fallbackColor(base.id);
   const def = base.icon && base.icon !== "default" ? BASE_ICONS.find((i) => i.id === base.icon) : null;
-  const textColor = getContrastTextColor(color);
+  const textColor = getBaseIconForegroundColor(color);
   const abbrev =
     base.name.length >= 2
       ? base.name[0]!.toUpperCase() + base.name[1]!.toLowerCase()

@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
+import { BrowserPageMetadata, DEFAULT_FAVICON_HREF } from "~/app/_components/BrowserPageMetadata";
 import styles from "./sign-in.module.css";
 
 const OMNI_APP_BUILDING_URL = "https://www.airtable.com/platform/app-building";
@@ -199,6 +200,10 @@ export default function SignInPage() {
 
   return (
     <main className={styles.authSignInPage}>
+      <BrowserPageMetadata
+        title="Sign in - Airtable"
+        iconHref={DEFAULT_FAVICON_HREF}
+      />
       <div className="css-1bjff3s">
         <div className="css-s928rf">
           <div className="css-1pxgmwj">

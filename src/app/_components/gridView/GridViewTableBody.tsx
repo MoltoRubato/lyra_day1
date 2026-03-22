@@ -260,7 +260,7 @@ export function GridViewTableBody({
                 style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
               >
                 <div className="flex items-center" style={{ height: rowH }}>
-                  <div className="flex h-full w-[36px] items-center justify-center">
+                  <div className="flex h-full w-[20px] items-center justify-center">
                     <button
                       draggable={canReorderRows}
                       onDragStart={(e) => {
@@ -298,7 +298,7 @@ export function GridViewTableBody({
                       aria-label={`Select row ${rowNum}`}
                       aria-checked={rowSelected}
                       onClick={() => toggleRowSelection(row.id)}
-                      className={`absolute left-1/2 top-1/2 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
+                      className={`absolute left-0 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
                         rowSelected
                           ? "border-transparent bg-[#1c76d2] text-white opacity-100 shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
                           : "border-[#d6d8dd] bg-white text-transparent opacity-0 shadow-[0_1px_2px_rgba(15,23,42,0.16)] group-hover:opacity-100"
@@ -316,7 +316,7 @@ export function GridViewTableBody({
                       </svg>
                     </button>
                     <span
-                      className={`pointer-events-none absolute inset-0 flex select-none items-center justify-center text-[13px] leading-none text-[#616670] ${
+                      className={`pointer-events-none absolute inset-y-0 left-0 flex w-4 select-none items-center justify-center text-[13px] leading-none text-[#616670] ${
                         rowSelected ? "opacity-0" : "opacity-100 group-hover:opacity-0"
                       }`}
                     >
@@ -472,15 +472,17 @@ export function GridViewTableBody({
               className="flex h-full items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-[13px]"
               title={`Add ${labelLower}`}
             >
-              <svg
-                viewBox="0 0 12 12"
-                fill="none"
-                className="w-3 h-3"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M6 2v8M2 6h8" strokeLinecap="round" />
-              </svg>
+              <span className="ml-1 inline-flex h-4 w-4 items-center justify-center">
+                <svg
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  className="h-3 w-3"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M6 2v8M2 6h8" strokeLinecap="round" />
+                </svg>
+              </span>
               <span className="ml-auto flex items-center gap-1.5 text-[10px] text-[#ccc]">
                 {chunkLoading && (
                   <span className="flex items-center gap-1 text-[#f97316]">

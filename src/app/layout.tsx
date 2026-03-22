@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   title: "Airtable",
   description: "Airtable-style workspace",
   icons: {
-    icon: "/airtable_assets/AirtableLogoPNG.png",
-    shortcut: "/airtable_assets/AirtableLogoPNG.png",
-    apple: "/airtable_assets/AirtableLogoPNG.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 

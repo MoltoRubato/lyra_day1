@@ -131,7 +131,7 @@ export function TableTabsBar({
             key={table.id}
             className={`group/tab relative flex h-8 min-h-8 flex-shrink-0 items-center box-border transition-all ${
               isActive
-                ? `bg-white rounded-tr border-t border-r border-[#d8d8d8] -mb-px z-10 ${index === 0 ? "border-l rounded-tl-none" : "border-l"}`
+                ? "z-10 -mb-px -mt-px rounded-tr bg-white border-t border-r border-[#d8d8d8]"
                 : "border-r"
             }`}
             style={isActive ? undefined : { borderRightColor: tabDividerColor }}

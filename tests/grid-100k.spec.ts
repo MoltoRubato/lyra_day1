@@ -28,7 +28,7 @@ test.describe("100k grid preload", () => {
 
     const overlay = page.getByTestId("grid-loading-overlay");
     await expect(overlay).toBeVisible({ timeout: 120_000 });
-    await expect(page.getByTestId("grid-loading-progress-text")).toContainText("%");
+    await expect(page.getByTestId("grid-loading-spinner")).toBeVisible();
     await expect(overlay).toBeHidden({ timeout: 10 * 60 * 1000 });
 
     const scroller = page.getByTestId("grid-scroll-container");

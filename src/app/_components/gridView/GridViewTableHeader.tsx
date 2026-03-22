@@ -251,7 +251,7 @@ export function GridViewTableHeader({
           style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
         >
           <div className="flex items-center" style={{ height: rowH }}>
-            <div className="h-full w-[36px]" aria-hidden="true" />
+            <div className="h-full w-[20px]" aria-hidden="true" />
             <div className="relative h-full w-[44px]">
               <button
                 type="button"
@@ -259,7 +259,7 @@ export function GridViewTableHeader({
                 aria-label="Select all rows"
                 aria-checked={allInViewSelected ? true : someInViewSelected ? "mixed" : false}
                 onClick={() => toggleAllRowsInView(!allInViewSelected)}
-                className={`absolute left-1/2 top-1/2 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
+                className={`absolute left-0 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
                   allInViewSelected || someInViewSelected
                     ? "border-transparent bg-[#1c76d2] text-white shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
                     : "border-[#d6d8dd] bg-white text-transparent shadow-[0_1px_2px_rgba(15,23,42,0.16)] hover:border-[#c7ccd5]"

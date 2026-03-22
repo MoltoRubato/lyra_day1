@@ -9,6 +9,7 @@ import { StarredGridView, StarredListView } from "~/app/_components/home/Starred
 import { UserAccountMenu } from "~/app/_components/home/UserAccountMenu";
 import { WorkspacesOverview } from "~/app/_components/home/WorkspacesOverview";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
+import { BrowserPageMetadata, HOMEPAGE_FAVICON_HREF } from "~/app/_components/BrowserPageMetadata";
 import { ChevronRight, GridIco, HomeIco, ListIco, PencilIco, SharedIco, SidebarStarIco, StarIco, WsIco } from "~/app/_components/home/icons";
 import { ActionBtn, BaseIcon } from "~/app/_components/home/ui";
 import { useHomePageController } from "~/app/_components/home/useHomePageController";
@@ -366,6 +367,7 @@ export default function HomePage() {
           '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
       }}
     >
+      <BrowserPageMetadata title="Airtable" iconHref={HOMEPAGE_FAVICON_HREF} />
 
       <header className="fixed left-0 right-0 top-0 z-30 flex h-[56px] items-center border-b border-[#d8dbe1] bg-white">
         <div className="flex h-full w-[300px] flex-shrink-0 items-center gap-2 px-3">
@@ -411,7 +413,7 @@ export default function HomePage() {
               style={{ minHeight: 579,
               }}
             >
-              <div className="flex flex-none flex-col" style={{ height: 410 }}>
+              <div className="flex min-h-0 flex-1 flex-col">
                 <SidebarHomeRow active={page === "home"} onClick={() => setPage("home")} />
 
                 <SidebarExpandableRow
@@ -493,7 +495,7 @@ export default function HomePage() {
                 )}
               </div>
 
-              <div className="flex-none">
+              <div className="mt-auto flex-none">
                 <div className="mb-4 border-t border-[#d8dbe1]" />
                 <div>
                   <SidebarUtilityRow label="Templates and apps" asset={389} />

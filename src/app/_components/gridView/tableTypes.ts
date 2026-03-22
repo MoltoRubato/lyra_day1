@@ -143,7 +143,6 @@ export type GridViewTableProps = {
   chunkLoading: boolean;
   loadAllPhase: "fetching" | "finalizing";
   scrollLocked: boolean;
-  rawLoadedRows: number;
   loadAllError: string | null;
   onRetryLoadAll: () => void;
   trueTotal: number;

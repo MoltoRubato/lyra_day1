@@ -476,8 +476,11 @@ test.describe("Add 100k rows performance", () => {
       console.log(
         `[perf] loadRowsAfterOrder calls=${preloadDurations.length} avg=${avgMs.toFixed(1)}ms max=${maxMs.toFixed(1)}ms total=${totalMs.toFixed(1)}ms`,
       );
+    } else {
+      console.log("[perf] loadRowsAfterOrder calls=0");
     }
     console.log(`[perf] +100k click-to-free-scroll: ${elapsedMs}ms`);
+    expect(preloadDurations.length).toBe(0);
     expect(elapsedMs).toBeLessThan(20_000);
   });
 
