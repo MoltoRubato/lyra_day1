@@ -23,6 +23,22 @@ type TableTabsBarProps = {
 
 type AnchorRect = { left: number; top: number; width: number; height: number };
 
+function CenteredTabIcon({
+  asset,
+  width,
+  height,
+}: {
+  asset: number;
+  width: number;
+  height: number;
+}) {
+  return (
+    <span className="inline-flex h-4 w-4 items-center justify-center">
+      <AirtableAssetIcon asset={asset} alt="" style={{ width, height }} />
+    </span>
+  );
+}
+
 function DownArrowIcon() {
   return (
     <span className="inline-flex h-4 w-4 items-center justify-center">
@@ -115,7 +131,7 @@ export function TableTabsBar({
             key={table.id}
             className={`group/tab relative flex h-8 min-h-8 flex-shrink-0 items-center box-border transition-all ${
               isActive
-                ? `bg-white rounded-t border-t border-r border-[#d8d8d8] -mb-px z-10 ${index === 0 ? "" : "border-l"}`
+                ? `bg-white rounded-tr border-t border-r border-[#d8d8d8] -mb-px z-10 ${index === 0 ? "border-l rounded-tl-none" : "border-l"}`
                 : "border-r"
             }`}
             style={isActive ? undefined : { borderRightColor: tabDividerColor }}
@@ -138,7 +154,7 @@ export function TableTabsBar({
                   onClick={() => onSelectTable(table.id)}
                   onDoubleClick={() => setRenamingTable({ id: table.id, value: table.name })}
                   className={`flex h-8 min-h-8 items-center gap-1 px-3 text-[13px] font-medium box-border transition-colors ${
-                    isActive ? "text-[#172b4d]" : "text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded-t"
+                    isActive ? "text-[#172b4d]" : "text-[#444] hover:text-[#172b4d] hover:bg-black/5 rounded-tr"
                   }`}
                 >
                   {table.name}
@@ -379,7 +395,7 @@ export function TableTabsBar({
           title={showAddOrImportLabel ? "Add or import table" : "Add table"}
           aria-label={showAddOrImportLabel ? "Add or import table" : "Add table"}
         >
-          <AirtableAssetIcon asset={127} alt="" size={16} />
+          <CenteredTabIcon asset={127} width={12} height={12} />
           {showAddOrImportLabel && <span>Add or import</span>}
         </button>
 

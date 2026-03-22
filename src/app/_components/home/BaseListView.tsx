@@ -147,15 +147,17 @@ export function BaseListView({
                     </span>
                   ) : (
                     <>
-                      <Link
-                        href={`/base/${base.id}`}
-                        className="flex min-w-0 flex-1 items-center truncate whitespace-nowrap text-[13px] font-semibold leading-[18px] text-[#1d1f25] transition-colors hover:text-[#0069ff]"
-                      >
-                        {base.name}
-                      </Link>
-                      <span className="ml-2 whitespace-nowrap text-[13px] leading-[18px] text-[#5f6672] opacity-0 transition-opacity group-hover:opacity-100">
-                        Open data
-                      </span>
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <Link
+                          href={`/base/${base.id}`}
+                          className="min-w-0 max-w-fit truncate whitespace-nowrap text-[13px] font-semibold leading-[18px] text-[#1d1f25]"
+                        >
+                          {base.name}
+                        </Link>
+                        <span className="whitespace-nowrap text-[13px] leading-[18px] text-[#5f6672] opacity-0 transition-opacity group-hover:opacity-100">
+                          Open data
+                        </span>
+                      </div>
                     </>
                   )}
                   <div className="relative ml-auto flex items-center">

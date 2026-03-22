@@ -17,6 +17,48 @@ const SIDEBAR_FONT_FAMILY =
   '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
 const SIDEBAR_ROW_TEXT_CLASS = "text-[15px] font-medium leading-[22.5px] text-[#1d1f25]";
 const SIDEBAR_ROW_PADDING_CLASS = "px-3";
+type OpenedDateFilter = "today" | "past7" | "past30" | "anytime";
+const OPENED_DATE_FILTER_OPTIONS: Array<{ value: OpenedDateFilter; label: string }> = [
+  { value: "today", label: "Today" },
+  { value: "past7", label: "In the past 7 days" },
+  { value: "past30", label: "In the past 30 days" },
+  { value: "anytime", label: "Anytime" },
+];
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function matchesOpenedDateFilter(openedAt: Date | null, filter: OpenedDateFilter, now: Date) {
+  if (filter === "anytime") return true;
+  if (!openedAt) return false;
+
+  const openedDate = new Date(openedAt);
+  const todayStart = startOfLocalDay(now);
+
+  if (filter === "today") {
+    return openedDate >= todayStart;
+  }
+
+  const daysBack = filter === "past7" ? 6 : 29;
+  const rangeStart = new Date(todayStart);
+  rangeStart.setDate(todayStart.getDate() - daysBack);
+  return openedDate >= rangeStart;
+}
+
+function getOpenedDateFilterLabel(filter: OpenedDateFilter) {
+  switch (filter) {
+    case "today":
+      return "Opened today";
+    case "past7":
+      return "Opened in the past 7 days";
+    case "past30":
+      return "Opened in the past 30 days";
+    case "anytime":
+    default:
+      return "Opened anytime";
+  }
+}
 
 function SidebarHomeRow({
   active,
@@ -246,7 +288,10 @@ export default function HomePage() {
   } = useHomePageController();
   const [starredExpanded, setStarredExpanded] = useState(true);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [openedDateFilter, setOpenedDateFilter] = useState<OpenedDateFilter>("anytime");
+  const [openedDateMenuOpen, setOpenedDateMenuOpen] = useState(false);
   const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
+  const openedDateMenuRef = useRef<HTMLDivElement | null>(null);
   const starredBases = useMemo(
     () =>
       [...bases]
@@ -282,6 +327,36 @@ export default function HomePage() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [modal, workspaceMenuOpen]);
+
+  useEffect(() => {
+    if (!openedDateMenuOpen) return;
+
+    function onPointerDown(event: MouseEvent) {
+      if (!openedDateMenuRef.current) return;
+      if (!openedDateMenuRef.current.contains(event.target as Node)) {
+        setOpenedDateMenuOpen(false);
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenedDateMenuOpen(false);
+    }
+
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openedDateMenuOpen]);
+
+  const visibleFilteredBases = useMemo(() => {
+    if (page === "starred") return filteredBases;
+    const now = new Date();
+    return filteredBases.filter((base) =>
+      matchesOpenedDateFilter(base.lastOpenedAt ? new Date(base.lastOpenedAt) : null, openedDateFilter, now),
+    );
+  }, [filteredBases, openedDateFilter, page]);
 
   return (
     <div
@@ -329,7 +404,7 @@ export default function HomePage() {
 
       <aside className={`fixed bottom-0 left-0 top-[56px] z-20 border-r border-[#d8dbe1] bg-white transition-all duration-200 ${sidebarOpen ? "w-[300px]" : "w-[56px]"}`}>
         {sidebarOpen ? (
-          <div className="relative h-full overflow-y-auto bg-white px-3 py-3">
+          <div className="relative h-full overflow-y-auto bg-white px-3 pb-3 pt-[10px]">
             <nav
               className="flex h-full flex-col"
               data-testid="homescreen2-sidebar"
@@ -418,8 +493,8 @@ export default function HomePage() {
                 )}
               </div>
 
-              <div>
-                <div className="mb-4 mt-auto border-t border-[#d8dbe1]" />
+              <div className="flex-none">
+                <div className="mb-4 border-t border-[#d8dbe1]" />
                 <div>
                   <SidebarUtilityRow label="Templates and apps" asset={389} />
                   <SidebarUtilityRow label="Marketplace" asset={91} href="https://airtable.com/marketplace" />
@@ -503,20 +578,84 @@ export default function HomePage() {
           {page !== "workspaces" && (
             <>
               <div className="mb-2 flex items-center justify-between">
-                <button
-                  className={`m-0 flex items-center justify-center gap-1 whitespace-nowrap p-0 text-center text-[15px] font-normal text-[#1d1f25] transition-colors hover:text-[#172b4d] ${
-                    page === "starred" ? "h-[19.5px] w-[111.844px] leading-[19.5px]" : "h-[22.5px] w-[110.109px] leading-[22.5px]"
-                  }`}
-                  style={{
-                    fontFamily:
-                      '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
-                  }}
-                >
-                  {page === "starred" ? "Show all types" : "Opened anytime"}
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" className="mt-px">
-                    <path d="M2.5 4l2.5 2.5L7.5 4"/>
-                  </svg>
-                </button>
+                {page === "starred" ? (
+                  <button
+                    className="m-0 flex h-[19.5px] w-[111.844px] items-center justify-center gap-1 whitespace-nowrap p-0 text-center text-[15px] font-normal leading-[19.5px] text-[#1d1f25] transition-colors hover:text-[#172b4d]"
+                    style={{ fontFamily: SIDEBAR_FONT_FAMILY }}
+                  >
+                    Show all types
+                  </button>
+                ) : (
+                  <div className="relative" ref={openedDateMenuRef}>
+                    <button
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={openedDateMenuOpen}
+                      onClick={() => setOpenedDateMenuOpen((prev) => !prev)}
+                      className="m-0 flex h-[22.5px] items-center gap-[7px] whitespace-nowrap p-0 text-left text-[15px] font-normal leading-[22.5px] text-[#1d1f25] transition-colors hover:text-[#172b4d]"
+                      style={{ fontFamily: SIDEBAR_FONT_FAMILY }}
+                    >
+                      <span>{getOpenedDateFilterLabel(openedDateFilter)}</span>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+
+                    {openedDateMenuOpen && (
+                      <div
+                        className="absolute left-0 top-[calc(100%+12px)] z-20 w-[240px] rounded-[12px] border border-[#d8dbe1] bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.04),0px_8px_24px_rgba(0,0,0,0.12)]"
+                        role="dialog"
+                      >
+                        <ul className="p-3" role="menu" aria-label="Opened date filter">
+                          {OPENED_DATE_FILTER_OPTIONS.map((option) => {
+                            const selected = option.value === openedDateFilter;
+                            return (
+                              <li
+                                key={option.value}
+                                role="menuitemcheckbox"
+                                aria-checked={selected}
+                                tabIndex={0}
+                                onClick={() => {
+                                  setOpenedDateFilter(option.value);
+                                  setOpenedDateMenuOpen(false);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    setOpenedDateFilter(option.value);
+                                    setOpenedDateMenuOpen(false);
+                                  }
+                                }}
+                                className="flex h-[35.5px] w-full cursor-pointer items-center justify-between rounded px-2 py-2 hover:bg-[#f2f2f2]"
+                              >
+                                <p
+                                  className="flex-none select-none whitespace-nowrap p-0 text-[13px] font-normal leading-[19.5px] text-[#1d1f25]"
+                                  style={{
+                                    boxSizing: "border-box",
+                                    cursor: "pointer",
+                                    display: "block",
+                                    fontFamily: SIDEBAR_FONT_FAMILY,
+                                    height: "19.5px",
+                                    margin: 0,
+                                    padding: 0,
+                                    width: "200px",
+                                  }}
+                                >
+                                  {option.label}
+                                </p>
+                                {selected && (
+                                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="text-[#1d1f25]">
+                                    <path d="M3.5 8.1l2.3 2.3 5-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-1">
                   <button onClick={() => setDispMode("list")}
                     className={`rounded-full p-2 transition-colors ${
@@ -582,15 +721,19 @@ export default function HomePage() {
                 </div>
               )}
 
-              {!isLoading && !error && (page === "starred" ? starredBases.length + starredWs.length === 0 : filteredBases.length === 0) && (
+              {!isLoading && !error && (page === "starred" ? starredBases.length + starredWs.length === 0 : visibleFilteredBases.length === 0) && (
                 <div className="flex flex-col items-center justify-center py-20 text-[#bbb]">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="mb-4 opacity-25" stroke="currentColor" strokeWidth="1.2">
                     <rect x="6" y="10" width="36" height="30" rx="3"/><path d="M6 18h36M16 10v8"/>
                   </svg>
                   <p className="text-[13px] text-[#888]">
-                    {page === "starred" ? "Nothing starred yet - star a base or workspace to pin it here." :
-                      page === "home" ? "No bases yet - click Create to get started." :
-                        "No bases in this workspace yet."}
+                    {page === "starred"
+                      ? "Nothing starred yet - star a base or workspace to pin it here."
+                      : filteredBases.length > 0
+                        ? "No bases opened in this time range."
+                        : page === "home"
+                          ? "No bases yet - click Create to get started."
+                          : "No bases in this workspace yet."}
                   </p>
                   {currentWorkspace && (
                     <button onClick={() => open({ kind: "createBase", workspaceId: currentWorkspace.id })}
@@ -621,9 +764,9 @@ export default function HomePage() {
                 />
               )}
 
-              {!isLoading && page !== "starred" && filteredBases.length > 0 && dispMode === "list" && (
+              {!isLoading && page !== "starred" && visibleFilteredBases.length > 0 && dispMode === "list" && (
                 <BaseListView
-                  bases={filteredBases}
+                  bases={visibleFilteredBases}
                   showWorkspace={page === "home"}
                   onRename={(b) => open({ kind: "renameBase", id: b.id, value: b.name })}
                   onDelete={requestDeleteBase}
@@ -639,9 +782,9 @@ export default function HomePage() {
                 />
               )}
 
-              {!isLoading && page !== "starred" && filteredBases.length > 0 && dispMode === "grid" && (
+              {!isLoading && page !== "starred" && visibleFilteredBases.length > 0 && dispMode === "grid" && (
                 <BaseGridView
-                  bases={filteredBases}
+                  bases={visibleFilteredBases}
                   onRename={(b) => open({ kind: "renameBase", id: b.id, value: b.name })}
                   onDelete={requestDeleteBase}
                   onStar={(b) => toggleBaseStar.mutate({ id: b.id, starred: !b.starred })}

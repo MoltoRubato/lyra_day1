@@ -7,10 +7,33 @@ import { StarIco } from "~/app/_components/home/icons";
 import { AddViewModal, CreateViewMenu, ViewOptionsMenu } from "~/app/_components/base/ViewSidebarPanels";
 import { hasActiveFilters } from "~/app/_components/tableUtils";
 
+function SidebarViewIcon({
+  asset,
+  tintColor,
+  width,
+  height,
+}: {
+  asset: number;
+  tintColor?: string;
+  width: number;
+  height: number;
+}) {
+  return (
+    <span className="inline-flex h-4 w-4 items-center justify-center">
+      <AirtableAssetIcon
+        asset={asset}
+        alt=""
+        tintColor={tintColor}
+        style={{ width, height }}
+      />
+    </span>
+  );
+}
+
 const VIEW_META: Record<ViewType, { icon: React.ReactNode; color: string }> = {
   GRID: {
     color: "#2d7ff9",
-    icon: <AirtableAssetIcon asset={236} alt="" size={16} tintColor="#2d7ff9" />,
+    icon: <SidebarViewIcon asset={236} width={14} height={12} tintColor="#2d7ff9" />,
   },
   KANBAN: {
     color: "#22c55e",
@@ -163,7 +186,7 @@ export function ViewSidebar({
           }}
           className="flex items-center gap-2 w-full px-2.5 py-2 text-[13px] text-[#222] font-normal rounded hover:bg-[#f5f5f4] transition-colors"
         >
-          <AirtableAssetIcon asset={127} alt="" size={16} />
+          <SidebarViewIcon asset={127} width={12} height={12} />
           Create new...
         </button>
       </div>

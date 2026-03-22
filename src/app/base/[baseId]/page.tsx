@@ -19,6 +19,29 @@ import { ViewSidebar } from "~/app/_components/base/ViewSidebar";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { getContrastTextColor } from "~/app/_components/baseAppearanceColors";
 
+function TopBarAssetIcon({
+  asset,
+  tintColor,
+  width,
+  height,
+}: {
+  asset: number;
+  tintColor: string;
+  width: number;
+  height: number;
+}) {
+  return (
+    <span className="inline-flex h-4 w-4 items-center justify-center">
+      <AirtableAssetIcon
+        asset={asset}
+        alt=""
+        tintColor={tintColor}
+        style={{ width, height }}
+      />
+    </span>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function BasePage({ params }: { params: Promise<{ baseId: string }> }) {
@@ -440,7 +463,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
               className="h-7 w-7 inline-flex items-center justify-center rounded-full text-[#616670] hover:bg-[#f0f0ef] transition-colors"
               title="Revision history"
             >
-              <AirtableAssetIcon asset={334} alt="Base history" size={16} tintColor={toolbarIconSubtle} />
+              <TopBarAssetIcon asset={334} tintColor={toolbarIconSubtle} width={12.52} height={12} />
             </button>
             <button className="h-8 inline-flex items-center justify-center gap-1.5 px-3 text-[13px] text-[#1d1f25] bg-[#efefef] rounded-full hover:bg-[#e7e7e7] transition-colors">
               <AirtableAssetIcon asset={452} alt="" size={16} tintColor={toolbarIconSubtle} />
@@ -454,7 +477,7 @@ export default function BasePage({ params }: { params: Promise<{ baseId: string 
               Launch
             </button>
             <button className="h-7 w-7 inline-flex items-center justify-center rounded-[8px] border border-[#d8dbe1] hover:bg-[#f5f5f4] transition-colors">
-              <AirtableAssetIcon asset={190} alt="Copy link" size={16} tintColor={toolbarIconSubtle} />
+              <TopBarAssetIcon asset={190} tintColor={toolbarIconSubtle} width={11.99} height={11.99} />
             </button>
             <button
               className="h-7 px-3 text-[13px] font-medium rounded-[8px] transition-colors hover:brightness-95"

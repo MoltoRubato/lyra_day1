@@ -40,6 +40,17 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
 export type OpenPanel = "hide" | "filter" | "group" | "sort" | "height" | null;
 
 const TOOLBAR_SUBTLE = "rgb(97, 102, 112)";
+const TOOLBAR_ICON_DIMENSIONS: Record<number, { width: number; height: number }> = {
+  236: { width: 14, height: 12 },
+  283: { width: 15, height: 12 },
+  255: { width: 14, height: 7 },
+  232: { width: 13, height: 11 },
+  423: { width: 11, height: 11 },
+  149: { width: 15.58, height: 14.02 },
+  105: { width: 14, height: 11 },
+  430: { width: 12, height: 12 },
+  175: { width: 13, height: 13 },
+};
 
 const VIEW_META: Record<string, { asset: number; color: string }> = {
   GRID: { asset: 236, color: "#2d7ff9" },
@@ -53,6 +64,26 @@ const ACTIVE_TOOL_CHIP: Record<Exclude<OpenPanel, null>, { bg: string; icon: str
   sort: { bg: "#FFE0CC", icon: "#6F5545" },
   height: { bg: "#EAF3FF", icon: "#3668B5" },
 };
+
+function ToolbarAssetIcon({
+  asset,
+  tintColor,
+}: {
+  asset: number;
+  tintColor: string;
+}) {
+  const dimensions = TOOLBAR_ICON_DIMENSIONS[asset] ?? { width: 16, height: 16 };
+  return (
+    <span className="inline-flex h-4 w-4 items-center justify-center">
+      <AirtableAssetIcon
+        asset={asset}
+        alt=""
+        tintColor={tintColor}
+        style={{ width: dimensions.width, height: dimensions.height }}
+      />
+    </span>
+  );
+}
 
 export default function ViewToolbar({
   columns,
@@ -248,7 +279,7 @@ export default function ViewToolbar({
               }}
               className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f2f3f5] text-[#1d1f25] font-medium text-[13px] transition-colors"
             >
-              <AirtableAssetIcon asset={activeViewMeta.asset} alt="" size={16} tintColor={activeViewMeta.color} />
+              <ToolbarAssetIcon asset={activeViewMeta.asset} tintColor={activeViewMeta.color} />
               {activeViewName}
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#aaa" strokeWidth="1.5">
                 <path d="M2.5 4l2.5 2.5L7.5 4" />
@@ -276,12 +307,7 @@ export default function ViewToolbar({
             style={btn.active ? { backgroundColor: activeChip.bg } : undefined}
           >
             <span className="inline-flex items-center justify-center">
-              <AirtableAssetIcon
-                asset={btn.iconAsset}
-                alt=""
-                size={16}
-                tintColor={btn.active ? activeChip.icon : TOOLBAR_SUBTLE}
-              />
+              <ToolbarAssetIcon asset={btn.iconAsset} tintColor={btn.active ? activeChip.icon : TOOLBAR_SUBTLE} />
             </span>
             {btn.label}
           </button>
@@ -334,7 +360,7 @@ export default function ViewToolbar({
       ))}
 
       <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
-        <AirtableAssetIcon asset={149} alt="" size={16} tintColor={TOOLBAR_SUBTLE} />
+        <ToolbarAssetIcon asset={149} tintColor={TOOLBAR_SUBTLE} />
         Color
       </button>
       <div className="relative">
@@ -347,7 +373,7 @@ export default function ViewToolbar({
           }`}
           title="Row height"
         >
-          <AirtableAssetIcon asset={105} alt="" size={16} tintColor={open === "height" ? "#0069ff" : TOOLBAR_SUBTLE} />
+          <ToolbarAssetIcon asset={105} tintColor={open === "height" ? "#0069ff" : TOOLBAR_SUBTLE} />
         </button>
         {open === "height" && (
           <PanelWrapper onClose={() => setOpen(null)}>
@@ -359,11 +385,11 @@ export default function ViewToolbar({
         )}
       </div>
       <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
-        <AirtableAssetIcon asset={430} alt="" size={16} tintColor={TOOLBAR_SUBTLE} />
+        <ToolbarAssetIcon asset={430} tintColor={TOOLBAR_SUBTLE} />
         Share and sync
       </button>
       <button className="h-7 w-7 inline-flex items-center justify-center rounded text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
-        <AirtableAssetIcon asset={175} alt="" size={16} tintColor={TOOLBAR_SUBTLE} />
+        <ToolbarAssetIcon asset={175} tintColor={TOOLBAR_SUBTLE} />
       </button>
       {onBulkAddRows && (
         <button

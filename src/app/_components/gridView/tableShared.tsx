@@ -17,6 +17,26 @@ export const SUMMARY_OPTIONS: SummaryOption[] = [
   "Percent Unique",
 ];
 
+const FIELD_ICON_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  TEXT: { width: 10, height: 9.5 },
+  LONG_TEXT: { width: 12, height: 9.25 },
+  ATTACHMENT: { width: 11, height: 13 },
+  SINGLE_SELECT: { width: 13, height: 13 },
+  USER: { width: 13.12, height: 12.5 },
+  DATE: { width: 12, height: 13 },
+  PHONE: { width: 12.48, height: 12.48 },
+  EMAIL: { width: 13, height: 10 },
+  URL: { width: 11.98, height: 11.98 },
+  NUMBER: { width: 12, height: 12 },
+  CURRENCY: { width: 8.99, height: 14 },
+  PERCENT: { width: 11, height: 11 },
+  DURATION: { width: 13, height: 13 },
+};
+
+function FieldIconFrame({ children }: { children: React.ReactNode }) {
+  return <span className="inline-flex h-4 w-4 items-center justify-center">{children}</span>;
+}
+
 export function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -45,35 +65,50 @@ export function FieldTypeIcon({
   };
 
   if (assetByType[type]) {
-    return <AirtableAssetIcon asset={assetByType[type]} alt="" size={14} className={className} />;
-  }
-
-  const common = { width: 14, height: 14, viewBox: "0 0 14 14", fill: "none" } as const;
-  if (type === "CHECKBOX") {
+    const dimensions = FIELD_ICON_DIMENSIONS[type] ?? { width: 14, height: 14 };
     return (
-      <svg {...common} className={className} stroke="currentColor" strokeWidth="1.3">
-        <rect x="2" y="2" width="10" height="10" rx="1.5" />
-        <path d="M4.2 7.1l1.9 2 3.7-4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <FieldIconFrame>
+        <AirtableAssetIcon
+          asset={assetByType[type]}
+          alt=""
+          className={className}
+          style={{ width: dimensions.width, height: dimensions.height }}
+        />
+      </FieldIconFrame>
     );
   }
-  if (type === "NUMBER" || type === "CURRENCY" || type === "PERCENT") {
-    return <span className={className}>#</span>;
+
+  if (type === "CHECKBOX") {
+    return (
+      <FieldIconFrame>
+        <svg width="12" height="12" viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3">
+          <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
+          <path d="M4.6 8.1l2.1 2.2 4.4-4.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </FieldIconFrame>
+    );
   }
   if (type === "MULTI_SELECT") {
     return (
-      <svg {...common} className={className} stroke="currentColor" strokeWidth="1.3">
-        <path d="M3 4h8M3 7h6M3 10h8" strokeLinecap="round" />
-      </svg>
+      <FieldIconFrame>
+        <svg width="12" height="10" viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.3">
+          <path d="M3 4.5h10M3 8h7.5M3 11.5h10" strokeLinecap="round" />
+        </svg>
+      </FieldIconFrame>
     );
   }
-  if (type === "DATE") {
+  if (type === "RATING") {
     return (
-      <svg {...common} className={className} stroke="currentColor" strokeWidth="1.3">
-        <rect x="2" y="3" width="10" height="9" rx="1.5" />
-        <path d="M2 5.5h10M4.5 2v3M9.5 2v3" strokeLinecap="round" />
-      </svg>
+      <FieldIconFrame>
+        <svg width="13.99" height="13.5" viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.2">
+          <path d="M8 2.2l1.77 3.57 3.94.57-2.85 2.78.67 3.92L8 11.24l-3.53 1.8.67-3.92L2.3 6.34l3.94-.57L8 2.2z" />
+        </svg>
+      </FieldIconFrame>
     );
   }
-  return <span className={className}>A</span>;
+  return (
+    <FieldIconFrame>
+      <span className={className}>A</span>
+    </FieldIconFrame>
+  );
 }
