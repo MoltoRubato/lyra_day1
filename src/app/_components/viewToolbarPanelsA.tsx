@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Column } from "@prisma/client";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
@@ -29,7 +30,7 @@ export function PanelWrapper({
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="absolute right-0 top-full z-50 mt-1 overflow-hidden rounded-[4px] border border-[#d2d6dc] bg-white shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
+        className="absolute top-full right-0 z-50 mt-1 overflow-hidden rounded-[4px] border border-[#d2d6dc] bg-white shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -56,9 +57,12 @@ export function HideFieldsPanel({
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const sortedColumns = [...columns].sort((a, b) => a.order - b.order);
   const lockedColumnIds = new Set(nonHideableColumnIds);
-  const hideableColumns = sortedColumns.filter((column) => !lockedColumnIds.has(column.id));
+  const hideableColumns = sortedColumns.filter(
+    (column) => !lockedColumnIds.has(column.id),
+  );
   const filtered = hideableColumns.filter(
-    (c) => !search.trim() || c.name.toLowerCase().includes(search.toLowerCase()),
+    (c) =>
+      !search.trim() || c.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   function reorderFromHidePanel(draggedId: string, targetId: string) {
@@ -75,7 +79,10 @@ export function HideFieldsPanel({
     const lockedIds = sortedColumns
       .filter((column) => lockedColumnIds.has(column.id))
       .map((column) => column.id);
-    onReorderColumns([...lockedIds, ...reorderedHideable.map((column) => column.id)]);
+    onReorderColumns([
+      ...lockedIds,
+      ...reorderedHideable.map((column) => column.id),
+    ]);
   }
 
   return (
@@ -97,24 +104,40 @@ export function HideFieldsPanel({
             aria-label="Learn more about hiding fields"
             className="inline-flex h-6 w-6 items-center justify-center rounded-full hover:bg-[#f5f7fa]"
           >
-            <AirtableAssetIcon asset={118} alt="" size={16} tintColor="#9ca3af" />
+            <AirtableAssetIcon
+              asset={118}
+              alt=""
+              size={16}
+              tintColor="#9ca3af"
+            />
           </a>
         </div>
       </div>
 
-      <div className="overflow-auto px-4 pb-1 pt-2" style={{ minHeight: 100, maxHeight: "calc(-380px + 100vh)" }}>
+      <div
+        className="overflow-auto px-4 pt-2 pb-1"
+        style={{ minHeight: 100, maxHeight: "calc(-380px + 100vh)" }}
+      >
         {filtered.length === 0 && (
-          <p className="py-6 text-center text-[13px] text-[#9ca3af]">No fields found</p>
+          <p className="py-6 text-center text-[13px] text-[#9ca3af]">
+            No fields found
+          </p>
         )}
         {filtered.map((col) => {
           const visible = !hiddenFields[col.id];
-          const dragOver = dragColumnId !== col.id && dragOverColumnId === col.id;
+          const dragOver =
+            dragColumnId !== col.id && dragOverColumnId === col.id;
           return (
             <div
               key={col.id}
-              className="mb-1 mt-1 flex items-center"
+              className="mt-1 mb-1 flex items-center"
               onDragOver={(event) => {
-                if (!onReorderColumns || !dragColumnId || dragColumnId === col.id) return;
+                if (
+                  !onReorderColumns ||
+                  !dragColumnId ||
+                  dragColumnId === col.id
+                )
+                  return;
                 event.preventDefault();
                 setDragOverColumnId(col.id);
               }}
@@ -131,7 +154,10 @@ export function HideFieldsPanel({
                 role="checkbox"
                 aria-checked={visible}
                 onClick={() => {
-                  onChange({ ...hiddenFields, [col.id]: !hiddenFields[col.id] });
+                  onChange({
+                    ...hiddenFields,
+                    [col.id]: !hiddenFields[col.id],
+                  });
                 }}
                 className={`flex h-[18px] flex-1 cursor-pointer items-center rounded px-1 ${
                   dragOver ? "bg-[#0000000d]" : "hover:bg-[#0000000d]"
@@ -147,10 +173,12 @@ export function HideFieldsPanel({
                 >
                   <span
                     className="h-1 w-1 rounded-full bg-white transition-all"
-                    style={{ transform: visible ? "translateX(0)" : "translateX(-4px)" }}
+                    style={{
+                      transform: visible ? "translateX(0)" : "translateX(-4px)",
+                    }}
                   />
                 </span>
-                <span className="ml-4 mr-2 inline-flex flex-none items-center justify-center text-[#616670]">
+                <span className="mr-2 ml-4 inline-flex flex-none items-center justify-center text-[#616670]">
                   <FieldTypeIcon type={col.type} className="text-[#616670]" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-left text-[13px] leading-[18px] text-[#1d1f25]">
@@ -190,23 +218,27 @@ export function HideFieldsPanel({
         })}
       </div>
 
-      <div className="my-1 -mx-2 flex px-4 text-[11px] font-semibold">
-          <button
-            type="button"
-            onClick={() =>
-              onChange(Object.fromEntries(hideableColumns.map((column) => [column.id, true])))
-            }
-            className="mx-1 h-[26px] flex-1 rounded-[4px] bg-[#f3f3f4] text-[#1d1f25] hover:bg-[#ecedef]"
-          >
-            Hide all
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({})}
-            className="mx-1 h-[26px] flex-1 rounded-[4px] bg-[#f3f3f4] text-[#1d1f25] hover:bg-[#ecedef]"
-          >
-            Show all
-          </button>
+      <div className="-mx-2 my-1 flex px-4 text-[11px] font-semibold">
+        <button
+          type="button"
+          onClick={() =>
+            onChange(
+              Object.fromEntries(
+                hideableColumns.map((column) => [column.id, true]),
+              ),
+            )
+          }
+          className="mx-1 h-[26px] flex-1 rounded-[4px] bg-[#f3f3f4] text-[#1d1f25] hover:bg-[#ecedef]"
+        >
+          Hide all
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange({})}
+          className="mx-1 h-[26px] flex-1 rounded-[4px] bg-[#f3f3f4] text-[#1d1f25] hover:bg-[#ecedef]"
+        >
+          Show all
+        </button>
       </div>
     </div>
   );
@@ -376,7 +408,10 @@ function findGroup(root: FilterGroup, groupId: string): FilterGroup | null {
   return null;
 }
 
-function findCondition(root: FilterGroup, conditionId: string): FilterCondition | null {
+function findCondition(
+  root: FilterGroup,
+  conditionId: string,
+): FilterCondition | null {
   for (const child of root.children) {
     if (child.type === "condition") {
       if (child.id === conditionId) return child;
@@ -406,7 +441,13 @@ function countGroups(group: FilterGroup): number {
 
 function ChevronDown() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="flex-none">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className="flex-none"
+    >
       <path
         d="M4.5 6.5L8 10l3.5-3.5"
         fill="none"
@@ -420,7 +461,14 @@ function ChevronDown() {
 }
 
 function TinyQuestion() {
-  return <AirtableAssetIcon asset={118} alt="" size={13} tintColor="rgb(97, 102, 112)" />;
+  return (
+    <AirtableAssetIcon
+      asset={118}
+      alt=""
+      size={13}
+      tintColor="rgb(97, 102, 112)"
+    />
+  );
 }
 export function FilterPanel({
   columns,
@@ -431,8 +479,14 @@ export function FilterPanel({
   filters: FilterTree;
   onChange: (f: FilterTree) => void;
 }) {
-  const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
-  const filterTree = useMemo(() => withDepths(normalizeFilterTree(filters)), [filters]);
+  const sortedColumns = useMemo(
+    () => [...columns].sort((a, b) => a.order - b.order),
+    [columns],
+  );
+  const filterTree = useMemo(
+    () => withDepths(normalizeFilterTree(filters)),
+    [filters],
+  );
   const columnById = useMemo(
     () => new Map(sortedColumns.map((column) => [column.id, column])),
     [sortedColumns],
@@ -443,7 +497,9 @@ export function FilterPanel({
   const [footerNotice, setFooterNotice] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragTargetId, setDragTargetId] = useState<string | null>(null);
-  const [dragOverContainerGroupId, setDragOverContainerGroupId] = useState<string | null>(null);
+  const [dragOverContainerGroupId, setDragOverContainerGroupId] = useState<
+    string | null
+  >(null);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -563,11 +619,18 @@ export function FilterPanel({
     commit(nextTree);
   }
 
-  function patchCondition(conditionId: string, patch: Partial<FilterCondition>) {
-    const nextTree = updateConditionById(filterTree, conditionId, (condition) => ({
-      ...condition,
-      ...patch,
-    }));
+  function patchCondition(
+    conditionId: string,
+    patch: Partial<FilterCondition>,
+  ) {
+    const nextTree = updateConditionById(
+      filterTree,
+      conditionId,
+      (condition) => ({
+        ...condition,
+        ...patch,
+      }),
+    );
     commit(nextTree);
   }
 
@@ -593,7 +656,12 @@ export function FilterPanel({
     }
 
     if (dragState.parentGroupId === parentGroupId) {
-      const nextTree = reorderWithinGroup(filterTree, parentGroupId, dragState.nodeId, targetNodeId);
+      const nextTree = reorderWithinGroup(
+        filterTree,
+        parentGroupId,
+        dragState.nodeId,
+        targetNodeId,
+      );
       clearDragState();
       commit(nextTree);
       return;
@@ -624,7 +692,8 @@ export function FilterPanel({
 
     if (dragState.parentGroupId === targetGroupId) {
       const targetGroup = findGroup(filterTree, targetGroupId);
-      const lastNodeId = targetGroup?.children[targetGroup.children.length - 1]?.id ?? null;
+      const lastNodeId =
+        targetGroup?.children[targetGroup.children.length - 1]?.id ?? null;
       if (!lastNodeId || lastNodeId === dragState.nodeId) {
         clearDragState();
         return;
@@ -659,7 +728,10 @@ export function FilterPanel({
   function renderPrefix(parentGroup: FilterGroup, index: number) {
     if (index === 0) {
       return (
-        <div className="flex h-full w-full items-center px-1" data-testid="filter-prefix-label">
+        <div
+          className="flex h-full w-full items-center px-1"
+          data-testid="filter-prefix-label"
+        >
           Where
         </div>
       );
@@ -670,7 +742,9 @@ export function FilterPanel({
         type="button"
         className="focus-container pointer flex h-8 items-center rounded border border-[#ced3db] bg-white px-2 text-[13px] hover:bg-[#eef4ff]"
         style={{ width: 56 }}
-        onClick={(event) => openConjunctionMenu(parentGroup.id, event.currentTarget)}
+        onClick={(event) =>
+          openConjunctionMenu(parentGroup.id, event.currentTarget)
+        }
       >
         <div className="link-quiet pointer flex w-full items-center justify-between text-left text-[#1d1f25]">
           <div>{parentGroup.conjunction}</div>
@@ -680,8 +754,14 @@ export function FilterPanel({
     );
   }
 
-  function renderCondition(condition: FilterCondition, parentGroup: FilterGroup, index: number) {
-    const field = condition.fieldId ? columnById.get(condition.fieldId) : undefined;
+  function renderCondition(
+    condition: FilterCondition,
+    parentGroup: FilterGroup,
+    index: number,
+  ) {
+    const field = condition.fieldId
+      ? columnById.get(condition.fieldId)
+      : undefined;
     const operator = condition.operator ? FILTER_OPS[condition.operator] : null;
     const needsValue = operator?.needsValue ?? true;
 
@@ -706,7 +786,10 @@ export function FilterPanel({
         }}
       >
         <div className="flex min-w-0">
-          <div className="flex items-center px-1" style={{ width: "4.5rem", paddingBottom: "0.5rem" }}>
+          <div
+            className="flex items-center px-1"
+            style={{ width: "4.5rem", paddingBottom: "0.5rem" }}
+          >
             {renderPrefix(parentGroup, index)}
           </div>
           <div
@@ -715,15 +798,21 @@ export function FilterPanel({
           >
             <div
               className={`flex min-w-0 flex-1 items-stretch rounded border border-[#ccd2da] bg-white transition-[background-color,box-shadow,transform] duration-150 ease-out ${
-                dragTargetId === condition.id ? "bg-[#ebf3ff] shadow-[inset_0_0_0_1px_#9cc2ff]" : ""
+                dragTargetId === condition.id
+                  ? "bg-[#ebf3ff] shadow-[inset_0_0_0_1px_#9cc2ff]"
+                  : ""
               }`}
             >
               <button
                 type="button"
                 className="flex h-[30px] min-w-0 flex-[0_0_126px] items-center border-r border-[#d2d6dc] px-2 text-left text-[13px] hover:bg-[#eef4ff]"
-                onClick={(event) => openFieldMenu(condition.id, event.currentTarget)}
+                onClick={(event) =>
+                  openFieldMenu(condition.id, event.currentTarget)
+                }
               >
-                <div className={`truncate ${field ? "text-[#166ee1]" : "text-[#9ba1ad]"}`}>
+                <div
+                  className={`truncate ${field ? "text-[#166ee1]" : "text-[#9ba1ad]"}`}
+                >
                   {field?.name ?? "Select field"}
                 </div>
                 <div className="ml-auto flex items-center text-[#6d7380]">
@@ -735,7 +824,9 @@ export function FilterPanel({
                 type="button"
                 disabled={!field}
                 className={`flex h-[30px] min-w-0 flex-[0_0_126px] items-center border-r border-[#d2d6dc] px-2 text-left text-[13px] ${
-                  field ? "text-[#166ee1] hover:bg-[#eef4ff]" : "cursor-not-allowed text-[#b8bec8]"
+                  field
+                    ? "text-[#166ee1] hover:bg-[#eef4ff]"
+                    : "cursor-not-allowed text-[#b8bec8]"
                 }`}
                 onClick={(event) => {
                   if (!field) return;
@@ -743,7 +834,9 @@ export function FilterPanel({
                 }}
               >
                 <div className="truncate">
-                  {condition.operator ? FILTER_OPS[condition.operator].label : "Select operator"}
+                  {condition.operator
+                    ? FILTER_OPS[condition.operator].label
+                    : "Select operator"}
                 </div>
                 <div className="ml-auto flex items-center text-[#6d7380]">
                   <ChevronDown />
@@ -757,7 +850,9 @@ export function FilterPanel({
                   placeholder="Enter a value"
                   value={condition.value ?? ""}
                   disabled={!condition.operator || !field}
-                  onChange={(event) => patchCondition(condition.id, { value: event.target.value })}
+                  onChange={(event) =>
+                    patchCondition(condition.id, { value: event.target.value })
+                  }
                 />
               ) : (
                 <div className="h-[30px] min-w-0 flex-1 border-r border-[#d2d6dc] bg-[#fbfcfd]" />
@@ -766,7 +861,7 @@ export function FilterPanel({
               <button
                 type="button"
                 onClick={() => deleteNode(condition.id)}
-                className="flex h-[30px] w-8 self-stretch items-center justify-center border-l border-[#d2d6dc] p-0 text-[#6d7380] hover:bg-[#eef1f5]"
+                className="flex h-[30px] w-8 items-center justify-center self-stretch border-l border-[#d2d6dc] p-0 text-[#6d7380] hover:bg-[#eef1f5]"
                 aria-label="Delete condition"
               >
                 <AirtableAssetIcon
@@ -780,7 +875,7 @@ export function FilterPanel({
               <button
                 type="button"
                 draggable
-                className="flex h-[30px] w-8 self-stretch items-center justify-center border-l border-[#d2d6dc] p-0 text-[#6d7380] hover:bg-[#eef1f5]"
+                className="flex h-[30px] w-8 items-center justify-center self-stretch border-l border-[#d2d6dc] p-0 text-[#6d7380] hover:bg-[#eef1f5]"
                 aria-label="Reorder"
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = "move";
@@ -807,7 +902,11 @@ export function FilterPanel({
     );
   }
 
-  function renderGroup(group: FilterGroup, parentGroup: FilterGroup, index: number) {
+  function renderGroup(
+    group: FilterGroup,
+    parentGroup: FilterGroup,
+    index: number,
+  ) {
     return (
       <div
         key={group.id}
@@ -827,10 +926,16 @@ export function FilterPanel({
         }}
       >
         <div className="flex min-w-0">
-          <div className="flex items-center px-1" style={{ width: "4.5rem", paddingBottom: "0.5rem" }}>
+          <div
+            className="flex items-center px-1"
+            style={{ width: "4.5rem", paddingBottom: "0.5rem" }}
+          >
             {renderPrefix(parentGroup, index)}
           </div>
-          <div className="flex min-w-0 flex-auto" style={{ paddingRight: "0.5rem" }}>
+          <div
+            className="flex min-w-0 flex-auto"
+            style={{ paddingRight: "0.5rem" }}
+          >
             <div
               className={`w-full rounded-[3px] border border-[#cfd4dc] bg-[#f2f4f8] px-3 py-2 transition-[background-color,box-shadow] duration-150 ease-out ${
                 dragOverContainerGroupId === group.id
@@ -845,7 +950,9 @@ export function FilterPanel({
                 setDragTargetId(null);
               }}
               onDragLeave={() => {
-                setDragOverContainerGroupId((prev) => (prev === group.id ? null : prev));
+                setDragOverContainerGroupId((prev) =>
+                  prev === group.id ? null : prev,
+                );
               }}
               onDrop={(event) => {
                 event.preventDefault();
@@ -854,13 +961,17 @@ export function FilterPanel({
               }}
             >
               <div className="mb-2 flex items-center justify-between">
-                <div className="truncate text-[13px] text-[#616670]">{groupSummary(group)}</div>
+                <div className="truncate text-[13px] text-[#616670]">
+                  {groupSummary(group)}
+                </div>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     aria-label="Add item to group"
                     className="flex h-4 w-4 items-center justify-center p-0"
-                    onClick={(event) => openGroupAddMenu(group.id, event.currentTarget)}
+                    onClick={(event) =>
+                      openGroupAddMenu(group.id, event.currentTarget)
+                    }
                   >
                     <AirtableAssetIcon
                       asset={127}
@@ -910,7 +1021,9 @@ export function FilterPanel({
               ) : (
                 <div
                   className={`mb-2 rounded border border-[#d2d6dc] bg-[#eceff4] px-3 py-2 text-[13px] text-[#7b8190] transition-[background-color,border-color] duration-150 ease-out ${
-                    dragOverContainerGroupId === group.id ? "border-[#95b6eb] bg-[#e8f1ff]" : ""
+                    dragOverContainerGroupId === group.id
+                      ? "border-[#95b6eb] bg-[#e8f1ff]"
+                      : ""
                   }`}
                   onDragOver={(event) => {
                     if (!dragState || dragState.nodeId === group.id) return;
@@ -937,15 +1050,22 @@ export function FilterPanel({
 
   function renderChildren(group: FilterGroup) {
     return group.children.map((child, index) =>
-      child.type === "condition" ? renderCondition(child, group, index) : renderGroup(child, group, index),
+      child.type === "condition"
+        ? renderCondition(child, group, index)
+        : renderGroup(child, group, index),
     );
   }
 
-  const emptyState = !hasActiveFilters(filterTree) && filterTree.children.length === 0;
-  const hasConditionGroup = filterTree.children.some((child) => child.type === "group");
+  const emptyState =
+    !hasActiveFilters(filterTree) && filterTree.children.length === 0;
+  const hasConditionGroup = filterTree.children.some(
+    (child) => child.type === "group",
+  );
   const totalGroups = countGroups(filterTree);
-  const useExpandedPanelFrame = hasConditionGroup && (totalConditions >= 6 || totalGroups >= 3);
-  const lockSingleGroupPanelHeight = hasConditionGroup && totalConditions <= 1 && totalGroups <= 2;
+  const useExpandedPanelFrame =
+    hasConditionGroup && (totalConditions >= 6 || totalGroups >= 3);
+  const lockSingleGroupPanelHeight =
+    hasConditionGroup && totalConditions <= 1 && totalGroups <= 2;
   const rootAddGroupDisabled = filterTree.depth >= MAX_FILTER_DEPTH;
   const panelWidth = emptyState
     ? "min(327.5px, calc(100vw - 16px))"
@@ -978,7 +1098,7 @@ export function FilterPanel({
 
   return (
     <div
-      className="baymax colors-background-raised-popover rounded shadow-elevation-high flex flex-col overflow-hidden"
+      className="baymax colors-background-raised-popover shadow-elevation-high flex flex-col overflow-hidden rounded"
       style={{
         width: panelWidth,
         maxWidth: "1065px",
@@ -992,7 +1112,10 @@ export function FilterPanel({
             : {}),
       }}
     >
-      <div className="flex items-center justify-between px2 pt2" style={{ padding: "16px 16px 0px" }}>
+      <div
+        className="px2 pt2 flex items-center justify-between"
+        style={{ padding: "16px 16px 0px" }}
+      >
         <h3 className="font-family-default heading-size-xxsmall text-color-quiet line-height-3 font-weight-strong text-[13px] font-semibold text-[#616670]">
           Filter
         </h3>
@@ -1000,16 +1123,26 @@ export function FilterPanel({
 
       <div className="px2 py1" style={{ padding: "8px 16px" }}>
         <div className="relative">
-          <div className="button-size-default flex items-center border border-[#d8dde5] bg-white p-[4px]" style={{ borderRadius: 6 }}>
+          <div
+            className="button-size-default flex items-center border border-[#d8dde5] bg-white p-[4px]"
+            style={{ borderRadius: 6 }}
+          >
             <div className="ml-half flex flex-none items-center">
-              <img src="/airtable_assets/yellow_omni.png" alt="" width={16} height={16} className="h-4 w-4" draggable={false} />
+              <Image
+                src="/airtable_assets/yellow_omni.png"
+                alt=""
+                width={16}
+                height={16}
+                className="h-4 w-4"
+                draggable={false}
+              />
             </div>
-            <div className="flex-auto px-half px-2">
+            <div className="px-half flex-auto px-2">
               <input
                 type="text"
                 placeholder="Describe what you want to see"
                 aria-label="Ask AI to generate filters"
-                className="width-full border-none outline-none text-size-default colors-background-default w-full bg-white text-[13px] text-[#7d8592]"
+                className="width-full text-size-default colors-background-default w-full border-none bg-white text-[13px] text-[#7d8592] outline-none"
                 style={{ outline: "none", border: "none", boxShadow: "none" }}
                 value=""
                 readOnly
@@ -1020,13 +1153,16 @@ export function FilterPanel({
       </div>
 
       {!emptyState && (
-        <div className="px2 pt1-and-half text-color-quiet" style={{ padding: "12px 16px 0px", color: "#616670" }}>
+        <div
+          className="px2 pt1-and-half text-color-quiet"
+          style={{ padding: "12px 16px 0px", color: "#616670" }}
+        >
           In this view, show records
         </div>
       )}
 
       <div
-        className="existingFilterContainer light-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto px2 pt1-and-half"
+        className="existingFilterContainer light-scrollbar px2 pt1-and-half min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
         style={{
           padding: emptyState ? "8px 16px 0px" : "12px 16px 0px",
           overflowY: lockSingleGroupPanelHeight ? "hidden" : "auto",
@@ -1041,7 +1177,9 @@ export function FilterPanel({
         }}
         onDragLeave={(event) => {
           if (event.target !== event.currentTarget) return;
-          setDragOverContainerGroupId((prev) => (prev === filterTree.id ? null : prev));
+          setDragOverContainerGroupId((prev) =>
+            prev === filterTree.id ? null : prev,
+          );
         }}
         onDrop={(event) => {
           if (event.target !== event.currentTarget) return;
@@ -1068,10 +1206,13 @@ export function FilterPanel({
       </div>
 
       <div
-        className="flex items-center justify-between px2 pb2"
+        className="px2 pb2 flex items-center justify-between"
         style={{ padding: emptyState ? "0px 16px 12px" : "0px 16px 16px" }}
       >
-        <div className="mr2 flex flex-wrap items-center gap-4" style={{ width: "max-content", maxWidth: "100%" }}>
+        <div
+          className="mr2 flex flex-wrap items-center gap-4"
+          style={{ width: "max-content", maxWidth: "100%" }}
+        >
           <button
             type="button"
             className={`focusFirstInModal flex items-center gap-1 text-[13px] font-semibold ${
@@ -1081,16 +1222,20 @@ export function FilterPanel({
             }`}
             aria-label="Add condition"
             disabled={maxConditionsReached}
-            title={maxConditionsReached ? "Maximum of 49 filter conditions reached" : "Add condition"}
+            title={
+              maxConditionsReached
+                ? "Maximum of 49 filter conditions reached"
+                : "Add condition"
+            }
             onClick={() => addConditionToGroup(filterTree.id)}
           >
-              <AirtableAssetIcon
-                asset={127}
-                alt=""
-                className="mr-half"
-                tintColor="rgb(97, 102, 112)"
-                style={{ width: 12, height: 12 }}
-              />
+            <AirtableAssetIcon
+              asset={127}
+              alt=""
+              className="mr-half"
+              tintColor="rgb(97, 102, 112)"
+              style={{ width: 12, height: 12 }}
+            />
             Add condition
           </button>
 
@@ -1104,7 +1249,11 @@ export function FilterPanel({
               }`}
               aria-label="Add condition group"
               disabled={rootAddGroupDisabled || maxConditionsReached}
-              title={rootAddGroupDisabled ? "Maximum nesting depth reached" : "Add condition group"}
+              title={
+                rootAddGroupDisabled
+                  ? "Maximum nesting depth reached"
+                  : "Add condition group"
+              }
               onClick={() => addConditionGroupToGroup(filterTree.id)}
             >
               <AirtableAssetIcon
@@ -1131,7 +1280,11 @@ export function FilterPanel({
         </div>
       </div>
 
-      {footerNotice && <div className="px-4 pb-3 text-[13px] text-[#a16207]">{footerNotice}</div>}
+      {footerNotice && (
+        <div className="px-4 pb-3 text-[13px] text-[#a16207]">
+          {footerNotice}
+        </div>
+      )}
 
       {menu && (
         <div
@@ -1170,14 +1323,19 @@ export function FilterPanel({
                       }}
                     >
                       <span className="inline-flex w-4 items-center justify-center text-[#616670]">
-                        <FieldTypeIcon type={column.type} className="text-[#616670]" />
+                        <FieldTypeIcon
+                          type={column.type}
+                          className="text-[#616670]"
+                        />
                       </span>
                       <span className="truncate">{column.name}</span>
                     </button>
                   );
                 })}
                 {fieldOptions.length === 0 && (
-                  <div className="px-3 py-2 text-[13px] text-[#8f96a3]">No fields found</div>
+                  <div className="px-3 py-2 text-[13px] text-[#8f96a3]">
+                    No fields found
+                  </div>
                 )}
               </div>
             </div>
@@ -1185,7 +1343,9 @@ export function FilterPanel({
 
           {menu.kind === "operator" && (
             <div className="w-full">
-              <div className="px-3 py-2 text-[13px] text-[#8f96a3]">Find an operator</div>
+              <div className="px-3 py-2 text-[13px] text-[#8f96a3]">
+                Find an operator
+              </div>
               <div className="max-h-[260px] overflow-auto py-1">
                 {operatorOptions.map((op) => (
                   <button
@@ -1242,11 +1402,17 @@ export function FilterPanel({
               <button
                 type="button"
                 className={`flex w-full items-center px-3 py-1.5 text-left text-[13px] ${
-                  !menuGroup || menuGroup.depth >= MAX_FILTER_DEPTH || maxConditionsReached
+                  !menuGroup ||
+                  menuGroup.depth >= MAX_FILTER_DEPTH ||
+                  maxConditionsReached
                     ? "cursor-not-allowed text-[#a3aab6]"
                     : "text-[#1d1f25] hover:bg-[#f5f7fa]"
                 }`}
-                disabled={!menuGroup || menuGroup.depth >= MAX_FILTER_DEPTH || maxConditionsReached}
+                disabled={
+                  !menuGroup ||
+                  menuGroup.depth >= MAX_FILTER_DEPTH ||
+                  maxConditionsReached
+                }
                 onClick={() => {
                   addConditionGroupToGroup(menu.groupId);
                   setMenu(null);
@@ -1261,4 +1427,3 @@ export function FilterPanel({
     </div>
   );
 }
-

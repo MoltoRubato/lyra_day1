@@ -9,14 +9,12 @@ import type {
   HeaderPanel,
   VisibleColumn,
 } from "~/app/_components/gridView/tableTypes";
-import type {
-  FilterTree,
-  GroupRule,
-} from "~/app/_components/tableUtils";
+import type { FilterTree, GroupRule } from "~/app/_components/tableUtils";
 import { FIELD_TYPES } from "~/app/_components/tableUtils";
 
 type GridViewTableHeaderProps = {
   rowH: number;
+  wrapHeaders: boolean;
   rowNumberWidth: number;
   visCols: VisibleColumn[];
   freezeCount: number;
@@ -56,7 +54,9 @@ type GridViewTableHeaderProps = {
   openColMenu: (colId: string, e: React.MouseEvent<HTMLButtonElement>) => void;
   closeColMenu: () => void;
   hoveredInfoCol: string | null;
-  setHoveredInfoCol: (id: string | null | ((prev: string | null) => string | null)) => void;
+  setHoveredInfoCol: (
+    id: string | null | ((prev: string | null) => string | null),
+  ) => void;
   setEditingDescription: (v: { colId: string; value: string } | null) => void;
   setEditingField: (v: FieldEditorState | null) => void;
   setFieldTypeListOpen: (v: boolean) => void;
@@ -81,6 +81,7 @@ type GridViewTableHeaderProps = {
 
 export function GridViewTableHeader({
   rowH,
+  wrapHeaders,
   rowNumberWidth,
   visCols,
   freezeCount,
@@ -127,7 +128,9 @@ export function GridViewTableHeader({
   highlightedFilterColumnIds,
 }: GridViewTableHeaderProps) {
   const [fieldTypeQuery, setFieldTypeQuery] = useState("");
-  const [hoveredFieldAgent, setHoveredFieldAgent] = useState<string | null>(null);
+  const [hoveredFieldAgent, setHoveredFieldAgent] = useState<string | null>(
+    null,
+  );
   const normalizedFieldTypeQuery = fieldTypeQuery.trim().toLowerCase();
   const dropdownFontFamily =
     '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
@@ -202,7 +205,9 @@ export function GridViewTableHeader({
           hoverBg: "rgb(246, 248, 252)",
         },
       ].filter((item) =>
-        normalizedFieldTypeQuery ? item.label.toLowerCase().includes(normalizedFieldTypeQuery) : true,
+        normalizedFieldTypeQuery
+          ? item.label.toLowerCase().includes(normalizedFieldTypeQuery)
+          : true,
       ),
     [normalizedFieldTypeQuery],
   );
@@ -238,7 +243,9 @@ export function GridViewTableHeader({
         { label: "Barcode" },
         { label: "Button" },
       ].filter((item) =>
-        normalizedFieldTypeQuery ? item.label.toLowerCase().includes(normalizedFieldTypeQuery) : true,
+        normalizedFieldTypeQuery
+          ? item.label.toLowerCase().includes(normalizedFieldTypeQuery)
+          : true,
       ),
     [normalizedFieldTypeQuery],
   );
@@ -248,25 +255,43 @@ export function GridViewTableHeader({
       <tr className="headerRow border-b border-[#e2e5e9] bg-white">
         <th
           className="sticky left-0 z-[14] box-border bg-white px-0 py-0 text-left"
-          style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
+          style={{
+            width: rowNumberWidth,
+            minWidth: rowNumberWidth,
+            maxWidth: rowNumberWidth,
+          }}
         >
-          <div className="flex items-center" style={{ height: rowH }}>
+          <div
+            className={`flex items-center ${wrapHeaders ? "py-[6px]" : ""}`}
+            style={wrapHeaders ? { minHeight: rowH } : { height: rowH }}
+          >
             <div className="h-full w-[20px]" aria-hidden="true" />
             <div className="relative h-full w-[44px]">
               <button
                 type="button"
                 role="checkbox"
                 aria-label="Select all rows"
-                aria-checked={allInViewSelected ? true : someInViewSelected ? "mixed" : false}
+                aria-checked={
+                  allInViewSelected
+                    ? true
+                    : someInViewSelected
+                      ? "mixed"
+                      : false
+                }
                 onClick={() => toggleAllRowsInView(!allInViewSelected)}
-                className={`absolute left-0 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
+                className={`absolute top-1/2 left-0 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
                   allInViewSelected || someInViewSelected
                     ? "border-transparent bg-[#1c76d2] text-white shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
                     : "border-[#d6d8dd] bg-white text-transparent shadow-[0_1px_2px_rgba(15,23,42,0.16)] hover:border-[#c7ccd5]"
                 }`}
               >
                 {allInViewSelected ? (
-                  <svg width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
+                  <svg
+                    width="9"
+                    height="9"
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                  >
                     <path
                       d="M3.5 8.2l2.7 2.8L12.5 4.8"
                       fill="none"
@@ -277,7 +302,12 @@ export function GridViewTableHeader({
                     />
                   </svg>
                 ) : someInViewSelected ? (
-                  <svg width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
+                  <svg
+                    width="9"
+                    height="9"
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                  >
                     <path
                       d="M4 8h8"
                       fill="none"
@@ -300,6 +330,7 @@ export function GridViewTableHeader({
           const frozenLeft = frozenOffsets[colIndex] ?? rowNumberWidth;
           const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
           const isFilterHighlighted = highlightedFilterColumnIds.has(col.id);
+          const trailingActionInset = col.description ? 42 : 22;
           const headerCellBackground =
             dragOverColId === col.id
               ? "#e8f5f1"
@@ -313,12 +344,15 @@ export function GridViewTableHeader({
               data-columnid={col.id}
               style={{
                 width: col.width,
-                minWidth: col.width,
+                minWidth: 60,
+                maxWidth: col.width,
                 ...(isFrozen ? { left: frozenLeft, zIndex: 12 } : {}),
                 ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
-                ...(headerCellBackground ? { backgroundColor: headerCellBackground } : {}),
+                ...(headerCellBackground
+                  ? { backgroundColor: headerCellBackground }
+                  : {}),
               }}
-              className={`cell header relative box-border px-0 py-0 text-left group/col border-r border-[#e2e5e9] bg-white ${isFrozen ? "sticky" : ""}`}
+              className={`cell header group/col relative box-border border-r border-[#e2e5e9] bg-white px-0 py-0 text-left ${isFrozen ? "sticky" : ""}`}
               draggable={!isPrimaryField}
               onDragStart={() => {
                 if (isPrimaryField) return;
@@ -331,17 +365,34 @@ export function GridViewTableHeader({
               }}
               onDragEnd={onDragEnd}
             >
-              <div className="flex h-full w-full min-w-0 box-border items-center gap-1.5 px-2" style={{ height: rowH }}>
-                <span className="text-[#111827] text-[16px] leading-none flex-shrink-0" title={ft.label}>
+              <div
+                className={`relative box-border flex h-full w-full min-w-0 gap-1.5 px-2 ${
+                  wrapHeaders ? "items-start py-[6px]" : "items-center"
+                }`}
+                style={wrapHeaders ? { minHeight: rowH } : { height: rowH }}
+              >
+                <span
+                  className={`flex-shrink-0 text-[16px] leading-none text-[#111827] ${
+                    wrapHeaders ? "mt-[1px]" : ""
+                  }`}
+                  title={ft.label}
+                >
                   <FieldTypeIcon type={col.type} />
                 </span>
 
                 {renamingCol?.id === col.id ? (
                   <input
                     autoFocus
-                    className="bg-transparent border-b-2 border-[#166254] px-1 text-[13px] outline-none flex-1 min-w-0 text-[#1f2937]"
+                    className="min-w-0 flex-1 border-b-2 border-[#166254] bg-transparent px-1 text-[13px] text-[#1f2937] outline-none"
+                    style={
+                      !wrapHeaders
+                        ? { paddingRight: trailingActionInset }
+                        : undefined
+                    }
                     value={renamingCol.value}
-                    onChange={(e) => setRenamingCol({ ...renamingCol, value: e.target.value })}
+                    onChange={(e) =>
+                      setRenamingCol({ ...renamingCol, value: e.target.value })
+                    }
                     onBlur={() => {
                       renameColumn.mutate({
                         columnId: col.id,
@@ -362,77 +413,104 @@ export function GridViewTableHeader({
                   />
                 ) : (
                   <button
-                    onDoubleClick={() => setRenamingCol({ id: col.id, value: col.name })}
-                    className="flex-1 min-w-0 text-left text-[13px] font-medium text-[#111827] hover:text-[#1f2937] truncate"
+                    onDoubleClick={() =>
+                      setRenamingCol({ id: col.id, value: col.name })
+                    }
+                    className={`min-w-0 flex-1 overflow-hidden text-left text-[13px] font-medium text-[#111827] hover:text-[#1f2937] ${
+                      wrapHeaders
+                        ? "leading-[16px] break-words whitespace-normal"
+                        : "truncate"
+                    }`}
+                    style={
+                      !wrapHeaders
+                        ? { paddingRight: trailingActionInset }
+                        : undefined
+                    }
                     title="Double-click to rename"
                   >
                     {col.name}
                   </button>
                 )}
 
-                {!!col.description && (
-                  <div className="relative flex-shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingDescription({ colId: col.id, value: col.description ?? "" });
-                      }}
-                      onMouseEnter={() => setHoveredInfoCol(col.id)}
-                      onMouseLeave={() =>
-                        setHoveredInfoCol((prev) => (prev === col.id ? null : prev))
-                      }
-                      className="text-[#9ca3af] hover:text-[#6b7280]"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.3"
-                      >
-                        <circle cx="7" cy="7" r="5.5" />
-                        <path d="M7 6v3M7 4.2h.01" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                    {hoveredInfoCol === col.id && (
-                      <div className="absolute top-full right-0 mt-1 bg-[#2f3542] text-white text-[13px] px-2 py-1 rounded-[4px] whitespace-nowrap z-50">
-                        {col.description}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openColMenu(col.id, e);
-                  }}
-                  className="opacity-0 group-hover/col:opacity-100 text-[#9ca3af] hover:text-[#6b7280] text-[13px] flex-shrink-0 transition-all p-0.5 rounded hover:bg-[#eef0f3]"
-                  title="Field actions"
+                <div
+                  className={`${
+                    wrapHeaders
+                      ? "mt-[1px] flex flex-shrink-0 items-start gap-1"
+                      : "absolute top-1/2 right-2 z-[1] flex -translate-y-1/2 items-center gap-1"
+                  }`}
                 >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
+                  {!!col.description && (
+                    <div className="relative flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingDescription({
+                            colId: col.id,
+                            value: col.description ?? "",
+                          });
+                        }}
+                        onMouseEnter={() => setHoveredInfoCol(col.id)}
+                        onMouseLeave={() =>
+                          setHoveredInfoCol((prev) =>
+                            prev === col.id ? null : prev,
+                          )
+                        }
+                        className="text-[#9ca3af] hover:text-[#6b7280]"
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.3"
+                        >
+                          <circle cx="7" cy="7" r="5.5" />
+                          <path d="M7 6v3M7 4.2h.01" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                      {hoveredInfoCol === col.id && (
+                        <div className="absolute top-full right-0 z-50 mt-1 rounded-[4px] bg-[#2f3542] px-2 py-1 text-[13px] whitespace-nowrap text-white">
+                          {col.description}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openColMenu(col.id, e);
+                    }}
+                    className="rounded p-0.5 text-[13px] text-[#9ca3af] opacity-0 transition-all group-hover/col:opacity-100 hover:bg-[#eef0f3] hover:text-[#6b7280]"
+                    title="Field actions"
                   >
-                    <path
-                      d="M2.5 4.5L6 8l3.5-3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
+                      <path
+                        d="M2.5 4.5L6 8l3.5-3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               {isCurrentPanel && headerPanel?.panel === "type" && (
                 <FieldTypePicker
                   current={col.type}
                   onSelect={(t) => {
-                    changeType.mutate({ columnId: col.id, type: t as ColumnType });
+                    changeType.mutate({
+                      columnId: col.id,
+                      type: t as ColumnType,
+                    });
                     setHeaderPanel(null);
                   }}
                 />
@@ -462,7 +540,7 @@ export function GridViewTableHeader({
               />
 
               <div
-                className="absolute right-0 top-0 h-full w-px cursor-col-resize z-10"
+                className="absolute top-0 right-0 z-10 h-full w-px cursor-col-resize"
                 onMouseDown={(e) => startResize(e, col.id, col.width)}
               />
             </th>
@@ -476,14 +554,14 @@ export function GridViewTableHeader({
               setAddingCol(!addingCol);
               setFieldTypeQuery("");
             }}
-            className="flex items-center justify-center text-[#7d8592] hover:text-[#1f2937] hover:bg-[#f0f1f3] transition-colors w-full rounded-[4px]"
-            style={{ height: rowH }}
+            className="flex w-full items-center justify-center rounded-[4px] text-[#7d8592] transition-colors hover:bg-[#f0f1f3] hover:text-[#1f2937]"
+            style={wrapHeaders ? { minHeight: rowH } : { height: rowH }}
             title="Add field"
           >
             <svg
               viewBox="0 0 12 12"
               fill="none"
-              className="w-3 h-3"
+              className="h-3 w-3"
               stroke="currentColor"
               strokeWidth="1.5"
             >
@@ -492,7 +570,7 @@ export function GridViewTableHeader({
           </button>
           {addingCol && (
             <div
-              className="absolute left-0 top-full z-[60] mt-1 w-[400px] max-h-[min(72vh,900px)] overflow-y-auto rounded-[12px] border border-[#d9dde3] bg-white shadow-[0_12px_32px_rgba(25,30,40,0.22)]"
+              className="absolute top-full left-0 z-[60] mt-1 max-h-[min(72vh,900px)] w-[400px] overflow-y-auto rounded-[12px] border border-[#d9dde3] bg-white shadow-[0_12px_32px_rgba(25,30,40,0.22)]"
               role="dialog"
               aria-label="Create field"
               style={dropdownTextStyle}
@@ -546,14 +624,22 @@ export function GridViewTableHeader({
                         strokeWidth="1.4"
                       >
                         <circle cx="8" cy="8" r="6" />
-                        <path d="M8 10.8v.01M8 8.6c0-1.6 1.7-1.7 1.7-3.3A1.7 1.7 0 006.3 5.3" strokeLinecap="round" />
+                        <path
+                          d="M8 10.8v.01M8 8.6c0-1.6 1.7-1.7 1.7-3.3A1.7 1.7 0 006.3 5.3"
+                          strokeLinecap="round"
+                        />
                       </svg>
                     </a>
                   </div>
                   <hr className="mt-2 border-0 border-t border-[#eceff3]" />
                 </div>
 
-                <p className="mx-[10px] my-3 text-[13px] font-normal text-[#616670]" style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}>Field agents</p>
+                <p
+                  className="mx-[10px] my-3 text-[13px] font-normal text-[#616670]"
+                  style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}
+                >
+                  Field agents
+                </p>
                 <div className="flex flex-wrap">
                   {fieldAgentItems.map((item) => (
                     <button
@@ -563,33 +649,71 @@ export function GridViewTableHeader({
                       style={{
                         ...dropdownTextStyle,
                         boxSizing: "border-box",
-                        backgroundColor: hoveredFieldAgent === item.label ? item.hoverBg : "transparent",
+                        backgroundColor:
+                          hoveredFieldAgent === item.label
+                            ? item.hoverBg
+                            : "transparent",
                       }}
                       onMouseEnter={() => setHoveredFieldAgent(item.label)}
-                      onMouseLeave={() => setHoveredFieldAgent((prev) => (prev === item.label ? null : prev))}
+                      onMouseLeave={() =>
+                        setHoveredFieldAgent((prev) =>
+                          prev === item.label ? null : prev,
+                        )
+                      }
                     >
                       {item.asset ? (
-                        <AirtableAssetIcon asset={item.asset} size={16} tintColor={item.tintColor} />
+                        <AirtableAssetIcon
+                          asset={item.asset}
+                          size={16}
+                          tintColor={item.tintColor}
+                        />
                       ) : item.label === "Find image from web" ? (
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={item.tintColor} strokeWidth="1.3">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke={item.tintColor}
+                          strokeWidth="1.3"
+                        >
                           <path d="M2.5 8h11M8 2.5a7 7 0 010 11M8 2.5a7 7 0 000 11" />
                         </svg>
                       ) : (
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                        >
                           <circle cx="8" cy="8" r="6" fill={item.tintColor} />
                           <circle cx="8" cy="8" r="1.7" fill="white" />
                         </svg>
                       )}
-                      <span className="truncate" style={dropdownLabelStyle}>{item.label}</span>
+                      <span className="truncate" style={dropdownLabelStyle}>
+                        {item.label}
+                      </span>
                     </button>
                   ))}
                 </div>
                 <hr className="my-2 border-0 border-t border-[#eceff3]" />
 
-                <p className="mx-[10px] my-3 text-[13px] font-normal text-[#616670]" style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}>Standard fields</p>
+                <p
+                  className="mx-[10px] my-3 text-[13px] font-normal text-[#616670]"
+                  style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}
+                >
+                  Standard fields
+                </p>
                 <div className="px-1 pb-1">
                   {standardFieldItems.length === 0 && (
-                    <div className="px-[10px] py-2 text-[13px] text-[#8a94a6] font-normal" style={{ fontFamily: dropdownFontFamily, lineHeight: "18px" }}>No field types found.</div>
+                    <div
+                      className="px-[10px] py-2 text-[13px] font-normal text-[#8a94a6]"
+                      style={{
+                        fontFamily: dropdownFontFamily,
+                        lineHeight: "18px",
+                      }}
+                    >
+                      No field types found.
+                    </div>
                   )}
                   {standardFieldItems.map((item) => (
                     <button
@@ -612,20 +736,53 @@ export function GridViewTableHeader({
                         {item.type ? (
                           <FieldTypeIcon type={item.type} />
                         ) : item.label === "Link to another record" ? (
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-                            <path d="M2.2 4.2h9.6M2.2 7h7.2M2.2 9.8h9.6" strokeLinecap="round" />
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 14 14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                          >
+                            <path
+                              d="M2.2 4.2h9.6M2.2 7h7.2M2.2 9.8h9.6"
+                              strokeLinecap="round"
+                            />
                           </svg>
                         ) : (
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 14 14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                          >
                             <circle cx="7" cy="7" r="5.2" />
                           </svg>
                         )}
                       </span>
-                      <span className="ml-2 truncate" style={dropdownLabelStyle}>{item.label}</span>
+                      <span
+                        className="ml-2 truncate"
+                        style={dropdownLabelStyle}
+                      >
+                        {item.label}
+                      </span>
                       {item.label === "Link to another record" && (
                         <span className="ml-auto text-[#9ca3af]">
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3">
-                            <path d="M5.2 3.2l3.6 3.8-3.6 3.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 14 14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                          >
+                            <path
+                              d="M5.2 3.2l3.6 3.8-3.6 3.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
                           </svg>
                         </span>
                       )}
@@ -640,4 +797,3 @@ export function GridViewTableHeader({
     </thead>
   );
 }
-

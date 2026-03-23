@@ -50,11 +50,7 @@ const MAX_EMPTY_BATCH_RETRIES = 90;
 const MAX_HINT_FETCH_ROWS = 100_000;
 const BULK_GENERATED_ROW_ID_RE = /^r[a-z0-9]{6}[0-9a-f]+$/i;
 const EMPTY_PRELOAD_CELLS: PreloadRow["cells"] = [];
-const FALLBACK_STATUS_LABELS = [
-  "Todo",
-  "In progress",
-  "Done",
-];
+const FALLBACK_STATUS_LABELS = ["Todo", "In progress", "Done"];
 const FALLBACK_TASK_TITLES = [
   "Plan onboarding refresh",
   "Review launch checklist",
@@ -123,7 +119,8 @@ function makeFallbackCellValue(params: {
   columnId: string;
   selectOptionLabels: string[];
 }) {
-  const { columnType, columnName, rowOrder, columnId, selectOptionLabels } = params;
+  const { columnType, columnName, rowOrder, columnId, selectOptionLabels } =
+    params;
   const primaryHash = stableHash(`${rowOrder}:${columnId}:primary`);
   const secondaryHash = stableHash(`${rowOrder}:${columnId}:secondary`);
   const lowerName = columnName.toLowerCase();
@@ -140,7 +137,9 @@ function makeFallbackCellValue(params: {
     case "RATING":
       return String(1 + (primaryHash % 5));
     case "DATE": {
-      const date = new Date(Date.UTC(2026, 0, 1) + (primaryHash % 365) * 86_400_000);
+      const date = new Date(
+        Date.UTC(2026, 0, 1) + (primaryHash % 365) * 86_400_000,
+      );
       return date.toISOString().slice(0, 10);
     }
     case "EMAIL": {
@@ -160,7 +159,8 @@ function makeFallbackCellValue(params: {
     case "ATTACHMENT":
       return `https://files.example.com/${pickValue(FALLBACK_COMPANIES, primaryHash).toLowerCase().replaceAll(" ", "-")}/brief-${(secondaryHash % 500) + 1}.pdf`;
     case "SINGLE_SELECT":
-      if (selectOptionLabels.length > 0) return pickValue(selectOptionLabels, primaryHash);
+      if (selectOptionLabels.length > 0)
+        return pickValue(selectOptionLabels, primaryHash);
       return pickValue(FALLBACK_STATUS_LABELS, primaryHash);
     case "MULTI_SELECT":
       if (selectOptionLabels.length >= 2) {
@@ -174,7 +174,8 @@ function makeFallbackCellValue(params: {
       }
       return pickValue(FALLBACK_NOTES, primaryHash);
     default:
-      if (lowerName.includes("name")) return pickValue(FALLBACK_TASK_TITLES, primaryHash);
+      if (lowerName.includes("name"))
+        return pickValue(FALLBACK_TASK_TITLES, primaryHash);
       if (lowerName.includes("assignee") || lowerName.includes("owner")) {
         return pickValue(FALLBACK_PEOPLE, primaryHash);
       }
@@ -228,6 +229,7 @@ export default function GridView({
   sorts = [],
   groups = [],
   rowHeight = "short",
+  wrapHeaders = false,
   frozenColumnCount = 0,
   recordLabel = "Record",
   onSortsChange,
@@ -246,6 +248,7 @@ export default function GridView({
   sorts?: SortRule[];
   groups?: GroupRule[];
   rowHeight?: RowHeight;
+  wrapHeaders?: boolean;
   frozenColumnCount?: number;
   recordLabel?: string;
   onSortsChange?: (sorts: SortRule[]) => void;
@@ -258,7 +261,11 @@ export default function GridView({
   bulkGeneratedRowsHint?: BulkGeneratedRowsHint;
   bulkAddInFlight?: boolean;
 }) {
-  const { data: table, isLoading, error } = api.table.getById.useQuery(
+  const {
+    data: table,
+    isLoading,
+    error,
+  } = api.table.getById.useQuery(
     { id: tableId },
     {
       // Preserve the fully loaded cache when switching tabs/tables and back.
@@ -272,17 +279,25 @@ export default function GridView({
   const loadRowsAfterOrder = api.table.loadRowsAfterOrder.useMutation();
 
   const [editing, setEditing] = useState<EditingCell | null>(null);
-  const [renamingCol, setRenamingCol] = useState<{ id: string; value: string } | null>(null);
+  const [renamingCol, setRenamingCol] = useState<{
+    id: string;
+    value: string;
+  } | null>(null);
   const [openSelectCell, setOpenSelectCell] = useState<string | null>(null);
-  const [headerPanel, setHeaderPanel] = useState<{ colId: string; panel: "type" | "options" } | null>(
-    null,
-  );
+  const [headerPanel, setHeaderPanel] = useState<{
+    colId: string;
+    panel: "type" | "options";
+  } | null>(null);
   const [addingCol, setAddingCol] = useState(false);
   const [dragColId, setDragColId] = useState<string | null>(null);
   const [dragOverColId, setDragOverColId] = useState<string | null>(null);
   const [freezeCount, setFreezeCount] = useState(frozenColumnCount);
 
-  const resizingRef = useRef<{ colId: string; startX: number; startW: number } | null>(null);
+  const resizingRef = useRef<{
+    colId: string;
+    startX: number;
+    startW: number;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollTopRef = useRef(0);
   const rafPending = useRef(false);
@@ -291,7 +306,9 @@ export default function GridView({
   const [, forceRender] = useState(0);
   const [viewportH, setViewportH] = useState(600);
   const [loadAllLoading, setLoadAllLoading] = useState(false);
-  const [loadAllPhase, setLoadAllPhase] = useState<"fetching" | "finalizing">("fetching");
+  const [loadAllPhase, setLoadAllPhase] = useState<"fetching" | "finalizing">(
+    "fetching",
+  );
   const [loadAllError, setLoadAllError] = useState<string | null>(null);
   const [preloadedRows, setPreloadedRows] = useState<PreloadRow[] | null>(null);
   const [loadAllRetryTick, setLoadAllRetryTick] = useState(0);
@@ -307,7 +324,10 @@ export default function GridView({
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const next = e.currentTarget.scrollTop;
-    const max = Math.max(0, e.currentTarget.scrollHeight - e.currentTarget.clientHeight);
+    const max = Math.max(
+      0,
+      e.currentTarget.scrollHeight - e.currentTarget.clientHeight,
+    );
     scrollTopRef.current = Math.max(0, Math.min(next, max));
     if (rafPending.current) return;
     rafPending.current = true;
@@ -322,7 +342,10 @@ export default function GridView({
     [table?.columns],
   );
   const visCols = useMemo(
-    () => allCols.filter((column, index) => index === 0 || !hiddenFields[column.id]),
+    () =>
+      allCols.filter(
+        (column, index) => index === 0 || !hiddenFields[column.id],
+      ),
     [allCols, hiddenFields],
   );
 
@@ -332,7 +355,9 @@ export default function GridView({
 
   useEffect(() => {
     const nextFrozenColumnCount = Math.max(0, frozenColumnCount);
-    setFreezeCount((prev) => (prev === nextFrozenColumnCount ? prev : nextFrozenColumnCount));
+    setFreezeCount((prev) =>
+      prev === nextFrozenColumnCount ? prev : nextFrozenColumnCount,
+    );
   }, [frozenColumnCount]);
 
   const handleFreezeCountChange = useCallback(
@@ -430,14 +455,17 @@ export default function GridView({
   } = useGridViewColumnMutations({ tableId, ...cacheHelpers });
 
   const baseRows = useMemo(
-    () => ((table?.rows as RowWithCells[] | undefined) ?? []),
+    () => (table?.rows as RowWithCells[] | undefined) ?? [],
     [table?.rows],
   );
   const columnById = useMemo(
     () => new Map(allCols.map((column) => [column.id, column])),
     [allCols],
   );
-  const normalizedFilters = useMemo(() => normalizeFilterTree(filters), [filters]);
+  const normalizedFilters = useMemo(
+    () => normalizeFilterTree(filters),
+    [filters],
+  );
   const combinedRows = useMemo(
     () =>
       preloadedRows
@@ -458,13 +486,17 @@ export default function GridView({
         columnName: column.name,
         rowOrder: row.order,
         columnId,
-        selectOptionLabels: column.selectOptions?.map((option) => option.label) ?? [],
+        selectOptionLabels:
+          column.selectOptions?.map((option) => option.label) ?? [],
       });
     },
     [columnById],
   );
 
-  const noTransform = !hasActiveFilters(normalizedFilters) && sorts.length === 0 && groups.length === 0;
+  const noTransform =
+    !hasActiveFilters(normalizedFilters) &&
+    sorts.length === 0 &&
+    groups.length === 0;
   const rowsForTransforms = useMemo(() => {
     if (noTransform) return combinedRows;
     return combinedRows.map((row) => ({
@@ -489,7 +521,15 @@ export default function GridView({
     const sorted = applySorts(filtered, sorts, table.columns);
     const grouped = applyGroups(sorted, groups);
     return flattenGroupTree(grouped);
-  }, [table, noTransform, combinedRows, rowsForTransforms, normalizedFilters, sorts, groups]);
+  }, [
+    table,
+    noTransform,
+    combinedRows,
+    rowsForTransforms,
+    normalizedFilters,
+    sorts,
+    groups,
+  ]);
 
   const rowNumbers = useMemo(() => {
     let n = 0;
@@ -505,10 +545,11 @@ export default function GridView({
   const resolvedRowHeight: RowHeight =
     rowHeight in ROW_HEIGHT_PX ? rowHeight : "short";
   const rowH = ROW_HEIGHT_PX[resolvedRowHeight];
-  const isTall = resolvedRowHeight === "tall" || resolvedRowHeight === "extra-tall";
+  const isTall =
+    resolvedRowHeight === "tall" || resolvedRowHeight === "extra-tall";
 
   const rawRowCount = table?.rowCount;
-  const totalRows = rawRowCount ?? (table?.rows.length ?? 0);
+  const totalRows = rawRowCount ?? table?.rows.length ?? 0;
   const visibleTotal = noTransform ? totalRows : flatItems.length;
   const loadedCount = flatItems.length;
 
@@ -557,7 +598,9 @@ export default function GridView({
     const pendingBulkGeneratedRowsHint =
       bulkGeneratedRowsHint?.tableId === tableId &&
       (bulkGeneratedRowsHint?.inserted ?? 0) > 0 &&
-      total === (bulkGeneratedRowsHint?.previousRowCount ?? 0) + (bulkGeneratedRowsHint?.inserted ?? 0)
+      total ===
+        (bulkGeneratedRowsHint?.previousRowCount ?? 0) +
+          (bulkGeneratedRowsHint?.inserted ?? 0)
         ? bulkGeneratedRowsHint
         : null;
     const activeBulkGeneratedRowsHint =
@@ -565,7 +608,10 @@ export default function GridView({
         ? pendingBulkGeneratedRowsHint
         : null;
 
-    if (bulkAddInFlight || (pendingBulkGeneratedRowsHint && !activeBulkGeneratedRowsHint)) {
+    if (
+      bulkAddInFlight ||
+      (pendingBulkGeneratedRowsHint && !activeBulkGeneratedRowsHint)
+    ) {
       setLoadAllLoading(true);
       setLoadAllPhase("fetching");
       setLoadAllError(null);
@@ -610,14 +656,16 @@ export default function GridView({
         );
         const missingExistingRowsCount = Math.max(
           0,
-          activeBulkGeneratedRowsHint.previousRowCount - alreadyLoadedExistingRows.length,
+          activeBulkGeneratedRowsHint.previousRowCount -
+            alreadyLoadedExistingRows.length,
         );
 
         if (missingExistingRowsCount > 0) {
           let remainingExistingRows = missingExistingRowsCount;
           let afterExistingOrder =
             alreadyLoadedExistingRows.length > 0
-              ? alreadyLoadedExistingRows[alreadyLoadedExistingRows.length - 1]!.order
+              ? alreadyLoadedExistingRows[alreadyLoadedExistingRows.length - 1]!
+                  .order
               : undefined;
 
           while (remainingExistingRows > 0) {
@@ -632,7 +680,11 @@ export default function GridView({
             if (gapRows.length === 0) {
               return null;
             }
-            if (gapRows.some((row) => row.order >= activeBulkGeneratedRowsHint.startOrder)) {
+            if (
+              gapRows.some(
+                (row) => row.order >= activeBulkGeneratedRowsHint.startOrder,
+              )
+            ) {
               return null;
             }
 
@@ -647,7 +699,11 @@ export default function GridView({
           }
         }
 
-        for (let offset = 0; offset < activeBulkGeneratedRowsHint.inserted; offset += 1) {
+        for (
+          let offset = 0;
+          offset < activeBulkGeneratedRowsHint.inserted;
+          offset += 1
+        ) {
           const generatedRow = makeBulkGeneratedRow(
             tableId,
             activeBulkGeneratedRowsHint.startOrder + offset,
@@ -664,12 +720,17 @@ export default function GridView({
       if (preloadCycle.current !== cycleId) return;
       if (hintedRows) {
         setLoadAllPhase("finalizing");
-        setPreloadedRows((prev) => (prev ? [...prev, ...hintedRows] : hintedRows));
+        setPreloadedRows((prev) =>
+          prev ? [...prev, ...hintedRows] : hintedRows,
+        );
         return;
       }
 
       const seenIds = new Set(existingRows.map((row) => row.id));
-      let lastOrder = existingRows.length > 0 ? existingRows[existingRows.length - 1]!.order : -1;
+      let lastOrder =
+        existingRows.length > 0
+          ? existingRows[existingRows.length - 1]!.order
+          : -1;
       const newRows: PreloadRow[] = [];
       let steps = 0;
       let emptyBatchRetries = 0;
@@ -684,7 +745,11 @@ export default function GridView({
         let requestTake = Math.min(batchSize, remaining);
         let lastBatchError: unknown = null;
 
-        for (let attempt = 0; attempt <= MAX_BATCH_FETCH_RETRIES; attempt += 1) {
+        for (
+          let attempt = 0;
+          attempt <= MAX_BATCH_FETCH_RETRIES;
+          attempt += 1
+        ) {
           try {
             const batch = await loadRowsAfterOrder.mutateAsync({
               tableId,
@@ -719,7 +784,9 @@ export default function GridView({
         if (rows.length === 0) {
           emptyBatchRetries += 1;
           if (emptyBatchRetries > MAX_EMPTY_BATCH_RETRIES) {
-            throw new Error("No additional rows were returned before preload completed.");
+            throw new Error(
+              "No additional rows were returned before preload completed.",
+            );
           }
           await sleep(Math.min(2_000, RETRY_BACKOFF_MS * emptyBatchRetries));
           continue;
@@ -765,16 +832,25 @@ export default function GridView({
   ]);
 
   if (isLoading) {
-    return <div className="p-8 text-[#9ca3af] text-sm animate-pulse">Loading...</div>;
+    return (
+      <div className="animate-pulse p-8 text-sm text-[#9ca3af]">Loading...</div>
+    );
   }
   if (error) {
-    return <div className="p-8 text-red-400 text-sm">Failed to load table. Please refresh.</div>;
+    return (
+      <div className="p-8 text-sm text-red-400">
+        Failed to load table. Please refresh.
+      </div>
+    );
   }
   if (!table) {
-    return <div className="p-8 text-[#9ca3af] text-sm">Table not found.</div>;
+    return <div className="p-8 text-sm text-[#9ca3af]">Table not found.</div>;
   }
 
-  function handleCellClick(row: RowWithCells, col: { id: string; type: string }) {
+  function handleCellClick(
+    row: RowWithCells,
+    col: { id: string; type: string },
+  ) {
     setHeaderPanel(null);
     if (editing?.rowId === row.id && editing.columnId === col.id) return;
 
@@ -801,18 +877,27 @@ export default function GridView({
       return;
     }
 
-    setEditing({ rowId: row.id, columnId: col.id, value: getGridCellValue(row, col.id) });
+    setEditing({
+      rowId: row.id,
+      columnId: col.id,
+      value: getGridCellValue(row, col.id),
+    });
   }
 
   function commitEdit() {
     if (!editing) return;
-    safeUpdateCellWithPreloaded(editing.rowId, editing.columnId, editing.value || null);
+    safeUpdateCellWithPreloaded(
+      editing.rowId,
+      editing.columnId,
+      editing.value || null,
+    );
     setEditing(null);
   }
 
   function handleAddColumnWithType(type: string, suggestedName?: string) {
     const trimmedName = suggestedName?.trim();
-    const nextName = trimmedName && trimmedName.length > 0 ? trimmedName : "New field";
+    const nextName =
+      trimmedName && trimmedName.length > 0 ? trimmedName : "New field";
     addColumn.mutate({ tableId, name: nextName, type: type as ColumnType });
     setAddingCol(false);
   }
@@ -821,8 +906,12 @@ export default function GridView({
     if (dragColId && dragOverColId && dragColId !== dragOverColId) {
       const primaryColumn = allCols[0];
       const movableColumns = allCols.slice(1);
-      const from = movableColumns.findIndex((column) => column.id === dragColId);
-      const to = movableColumns.findIndex((column) => column.id === dragOverColId);
+      const from = movableColumns.findIndex(
+        (column) => column.id === dragColId,
+      );
+      const to = movableColumns.findIndex(
+        (column) => column.id === dragOverColId,
+      );
       if (primaryColumn && from >= 0 && to >= 0) {
         const reordered = [...movableColumns];
         const moved = reordered.splice(from, 1)[0];
@@ -830,7 +919,10 @@ export default function GridView({
           reordered.splice(to, 0, moved);
           reorderColumns.mutate({
             tableId,
-            orderedIds: [primaryColumn.id, ...reordered.map((column) => column.id)],
+            orderedIds: [
+              primaryColumn.id,
+              ...reordered.map((column) => column.id),
+            ],
           });
         }
       }
@@ -846,7 +938,7 @@ export default function GridView({
     const onMove = (ev: MouseEvent) => {
       if (!resizingRef.current) return;
       const w = Math.max(
-        80,
+        60,
         resizingRef.current.startW + ev.clientX - resizingRef.current.startX,
       );
       patchCache((p) =>
@@ -864,7 +956,10 @@ export default function GridView({
     const onUp = (ev: MouseEvent) => {
       if (!resizingRef.current) return;
       const w = Math.round(
-        Math.max(80, resizingRef.current.startW + ev.clientX - resizingRef.current.startX),
+        Math.max(
+          60,
+          resizingRef.current.startW + ev.clientX - resizingRef.current.startX,
+        ),
       );
       resizeColumn.mutate({ columnId: resizingRef.current.colId, width: w });
       resizingRef.current = null;
@@ -881,6 +976,7 @@ export default function GridView({
       containerRef={containerRef}
       handleScroll={handleScroll}
       rowH={rowH}
+      wrapHeaders={wrapHeaders}
       table={table}
       allCols={allCols}
       sorts={sorts}

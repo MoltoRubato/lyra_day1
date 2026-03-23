@@ -2,12 +2,7 @@
 // src/app/_components/ViewToolbar.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Column } from "@prisma/client";
-import type {
-  FilterTree,
-  SortRule,
-  GroupRule,
-  RowHeight,
-} from "./tableUtils";
+import type { FilterTree, SortRule, GroupRule, RowHeight } from "./tableUtils";
 import {
   countFilterConditions,
   createFilterTree,
@@ -15,7 +10,11 @@ import {
   hasActiveFilters,
   normalizeFilterTree,
 } from "./tableUtils";
-import { FilterPanel, HideFieldsPanel, PanelWrapper } from "./viewToolbarPanelsA";
+import {
+  FilterPanel,
+  HideFieldsPanel,
+  PanelWrapper,
+} from "./viewToolbarPanelsA";
 import { GroupPanel, RowHeightPanel, SortPanel } from "./viewToolbarPanelsB";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 
@@ -25,6 +24,7 @@ export type ViewConfig = {
   sorts: SortRule[];
   groups: GroupRule[];
   rowHeight: RowHeight;
+  wrapHeaders: boolean;
   frozenColumnCount: number;
 };
 
@@ -34,13 +34,17 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   sorts: [],
   groups: [],
   rowHeight: "short",
+  wrapHeaders: false,
   frozenColumnCount: 0,
 };
 
 export type OpenPanel = "hide" | "filter" | "group" | "sort" | "height" | null;
 
 const TOOLBAR_SUBTLE = "rgb(97, 102, 112)";
-const TOOLBAR_ICON_DIMENSIONS: Record<number, { width: number; height: number }> = {
+const TOOLBAR_ICON_DIMENSIONS: Record<
+  number,
+  { width: number; height: number }
+> = {
   236: { width: 14, height: 12 },
   283: { width: 15, height: 12 },
   255: { width: 14, height: 7 },
@@ -48,8 +52,18 @@ const TOOLBAR_ICON_DIMENSIONS: Record<number, { width: number; height: number }>
   423: { width: 11, height: 11 },
   149: { width: 15.58, height: 14.02 },
   105: { width: 14, height: 11 },
+  106: { width: 14, height: 11 },
+  107: { width: 14, height: 11 },
+  108: { width: 14, height: 11 },
   430: { width: 12, height: 12 },
   175: { width: 13, height: 13 },
+};
+
+const ROW_HEIGHT_TOOL_ICONS: Record<RowHeight, number> = {
+  short: 105,
+  medium: 106,
+  tall: 107,
+  "extra-tall": 108,
 };
 
 const VIEW_META: Record<string, { asset: number; color: string }> = {
@@ -57,7 +71,10 @@ const VIEW_META: Record<string, { asset: number; color: string }> = {
   KANBAN: { asset: 207, color: "#22c55e" },
 };
 
-const ACTIVE_TOOL_CHIP: Record<Exclude<OpenPanel, null>, { bg: string; icon: string }> = {
+const ACTIVE_TOOL_CHIP: Record<
+  Exclude<OpenPanel, null>,
+  { bg: string; icon: string }
+> = {
   hide: { bg: "#C4ECFF", icon: "#4A5C73" },
   filter: { bg: "#CFF5D1", icon: "#3E5B45" },
   group: { bg: "#E0DAFD", icon: "#544C75" },
@@ -72,7 +89,10 @@ function ToolbarAssetIcon({
   asset: number;
   tintColor: string;
 }) {
-  const dimensions = TOOLBAR_ICON_DIMENSIONS[asset] ?? { width: 16, height: 16 };
+  const dimensions = TOOLBAR_ICON_DIMENSIONS[asset] ?? {
+    width: 16,
+    height: 16,
+  };
   return (
     <span className="inline-flex h-4 w-4 items-center justify-center">
       <AirtableAssetIcon
@@ -122,7 +142,11 @@ export default function ViewToolbar({
 }) {
   const [open, setOpen] = useState<OpenPanel>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
-  const [viewMenuAnchor, setViewMenuAnchor] = useState<{ left: number; top: number; height: number } | null>(null);
+  const [viewMenuAnchor, setViewMenuAnchor] = useState<{
+    left: number;
+    top: number;
+    height: number;
+  } | null>(null);
   const [renamingView, setRenamingView] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftName, setDraftName] = useState(activeViewName ?? "");
@@ -162,8 +186,15 @@ export default function ViewToolbar({
   const totalFilterConditions = countFilterConditions(normalizedFilters);
   const hasGroups = config.groups.length > 0;
   const hasSorts = config.sorts.length > 0;
-  const activeViewMeta = VIEW_META[activeViewType] ?? { asset: 236, color: "#2d7ff9" };
-  const columnNameById = new Map(sortedColumns.map((column) => [column.id, column.name]));
+  const rowHeightToolAsset = ROW_HEIGHT_TOOL_ICONS[config.rowHeight] ?? 105;
+  const activeViewMeta = VIEW_META[activeViewType] ?? {
+    asset: 236,
+    color: "#2d7ff9",
+  };
+  const columnNameById = useMemo(
+    () => new Map(sortedColumns.map((column) => [column.id, column.name])),
+    [sortedColumns],
+  );
   const activeFilterFieldNames = useMemo(() => {
     if (!hasFilters) return [];
     return getActiveFilterFieldIds(normalizedFilters)
@@ -171,17 +202,20 @@ export default function ViewToolbar({
       .filter((name): name is string => Boolean(name));
   }, [columnNameById, hasFilters, normalizedFilters]);
 
-  const sanitizeHiddenFields = useCallback((nextHiddenFields: Record<string, boolean>) => {
-    if (nonHideableColumnIds.length === 0) return nextHiddenFields;
-    const sanitized = { ...nextHiddenFields };
-    let changed = false;
-    nonHideableColumnIds.forEach((columnId) => {
-      if (!sanitized[columnId]) return;
-      delete sanitized[columnId];
-      changed = true;
-    });
-    return changed ? sanitized : nextHiddenFields;
-  }, [nonHideableColumnIds]);
+  const sanitizeHiddenFields = useCallback(
+    (nextHiddenFields: Record<string, boolean>) => {
+      if (nonHideableColumnIds.length === 0) return nextHiddenFields;
+      const sanitized = { ...nextHiddenFields };
+      let changed = false;
+      nonHideableColumnIds.forEach((columnId) => {
+        if (!sanitized[columnId]) return;
+        delete sanitized[columnId];
+        changed = true;
+      });
+      return changed ? sanitized : nextHiddenFields;
+    },
+    [nonHideableColumnIds],
+  );
 
   useEffect(() => {
     const sanitized = sanitizeHiddenFields(config.hiddenFields);
@@ -208,22 +242,25 @@ export default function ViewToolbar({
     },
     {
       id: "filter",
-      label:
-        hasFilters
-          ? `Filtered by ${activeFilterFieldNames.length > 0 ? activeFilterFieldNames.join(", ") : `${totalFilterConditions} field${totalFilterConditions > 1 ? "s" : ""}`}`
-          : "Filter",
+      label: hasFilters
+        ? `Filtered by ${activeFilterFieldNames.length > 0 ? activeFilterFieldNames.join(", ") : `${totalFilterConditions} field${totalFilterConditions > 1 ? "s" : ""}`}`
+        : "Filter",
       active: open === "filter" || hasFilters,
       iconAsset: 255,
     },
     {
       id: "group",
-      label: hasGroups ? `Grouped by ${config.groups.length} field${config.groups.length > 1 ? "s" : ""}` : "Group",
+      label: hasGroups
+        ? `Grouped by ${config.groups.length} field${config.groups.length > 1 ? "s" : ""}`
+        : "Group",
       active: open === "group" || hasGroups,
       iconAsset: 232,
     },
     {
       id: "sort",
-      label: hasSorts ? `Sorted by ${config.sorts.length} field${config.sorts.length > 1 ? "s" : ""}` : "Sort",
+      label: hasSorts
+        ? `Sorted by ${config.sorts.length} field${config.sorts.length > 1 ? "s" : ""}`
+        : "Sort",
       active: open === "sort" || hasSorts,
       iconAsset: 423,
     },
@@ -231,18 +268,29 @@ export default function ViewToolbar({
 
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
   const menuWidth = 260;
-  const menuLeft = viewMenuAnchor ? Math.max(68, Math.min(viewMenuAnchor.left, viewportW - menuWidth - 12)) : 68;
-  const menuTop = viewMenuAnchor ? viewMenuAnchor.top + viewMenuAnchor.height + 8 : 48;
+  const menuLeft = viewMenuAnchor
+    ? Math.max(68, Math.min(viewMenuAnchor.left, viewportW - menuWidth - 12))
+    : 68;
+  const menuTop = viewMenuAnchor
+    ? viewMenuAnchor.top + viewMenuAnchor.height + 8
+    : 48;
 
   return (
-    <div className="h-12 border-b border-[#e0e0e0] flex items-center px-3 gap-1 flex-shrink-0 bg-white">
+    <div className="flex h-12 flex-shrink-0 items-center gap-1 border-b border-[#e0e0e0] bg-white px-3">
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
-          className="mr-1 p-1.5 rounded hover:bg-[#f0f0ef] text-[#616670] transition-colors flex-shrink-0"
+          className="mr-1 flex-shrink-0 rounded p-1.5 text-[#616670] transition-colors hover:bg-[#f0f0ef]"
           title="Toggle view sidebar"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
             <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round" />
           </svg>
         </button>
@@ -255,38 +303,62 @@ export default function ViewToolbar({
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
               onBlur={() => {
-                if (onRenameView && activeViewId) onRenameView(activeViewId, draftName.trim() || activeViewName || "");
+                if (onRenameView && activeViewId)
+                  onRenameView(
+                    activeViewId,
+                    draftName.trim() || activeViewName || "",
+                  );
                 setRenamingView(false);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  if (onRenameView && activeViewId) onRenameView(activeViewId, draftName.trim() || activeViewName || "");
+                  if (onRenameView && activeViewId)
+                    onRenameView(
+                      activeViewId,
+                      draftName.trim() || activeViewName || "",
+                    );
                   setRenamingView(false);
                 }
                 if (e.key === "Escape") setRenamingView(false);
               }}
-              className="px-2 py-1 rounded border border-[#c9c9c9] text-[13px] text-[#172b4d] font-medium outline-none w-[160px]"
+              className="w-[160px] rounded border border-[#c9c9c9] px-2 py-1 text-[13px] font-medium text-[#172b4d] outline-none"
             />
           ) : (
             <button
               onClick={(e) => {
-                const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                setViewMenuAnchor({ left: rect.left, top: rect.top, height: rect.height });
+                const rect = (
+                  e.currentTarget as HTMLButtonElement
+                ).getBoundingClientRect();
+                setViewMenuAnchor({
+                  left: rect.left,
+                  top: rect.top,
+                  height: rect.height,
+                });
                 setViewMenuOpen((p) => !p);
                 setEditingDesc(false);
                 setDraftName(activeViewName ?? "");
                 setDraftDesc(activeViewDescription ?? "");
               }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-[#f2f3f5] text-[#1d1f25] font-medium text-[13px] transition-colors"
+              className="flex items-center gap-1.5 rounded px-2 py-1 text-[13px] font-medium text-[#1d1f25] transition-colors hover:bg-[#f2f3f5]"
             >
-              <ToolbarAssetIcon asset={activeViewMeta.asset} tintColor={activeViewMeta.color} />
+              <ToolbarAssetIcon
+                asset={activeViewMeta.asset}
+                tintColor={activeViewMeta.color}
+              />
               {activeViewName}
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#aaa" strokeWidth="1.5">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                stroke="#aaa"
+                strokeWidth="1.5"
+              >
                 <path d="M2.5 4l2.5 2.5L7.5 4" />
               </svg>
             </button>
           )}
-          <div className="w-px h-5 bg-[#e8e8e8] mx-1" />
+          <div className="mx-1 h-5 w-px bg-[#e8e8e8]" />
         </>
       )}
 
@@ -297,20 +369,25 @@ export default function ViewToolbar({
           {(() => {
             const activeChip = ACTIVE_TOOL_CHIP[btn.id];
             return (
-          <button
-            onClick={() => toggle(btn.id)}
-            className={`flex h-[26px] items-center gap-1.5 rounded px-2 py-1 text-[13px] transition-colors ${
-              btn.active
-                ? "text-[#1d1f25]"
-                : "text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4]"
-            }`}
-            style={btn.active ? { backgroundColor: activeChip.bg } : undefined}
-          >
-            <span className="inline-flex items-center justify-center">
-              <ToolbarAssetIcon asset={btn.iconAsset} tintColor={btn.active ? activeChip.icon : TOOLBAR_SUBTLE} />
-            </span>
-            {btn.label}
-          </button>
+              <button
+                onClick={() => toggle(btn.id)}
+                className={`flex h-[26px] items-center gap-1.5 rounded px-2 py-1 text-[13px] transition-colors ${
+                  btn.active
+                    ? "text-[#1d1f25]"
+                    : "text-[#616670] hover:bg-[#f5f5f4] hover:text-[#1d1f25]"
+                }`}
+                style={
+                  btn.active ? { backgroundColor: activeChip.bg } : undefined
+                }
+              >
+                <span className="inline-flex items-center justify-center">
+                  <ToolbarAssetIcon
+                    asset={btn.iconAsset}
+                    tintColor={btn.active ? activeChip.icon : TOOLBAR_SUBTLE}
+                  />
+                </span>
+                {btn.label}
+              </button>
             );
           })()}
 
@@ -331,7 +408,9 @@ export default function ViewToolbar({
                 <FilterPanel
                   columns={columns}
                   filters={normalizedFilters}
-                  onChange={(f) => onConfigChange({ filters: normalizeFilterTree(f) })}
+                  onChange={(f) =>
+                    onConfigChange({ filters: normalizeFilterTree(f) })
+                  }
                 />
               )}
               {btn.id === "group" && (
@@ -351,7 +430,11 @@ export default function ViewToolbar({
               {btn.id === "height" && (
                 <RowHeightPanel
                   rowHeight={config.rowHeight}
+                  wrapHeaders={config.wrapHeaders}
                   onChange={(h) => onConfigChange({ rowHeight: h })}
+                  onToggleWrapHeaders={() =>
+                    onConfigChange({ wrapHeaders: !config.wrapHeaders })
+                  }
                 />
               )}
             </PanelWrapper>
@@ -359,43 +442,50 @@ export default function ViewToolbar({
         </div>
       ))}
 
-      <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
+      <button className="flex items-center gap-1.5 rounded px-2 py-1 text-[13px] text-[#616670] transition-colors hover:bg-[#f5f5f4] hover:text-[#1d1f25]">
         <ToolbarAssetIcon asset={149} tintColor={TOOLBAR_SUBTLE} />
         Color
       </button>
       <div className="relative">
         <button
           onClick={() => toggle("height")}
-          className={`h-7 w-7 inline-flex items-center justify-center rounded transition-colors ${
+          className={`inline-flex h-7 w-7 items-center justify-center rounded transition-colors ${
             open === "height"
               ? "bg-[#ebf5ff] text-[#0069ff]"
-              : "text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4]"
+              : "text-[#616670] hover:bg-[#f5f5f4] hover:text-[#1d1f25]"
           }`}
           title="Row height"
         >
-          <ToolbarAssetIcon asset={105} tintColor={open === "height" ? "#0069ff" : TOOLBAR_SUBTLE} />
+          <ToolbarAssetIcon
+            asset={rowHeightToolAsset}
+            tintColor={open === "height" ? "#0069ff" : TOOLBAR_SUBTLE}
+          />
         </button>
         {open === "height" && (
           <PanelWrapper onClose={() => setOpen(null)}>
             <RowHeightPanel
               rowHeight={config.rowHeight}
+              wrapHeaders={config.wrapHeaders}
               onChange={(h) => onConfigChange({ rowHeight: h })}
+              onToggleWrapHeaders={() =>
+                onConfigChange({ wrapHeaders: !config.wrapHeaders })
+              }
             />
           </PanelWrapper>
         )}
       </div>
-      <button className="flex items-center gap-1.5 px-2 py-1 rounded text-[13px] text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
+      <button className="flex items-center gap-1.5 rounded px-2 py-1 text-[13px] text-[#616670] transition-colors hover:bg-[#f5f5f4] hover:text-[#1d1f25]">
         <ToolbarAssetIcon asset={430} tintColor={TOOLBAR_SUBTLE} />
         Share and sync
       </button>
-      <button className="h-7 w-7 inline-flex items-center justify-center rounded text-[#616670] hover:text-[#1d1f25] hover:bg-[#f5f5f4] transition-colors">
+      <button className="inline-flex h-7 w-7 items-center justify-center rounded text-[#616670] transition-colors hover:bg-[#f5f5f4] hover:text-[#1d1f25]">
         <ToolbarAssetIcon asset={175} tintColor={TOOLBAR_SUBTLE} />
       </button>
       {onBulkAddRows && (
         <button
           onClick={onBulkAddRows}
           disabled={bulkAdding}
-          className="h-7 inline-flex items-center justify-center rounded-[8px] border border-[#d8dbe1] px-2.5 text-[13px] font-medium text-[#1d1f25] hover:bg-[#f5f5f4] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+          className="inline-flex h-7 items-center justify-center rounded-[8px] border border-[#d8dbe1] px-2.5 text-[13px] font-medium text-[#1d1f25] transition-colors hover:bg-[#f5f5f4] disabled:cursor-not-allowed disabled:opacity-60"
           title="Testing only: add 100,000 filled rows"
         >
           {bulkAdding ? "Adding..." : "+100k rows"}
@@ -404,19 +494,33 @@ export default function ViewToolbar({
 
       {viewMenuOpen && activeViewId && (
         <>
-          <div className="fixed inset-0 z-20" onClick={() => setViewMenuOpen(false)} />
           <div
-            className="fixed z-30 w-[260px] bg-white border border-[#e0e0e0] rounded-xl shadow-xl overflow-hidden text-[13px]"
+            className="fixed inset-0 z-20"
+            onClick={() => setViewMenuOpen(false)}
+          />
+          <div
+            className="fixed z-30 w-[260px] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white text-[13px] shadow-xl"
             style={{ left: menuLeft, top: menuTop }}
           >
-            <div className="px-4 py-3 border-b border-[#f0f0f0]">
+            <div className="border-b border-[#f0f0f0] px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-[#222]">Collaborative view</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#888" strokeWidth="1.3">
+                <span className="font-medium text-[#222]">
+                  Collaborative view
+                </span>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="#888"
+                  strokeWidth="1.3"
+                >
                   <path d="M4 2l4 4-4 4" />
                 </svg>
               </div>
-              <div className="text-[11px] text-[#888] mt-1">Editors and up can edit the view configuration</div>
+              <div className="mt-1 text-[11px] text-[#888]">
+                Editors and up can edit the view configuration
+              </div>
             </div>
 
             <div className="py-1">
@@ -426,10 +530,20 @@ export default function ViewToolbar({
                   setRenamingView(true);
                   setDraftName(activeViewName ?? "");
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-[#f8f8f8] flex items-center gap-2"
+                className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#f8f8f8]"
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-                  <path d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z" strokeLinejoin="round" />
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
+                  <path
+                    d="M8.5 1.5L10.5 3.5L4 10H2V8L8.5 1.5Z"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 Rename view
               </button>
@@ -438,56 +552,96 @@ export default function ViewToolbar({
                   setEditingDesc(true);
                   setRenamingView(false);
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-[#f8f8f8] flex items-center gap-2"
+                className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#f8f8f8]"
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
                   <circle cx="6" cy="6" r="4.5" />
                   <path d="M6 4v4M4 6h4" />
                 </svg>
                 Edit view description
               </button>
-              <div className="border-t border-[#f0f0f0] my-1" />
-              <button className="w-full text-left px-4 py-2 hover:bg-[#f8f8f8] flex items-center gap-2">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <div className="my-1 border-t border-[#f0f0f0]" />
+              <button className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#f8f8f8]">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
                   <rect x="2" y="2" width="6" height="6" rx="1" />
                   <rect x="4" y="4" width="6" height="6" rx="1" />
                 </svg>
                 Duplicate view
               </button>
-              <div className="border-t border-[#f0f0f0] my-1" />
-              <button className="w-full text-left px-4 py-2 hover:bg-[#f8f8f8] flex items-center gap-2">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <div className="my-1 border-t border-[#f0f0f0]" />
+              <button className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#f8f8f8]">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
                   <path d="M3 1h6v10H3z" />
                   <path d="M5 4h2M5 6h2M5 8h2" />
                 </svg>
                 Download CSV
               </button>
-              <button className="w-full text-left px-4 py-2 hover:bg-[#f8f8f8] flex items-center gap-2">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <button className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-[#f8f8f8]">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
                   <rect x="2" y="2" width="8" height="6" rx="1" />
                   <path d="M3 10h6" />
                 </svg>
                 Print view
               </button>
-              <div className="border-t border-[#f0f0f0] my-1" />
-              <button className="w-full text-left px-4 py-2 text-red-400 hover:bg-[#fef2f2] flex items-center gap-2">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-                  <path d="M2 3h8M4 3V2h4v1M5 5v4M7 5v4M3 3l1 7h4l1-7" strokeLinecap="round" />
+              <div className="my-1 border-t border-[#f0f0f0]" />
+              <button className="flex w-full items-center gap-2 px-4 py-2 text-left text-red-400 hover:bg-[#fef2f2]">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                >
+                  <path
+                    d="M2 3h8M4 3V2h4v1M5 5v4M7 5v4M3 3l1 7h4l1-7"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 Delete view
               </button>
             </div>
 
             {editingDesc && (
-              <div className="border-t border-[#f0f0f0] px-4 py-3 space-y-2">
+              <div className="space-y-2 border-t border-[#f0f0f0] px-4 py-3">
                 {editingDesc && (
                   <>
-                    <label className="text-[11px] text-[#777]">Description</label>
+                    <label className="text-[11px] text-[#777]">
+                      Description
+                    </label>
                     <textarea
                       rows={2}
                       value={draftDesc}
                       onChange={(e) => setDraftDesc(e.target.value)}
-                      className="w-full border border-[#d9d9d9] rounded px-2 py-1 text-[13px] outline-none focus:border-[#0069ff] resize-none"
+                      className="w-full resize-none rounded border border-[#d9d9d9] px-2 py-1 text-[13px] outline-none focus:border-[#0069ff]"
                     />
                   </>
                 )}
@@ -503,10 +657,15 @@ export default function ViewToolbar({
                   </button>
                   <button
                     onClick={() => {
-                      if (editingDesc && onUpdateViewDescription && activeViewId) onUpdateViewDescription(activeViewId, draftDesc);
+                      if (
+                        editingDesc &&
+                        onUpdateViewDescription &&
+                        activeViewId
+                      )
+                        onUpdateViewDescription(activeViewId, draftDesc);
                       setEditingDesc(false);
                     }}
-                    className="text-[13px] bg-[#0069ff] hover:bg-[#0055d4] text-white px-2.5 py-1 rounded"
+                    className="rounded bg-[#0069ff] px-2.5 py-1 text-[13px] text-white hover:bg-[#0055d4]"
                   >
                     Save
                   </button>
@@ -519,4 +678,3 @@ export default function ViewToolbar({
     </div>
   );
 }
-

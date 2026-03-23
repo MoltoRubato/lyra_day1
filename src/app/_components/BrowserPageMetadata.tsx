@@ -10,7 +10,7 @@ export const DEFAULT_FAVICON_HREF = "/favicon.ico";
 export const HOMEPAGE_FAVICON_HREF = "/airtable_assets/AirtableLogoPNG.png";
 
 function upsertHeadLink(rel: string, href: string, type?: string) {
-  let link = document.head.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+  let link = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
 
   if (!link) {
     link = document.createElement("link");

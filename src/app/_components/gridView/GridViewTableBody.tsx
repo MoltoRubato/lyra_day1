@@ -30,14 +30,21 @@ type GridViewTableBodyProps = {
   isTall: boolean;
   editing: EditingCell | null;
   setEditing: (
-    v: EditingCell | null | ((p: EditingCell | null) => EditingCell | null)
+    v: EditingCell | null | ((p: EditingCell | null) => EditingCell | null),
   ) => void;
   openSelectCell: string | null;
   setOpenSelectCell: (id: string | null) => void;
-  handleCellClick: (row: RowWithCells, col: { id: string; type: string }) => void;
+  handleCellClick: (
+    row: RowWithCells,
+    col: { id: string; type: string },
+  ) => void;
   getCellValue: (row: RowWithCells, columnId: string) => string;
   isSelect: (type: string) => boolean;
-  safeUpdateCell: (rowId: string, columnId: string, value: string | null) => void;
+  safeUpdateCell: (
+    rowId: string,
+    columnId: string,
+    value: string | null,
+  ) => void;
   commitEdit: () => void;
   addRow: { mutate: (v: { tableId: string }) => void };
   tableId: string;
@@ -78,7 +85,11 @@ type GridViewTableBodyProps = {
 // Smaller chunks avoid large single-row spacer glitches in table layout engines.
 const MAX_SPACER_ROW_HEIGHT = 20_000;
 
-function renderSpacerRows(totalHeight: number, colSpan: number, keyPrefix: string) {
+function renderSpacerRows(
+  totalHeight: number,
+  colSpan: number,
+  keyPrefix: string,
+) {
   if (totalHeight <= 0) return null;
   const rows: ReactElement[] = [];
   let remaining = totalHeight;
@@ -108,15 +119,21 @@ function summaryResult(
   if (mode === "None") return null;
 
   const total = allRowsForSummary.length;
-  const values = allRowsForSummary.map((row) => (getCellValue(row, colId) ?? "").trim());
+  const values = allRowsForSummary.map((row) =>
+    (getCellValue(row, colId) ?? "").trim(),
+  );
   const emptyCount = values.filter((v) => v.length === 0).length;
   const filledCount = total - emptyCount;
   const uniqueCount = new Set(values.filter((v) => v.length > 0)).size;
-  const percent = (count: number) => `${Math.round((count / Math.max(1, total)) * 100)}%`;
+  const percent = (count: number) =>
+    `${Math.round((count / Math.max(1, total)) * 100)}%`;
 
-  if (mode === "Empty") return { label: "Empty", value: emptyCount.toLocaleString() };
-  if (mode === "Filled") return { label: "Filled", value: filledCount.toLocaleString() };
-  if (mode === "Unique") return { label: "Unique", value: uniqueCount.toLocaleString() };
+  if (mode === "Empty")
+    return { label: "Empty", value: emptyCount.toLocaleString() };
+  if (mode === "Filled")
+    return { label: "Filled", value: filledCount.toLocaleString() };
+  if (mode === "Unique")
+    return { label: "Unique", value: uniqueCount.toLocaleString() };
   if (mode === "Percent Empty") {
     return { label: "Percent Empty", value: percent(emptyCount) };
   }
@@ -184,7 +201,10 @@ export function GridViewTableBody({
       <tbody>
         {loadedCount === 0 && !hasLoadingGap && !chunkLoading && (
           <tr>
-            <td colSpan={colSpan} className="px-4 py-8 text-center text-[13px] text-[#9ca3af]">
+            <td
+              colSpan={colSpan}
+              className="px-4 py-8 text-center text-[13px] text-[#9ca3af]"
+            >
               No {pluralLabel(2)} match the current filters.
             </td>
           </tr>
@@ -202,7 +222,7 @@ export function GridViewTableBody({
               <tr key={node.key} style={{ background: colors.bg }}>
                 <td
                   colSpan={visCols.length + 2}
-                  className="border-b border-t"
+                  className="border-t border-b"
                   style={{
                     borderColor: colors.border,
                     paddingLeft: `${node.depth * 16 + 12}px`,
@@ -211,12 +231,18 @@ export function GridViewTableBody({
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: colors.dot }} />
-                    <span className="text-[11px] font-semibold" style={{ color: colors.text }}>
+                    <span
+                      className="h-2 w-2 flex-shrink-0 rounded-full"
+                      style={{ background: colors.dot }}
+                    />
+                    <span
+                      className="text-[11px] font-semibold"
+                      style={{ color: colors.text }}
+                    >
                       {node.value}
                     </span>
                     <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      className="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
                       style={{ background: colors.border, color: colors.text }}
                     >
                       {groupedRows}
@@ -232,15 +258,20 @@ export function GridViewTableBody({
           const rowSelected = selectedSet.has(row.id);
           const editingColumn =
             editing?.rowId === row.id
-              ? visCols.find((candidateCol) => candidateCol.id === editing.columnId)
+              ? visCols.find(
+                  (candidateCol) => candidateCol.id === editing.columnId,
+                )
               : null;
           const editingLongTextRow = editingColumn?.type === "LONG_TEXT";
 
           return (
             <tr
               key={row.id}
-              className={`dataRow relative border-b border-[#e2e5e9] group transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-inset ring-[#1c76d2]" : ""}`}
-              style={{ height: rowH, zIndex: editingLongTextRow ? 15 : undefined }}
+              className={`dataRow group relative border-b border-[#e2e5e9] transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-[#1c76d2] ring-inset" : ""}`}
+              style={{
+                height: rowH,
+                zIndex: editingLongTextRow ? 15 : undefined,
+              }}
               onContextMenu={(e) => openRowContextMenu(e, row.id)}
               onDragOver={(e) => {
                 if (!canReorderRows || !dragRowId) return;
@@ -257,7 +288,11 @@ export function GridViewTableBody({
             >
               <td
                 className={`sticky left-0 z-[13] box-border px-0 py-0 transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
-                style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
+                style={{
+                  width: rowNumberWidth,
+                  minWidth: rowNumberWidth,
+                  maxWidth: rowNumberWidth,
+                }}
               >
                 <div className="flex items-center" style={{ height: rowH }}>
                   <div className="flex h-full w-[20px] items-center justify-center">
@@ -274,7 +309,9 @@ export function GridViewTableBody({
                         setDragOverRowId(null);
                       }}
                       className={`grid h-3 w-3 grid-cols-2 place-items-center gap-[2px] text-[#7c8494] ${
-                        rowSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        rowSelected
+                          ? "opacity-100"
+                          : "opacity-0 group-hover:opacity-100"
                       } ${
                         canReorderRows
                           ? "cursor-grab active:cursor-grabbing"
@@ -287,7 +324,10 @@ export function GridViewTableBody({
                       }
                     >
                       {Array.from({ length: 6 }).map((_, i) => (
-                        <span key={i} className="h-[2px] w-[2px] rounded-full bg-current" />
+                        <span
+                          key={i}
+                          className="h-[2px] w-[2px] rounded-full bg-current"
+                        />
                       ))}
                     </button>
                   </div>
@@ -298,13 +338,18 @@ export function GridViewTableBody({
                       aria-label={`Select row ${rowNum}`}
                       aria-checked={rowSelected}
                       onClick={() => toggleRowSelection(row.id)}
-                      className={`absolute left-0 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
+                      className={`absolute top-1/2 left-0 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
                         rowSelected
                           ? "border-transparent bg-[#1c76d2] text-white opacity-100 shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
                           : "border-[#d6d8dd] bg-white text-transparent opacity-0 shadow-[0_1px_2px_rgba(15,23,42,0.16)] group-hover:opacity-100"
                       }`}
                     >
-                      <svg width="9" height="9" viewBox="0 0 16 16" aria-hidden="true">
+                      <svg
+                        width="9"
+                        height="9"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                      >
                         <path
                           d="M3.5 8.2l2.7 2.8L12.5 4.8"
                           fill="none"
@@ -316,8 +361,10 @@ export function GridViewTableBody({
                       </svg>
                     </button>
                     <span
-                      className={`pointer-events-none absolute inset-y-0 left-0 flex w-4 select-none items-center justify-center text-[13px] leading-none text-[#616670] ${
-                        rowSelected ? "opacity-0" : "opacity-100 group-hover:opacity-0"
+                      className={`pointer-events-none absolute inset-y-0 left-0 flex w-4 items-center justify-center text-[13px] leading-none text-[#616670] select-none ${
+                        rowSelected
+                          ? "opacity-0"
+                          : "opacity-100 group-hover:opacity-0"
                       }`}
                     >
                       {rowNum}
@@ -327,18 +374,22 @@ export function GridViewTableBody({
               </td>
 
               {visCols.map((col, colIndex) => {
-                const isEditing = editing?.rowId === row.id && editing.columnId === col.id;
+                const isEditing =
+                  editing?.rowId === row.id && editing.columnId === col.id;
                 const isLongTextEditing = isEditing && col.type === "LONG_TEXT";
                 const value = getCellValue(row, col.id);
                 const isFrozen = colIndex < freezeCount;
                 const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
-                const isFilterHighlighted = highlightedFilterColumnIds.has(col.id);
+                const isFilterHighlighted = highlightedFilterColumnIds.has(
+                  col.id,
+                );
                 return (
                   <td
                     key={col.id}
                     data-columnid={col.id}
                     style={{
                       width: col.width,
+                      minWidth: 60,
                       maxWidth: col.width,
                       height: rowH,
                       ...(isFrozen
@@ -349,7 +400,9 @@ export function GridViewTableBody({
                         : {}),
                       ...(isLongTextEditing && !isFrozen ? { zIndex: 30 } : {}),
                       ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
-                      ...(isFilterHighlighted ? { backgroundColor: "#ebfbec" } : {}),
+                      ...(isFilterHighlighted
+                        ? { backgroundColor: "#ebfbec" }
+                        : {}),
                     }}
                     className={`cell relative box-border overflow-visible border-r border-[#e2e5e9] px-2 py-0 ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
                     onClick={(e) => {
@@ -367,7 +420,7 @@ export function GridViewTableBody({
                           type="checkbox"
                           readOnly
                           checked={value === "true"}
-                          className="w-3.5 h-3.5 rounded accent-[#166254] cursor-pointer"
+                          className="h-3.5 w-3.5 cursor-pointer rounded accent-[#166254]"
                         />
                       ) : isSelect(col.type) ? (
                         <SelectCell
@@ -377,34 +430,43 @@ export function GridViewTableBody({
                           value={value}
                           options={col.selectOptions ?? []}
                           multi={col.type === "MULTI_SELECT"}
-                          onSelect={(v) => safeUpdateCell(row.id, col.id, v || null)}
+                          onSelect={(v) =>
+                            safeUpdateCell(row.id, col.id, v || null)
+                          }
                         />
                       ) : col.type === "ATTACHMENT" ? (
                         <AttachmentCell
                           value={value}
-                          onUpload={(url) => safeUpdateCell(row.id, col.id, url)}
+                          onUpload={(url) =>
+                            safeUpdateCell(row.id, col.id, url)
+                          }
                         />
                       ) : isEditing ? (
                         col.type === "LONG_TEXT" ? (
                           <textarea
                             autoFocus
                             rows={3}
-                            className="relative z-[3] border-2 border-[#166254] rounded px-2 py-1 w-full outline-none text-[13px] bg-white text-[#1f2937] shadow-sm resize-y min-h-[56px]"
+                            className="relative z-[3] min-h-[56px] w-full resize-y rounded border-2 border-[#166254] bg-white px-2 py-1 text-[13px] text-[#1f2937] shadow-sm outline-none"
                             value={editing.value}
-                            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                            onChange={(e) =>
+                              setEditing({ ...editing, value: e.target.value })
+                            }
                             onBlur={commitEdit}
                             onKeyDown={(e) => {
-                              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") commitEdit();
+                              if ((e.ctrlKey || e.metaKey) && e.key === "Enter")
+                                commitEdit();
                               if (e.key === "Escape") setEditing(null);
                             }}
                           />
                         ) : (
                           <input
                             autoFocus
-                            className="border-2 border-[#166254] rounded px-2 py-0.5 w-full outline-none text-[13px] bg-white text-[#1f2937] shadow-sm"
+                            className="w-full rounded border-2 border-[#166254] bg-white px-2 py-0.5 text-[13px] text-[#1f2937] shadow-sm outline-none"
                             value={editing.value}
                             type={inputTypeForField(col.type)}
-                            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                            onChange={(e) =>
+                              setEditing({ ...editing, value: e.target.value })
+                            }
                             onBlur={commitEdit}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") commitEdit();
@@ -414,7 +476,7 @@ export function GridViewTableBody({
                         )
                       ) : (
                         <span
-                          className={`cursor-pointer text-[13px] transition-colors ${isTall ? "whitespace-normal break-words line-clamp-4" : "block truncate"} ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}
+                          className={`cursor-pointer text-[13px] transition-colors ${isTall ? "line-clamp-4 break-words whitespace-normal" : "block truncate"} ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}
                         >
                           {formatCellValue(value, col.type) || ""}
                         </span>
@@ -426,7 +488,7 @@ export function GridViewTableBody({
 
               <td className="w-8 px-1">
                 <button
-                  className="opacity-0 group-hover:opacity-100 text-[#6d7480] text-[13px] p-1.5 transition-all rounded-md bg-[#f3f4f6] border border-[#d4d7dc]"
+                  className="rounded-md border border-[#d4d7dc] bg-[#f3f4f6] p-1.5 text-[13px] text-[#6d7480] opacity-0 transition-all group-hover:opacity-100"
                   title="Expand row"
                 >
                   <svg
@@ -450,12 +512,16 @@ export function GridViewTableBody({
 
         {hasLoadingGap && (
           <tr aria-live="polite">
-            <td colSpan={colSpan} style={{ padding: 0, height: loadingGapHeight }}>
+            <td
+              colSpan={colSpan}
+              style={{ padding: 0, height: loadingGapHeight }}
+            >
               <div className="relative h-full w-full bg-[#f3f4f6]">
-                <div className="pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 rounded-full bg-white/80 px-3 py-1 text-[11px] text-[#6b7280] shadow-sm backdrop-blur">
+                <div className="pointer-events-none absolute top-6 left-1/2 -translate-x-1/2 rounded-full bg-white/80 px-3 py-1 text-[11px] text-[#6b7280] shadow-sm backdrop-blur">
                   <span className="inline-flex items-center gap-1.5">
                     <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
-                    Loading rows {loadedCount.toLocaleString()} / {(table?.rowCount ?? 0).toLocaleString()}
+                    Loading rows {loadedCount.toLocaleString()} /{" "}
+                    {(table?.rowCount ?? 0).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -465,11 +531,14 @@ export function GridViewTableBody({
 
         {renderSpacerRows(bottomPad, colSpan, "bottom-pad")}
 
-        <tr className="border-t border-[#e2e5e9] bg-white" style={{ height: rowH }}>
+        <tr
+          className="border-t border-[#e2e5e9] bg-white"
+          style={{ height: rowH }}
+        >
           <td colSpan={colSpan} className="px-0 py-0">
             <button
               onClick={() => addRow.mutate({ tableId })}
-              className="flex h-full items-center gap-2 px-4 py-2 text-[#9ca3af] hover:text-[#1f2937] hover:bg-[#f9fafb] transition-colors w-full text-[13px]"
+              className="flex h-full w-full items-center gap-2 px-4 py-2 text-[13px] text-[#9ca3af] transition-colors hover:bg-[#f9fafb] hover:text-[#1f2937]"
               title={`Add ${labelLower}`}
             >
               <span className="ml-1 inline-flex h-4 w-4 items-center justify-center">
@@ -486,8 +555,9 @@ export function GridViewTableBody({
               <span className="ml-auto flex items-center gap-1.5 text-[10px] text-[#ccc]">
                 {chunkLoading && (
                   <span className="flex items-center gap-1 text-[#f97316]">
-                    <span className="w-2 h-2 border border-[#f97316] border-t-transparent rounded-full animate-spin inline-block" />
-                    Loading {loadedCount.toLocaleString()} / {(table?.rowCount ?? 0).toLocaleString()}...
+                    <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
+                    Loading {loadedCount.toLocaleString()} /{" "}
+                    {(table?.rowCount ?? 0).toLocaleString()}...
                   </span>
                 )}
               </span>
@@ -499,7 +569,11 @@ export function GridViewTableBody({
           <tr aria-hidden="true" className="bg-[#f6f8fc]">
             <td
               colSpan={colSpan}
-              style={{ padding: 0, border: "none", height: summaryBottomOffsetPx }}
+              style={{
+                padding: 0,
+                border: "none",
+                height: summaryBottomOffsetPx,
+              }}
             />
           </tr>
         )}
@@ -509,23 +583,37 @@ export function GridViewTableBody({
         </tr>
       </tbody>
 
-      <tfoot className="sticky z-[20] bg-white" style={{ bottom: summaryBottomOffsetPx }}>
+      <tfoot
+        className="sticky z-[20] bg-white"
+        style={{ bottom: summaryBottomOffsetPx }}
+      >
         <tr className="bg-white" style={{ height: summaryRowHeightPx }}>
           <td
             className="sticky left-0 z-[13] box-border overflow-visible bg-white px-0 py-0"
-            style={{ width: rowNumberWidth, minWidth: rowNumberWidth, maxWidth: rowNumberWidth }}
+            style={{
+              width: rowNumberWidth,
+              minWidth: rowNumberWidth,
+              maxWidth: rowNumberWidth,
+            }}
           >
             <div className="relative" style={{ height: summaryRowHeightPx }}>
-              <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap text-[13px] text-[#2f343c]">
-                {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()} {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
+              <div className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[13px] whitespace-nowrap text-[#2f343c]">
+                {(Number.isFinite(totalRows) ? totalRows : 0).toLocaleString()}{" "}
+                {pluralLabel(Number.isFinite(totalRows) ? totalRows : 0)}
               </div>
             </div>
           </td>
 
           {visCols.map((col, colIndex) => {
-            const result = summaryResult(col.id, summaryByCol, allRowsForSummary, getCellValue);
+            const result = summaryResult(
+              col.id,
+              summaryByCol,
+              allRowsForSummary,
+              getCellValue,
+            );
             const mode = summaryByCol[col.id] ?? "None";
-            const shouldShowPrompt = hoveredSummaryCol === col.id && mode === "None";
+            const shouldShowPrompt =
+              hoveredSummaryCol === col.id && mode === "None";
             const isSummaryCellHoverOrOpen =
               hoveredSummaryCol === col.id || summaryMenu?.colId === col.id;
             const isFrozen = colIndex < freezeCount;
@@ -538,17 +626,22 @@ export function GridViewTableBody({
                   width: col.width,
                   minWidth: col.width,
                   ...(isFrozen
-                    ? { left: frozenOffsets[colIndex] ?? rowNumberWidth, zIndex: 11 }
+                    ? {
+                        left: frozenOffsets[colIndex] ?? rowNumberWidth,
+                        zIndex: 11,
+                      }
                     : {}),
                   ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
                 }}
               >
                 <button
-                  className={`w-full px-3 flex items-center justify-end gap-1.5 text-[#6b7280] ${isSummaryCellHoverOrOpen ? "bg-[#eeeff1]" : "bg-white hover:bg-[#eeeff1]"}`}
+                  className={`flex w-full items-center justify-end gap-1.5 px-3 text-[#6b7280] ${isSummaryCellHoverOrOpen ? "bg-[#eeeff1]" : "bg-white hover:bg-[#eeeff1]"}`}
                   style={{ height: summaryRowHeightPx }}
                   onMouseEnter={() => setHoveredSummaryCol(col.id)}
                   onMouseLeave={() =>
-                    setHoveredSummaryCol((prev) => (prev === col.id ? null : prev))
+                    setHoveredSummaryCol((prev) =>
+                      prev === col.id ? null : prev,
+                    )
                   }
                   onClick={(e) => {
                     e.stopPropagation();
@@ -556,15 +649,23 @@ export function GridViewTableBody({
                     setSummaryMenu((prev) =>
                       prev?.colId === col.id
                         ? null
-                        : { colId: col.id, left: rect.right - 140, top: rect.top - 4 },
+                        : {
+                            colId: col.id,
+                            left: rect.right - 140,
+                            top: rect.top - 4,
+                          },
                     );
                     setRowContextMenu(null);
                   }}
                 >
                   {result ? (
                     <>
-                      <span className="text-[11px] leading-none">{result.label}</span>
-                      <span className="text-[13px] leading-none text-[#374151]">{result.value}</span>
+                      <span className="text-[11px] leading-none">
+                        {result.label}
+                      </span>
+                      <span className="text-[13px] leading-none text-[#374151]">
+                        {result.value}
+                      </span>
                     </>
                   ) : shouldShowPrompt ? (
                     <>
@@ -596,4 +697,3 @@ export function GridViewTableBody({
     </>
   );
 }
-

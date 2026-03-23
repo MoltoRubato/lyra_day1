@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { CSSProperties } from "react";
 
 type AirtableAssetIconProps = {
@@ -21,6 +22,10 @@ export function AirtableAssetIcon({
   const src = `/airtable_assets/${encodeURIComponent(fileName)}`;
   const dimensionStyle = size ? { width: size, height: size } : undefined;
   const mergedStyle = { ...dimensionStyle, ...style };
+  const width =
+    typeof mergedStyle.width === "number" ? mergedStyle.width : (size ?? 16);
+  const height =
+    typeof mergedStyle.height === "number" ? mergedStyle.height : (size ?? 16);
 
   if (tintColor) {
     return (
@@ -46,13 +51,15 @@ export function AirtableAssetIcon({
   }
 
   return (
-    <img
+    <Image
       src={src}
       alt={alt}
+      width={width}
+      height={height}
+      unoptimized
       className={className}
       style={mergedStyle}
       draggable={false}
-      loading="lazy"
     />
   );
 }

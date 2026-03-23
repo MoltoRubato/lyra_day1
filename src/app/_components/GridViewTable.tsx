@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColumnType } from "@prisma/client";
-import {
-  GridViewTableBody,
-} from "~/app/_components/gridView/GridViewTableBody";
-import {
-  GridViewTableHeader,
-} from "~/app/_components/gridView/GridViewTableHeader";
-import {
-  GridViewTableOverlays,
-} from "~/app/_components/gridView/GridViewTableOverlays";
+import { GridViewTableBody } from "~/app/_components/gridView/GridViewTableBody";
+import { GridViewTableHeader } from "~/app/_components/gridView/GridViewTableHeader";
+import { GridViewTableOverlays } from "~/app/_components/gridView/GridViewTableOverlays";
 import type {
   FieldEditorState,
   GridViewTableProps,
@@ -22,6 +16,7 @@ export function GridViewTable({
   containerRef,
   handleScroll,
   rowH,
+  wrapHeaders,
   table,
   allCols,
   sorts: _sorts,
@@ -92,8 +87,15 @@ export function GridViewTable({
   allRowsForSummary,
   recordLabel = "record",
 }: GridViewTableProps) {
-  const [renderedRowHeaderWidth, setRenderedRowHeaderWidth] = useState<number | null>(null);
-  const [renderedColumnWidths, setRenderedColumnWidths] = useState<number[]>([]);
+  const [renderedRowHeaderWidth, setRenderedRowHeaderWidth] = useState<
+    number | null
+  >(null);
+  const [renderedColumnWidths, setRenderedColumnWidths] = useState<number[]>(
+    [],
+  );
+  const [renderedHeaderHeight, setRenderedHeaderHeight] = useState<
+    number | null
+  >(null);
   const [menuForCol, setMenuForCol] = useState<string | null>(null);
   const [hoveredInfoCol, setHoveredInfoCol] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState<{
@@ -101,7 +103,9 @@ export function GridViewTable({
     value: string;
   } | null>(null);
   const [fieldTypeListOpen, setFieldTypeListOpen] = useState(false);
-  const [editingField, setEditingField] = useState<FieldEditorState | null>(null);
+  const [editingField, setEditingField] = useState<FieldEditorState | null>(
+    null,
+  );
   const [duplicatingField, setDuplicatingField] = useState<{
     colId: string;
     name: string;
@@ -110,17 +114,28 @@ export function GridViewTable({
   const [changingPrimaryField, setChangingPrimaryField] = useState(false);
   const [primaryFieldPickerOpen, setPrimaryFieldPickerOpen] = useState(false);
   const [primaryFieldSearch, setPrimaryFieldSearch] = useState("");
-  const [selectedPrimaryFieldId, setSelectedPrimaryFieldId] = useState<string | null>(null);
+  const [selectedPrimaryFieldId, setSelectedPrimaryFieldId] = useState<
+    string | null
+  >(null);
 
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [dragRowId, setDragRowId] = useState<string | null>(null);
   const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
-  const [rowContextMenu, setRowContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [summaryByCol, setSummaryByCol] = useState<Record<string, SummaryOption>>({});
-  const [summaryMenu, setSummaryMenu] = useState<{ colId: string; left: number; top: number } | null>(
+  const [rowContextMenu, setRowContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [summaryByCol, setSummaryByCol] = useState<
+    Record<string, SummaryOption>
+  >({});
+  const [summaryMenu, setSummaryMenu] = useState<{
+    colId: string;
+    left: number;
+    top: number;
+  } | null>(null);
+  const [hoveredSummaryCol, setHoveredSummaryCol] = useState<string | null>(
     null,
   );
-  const [hoveredSummaryCol, setHoveredSummaryCol] = useState<string | null>(null);
   const [horizontalScrollbarHeight, setHorizontalScrollbarHeight] = useState(0);
   const [verticalScrollbarWidth, setVerticalScrollbarWidth] = useState(0);
   const [isFreezeDividerHover, setIsFreezeDividerHover] = useState(false);
@@ -129,7 +144,8 @@ export function GridViewTable({
   const dividerBottomInset = Math.max(34, horizontalScrollbarHeight + 21.5);
   const primaryColumn = allCols[0] ?? null;
   const selectedPrimaryField = useMemo(
-    () => allCols.find((column) => column.id === selectedPrimaryFieldId) ?? null,
+    () =>
+      allCols.find((column) => column.id === selectedPrimaryFieldId) ?? null,
     [allCols, selectedPrimaryFieldId],
   );
   const filteredPrimaryFieldOptions = useMemo(() => {
@@ -140,16 +156,20 @@ export function GridViewTable({
   }, [allCols, primaryFieldSearch]);
   const canApplyPrimaryFieldChange = Boolean(
     primaryColumn &&
-      selectedPrimaryField &&
-      selectedPrimaryField.id !== primaryColumn.id &&
-      isPrimaryFieldSupportedType(selectedPrimaryField.type) &&
-      !changePrimaryField.isPending,
+    selectedPrimaryField &&
+    selectedPrimaryField.id !== primaryColumn.id &&
+    isPrimaryFieldSupportedType(selectedPrimaryField.type) &&
+    !changePrimaryField.isPending,
   );
 
   const label = (recordLabel || "record").trim() || "record";
   const labelLower = label.toLowerCase();
   const pluralLabel = (n: number) =>
-    n === 1 ? labelLower : labelLower.endsWith("s") ? labelLower : `${labelLower}s`;
+    n === 1
+      ? labelLower
+      : labelLower.endsWith("s")
+        ? labelLower
+        : `${labelLower}s`;
 
   const rowIdsInViewOrder = useMemo(
     () => allRowsForSummary.map((r) => r.id),
@@ -160,6 +180,7 @@ export function GridViewTable({
     [visCols],
   );
   const rowNumberWidth = renderedRowHeaderWidth ?? 80;
+  const headerRowHeight = renderedHeaderHeight ?? rowH;
   const effectiveColumnWidths = useMemo(
     () => visCols.map((col, idx) => renderedColumnWidths[idx] ?? col.width),
     [renderedColumnWidths, visCols],
@@ -236,6 +257,18 @@ export function GridViewTable({
         }
       }
 
+      const headerRow = containerEl.querySelector("thead tr:first-child");
+      if (headerRow instanceof HTMLElement) {
+        const nextHeaderHeight = headerRow.offsetHeight;
+        if (Number.isFinite(nextHeaderHeight) && nextHeaderHeight > 0) {
+          setRenderedHeaderHeight((prev) =>
+            prev !== null && Math.abs(prev - nextHeaderHeight) < 0.25
+              ? prev
+              : nextHeaderHeight,
+          );
+        }
+      }
+
       const nextColWidths = visCols.map((col, idx) => {
         const headerCell = headerCells[idx + 1];
         if (headerCell instanceof HTMLElement) {
@@ -248,7 +281,9 @@ export function GridViewTable({
       setRenderedColumnWidths((prev) => {
         if (
           prev.length === nextColWidths.length &&
-          prev.every((width, idx) => Math.abs(width - nextColWidths[idx]!) < 0.25)
+          prev.every(
+            (width, idx) => Math.abs(width - nextColWidths[idx]!) < 0.25,
+          )
         ) {
           return prev;
         }
@@ -268,7 +303,9 @@ export function GridViewTable({
     if (headerRow instanceof HTMLElement) {
       ro.observe(headerRow);
     }
-    const headerCells = containerEl.querySelectorAll("thead tr:first-child > th");
+    const headerCells = containerEl.querySelectorAll(
+      "thead tr:first-child > th",
+    );
     headerCells.forEach((cell) => {
       if (cell instanceof HTMLElement) ro.observe(cell);
     });
@@ -287,10 +324,16 @@ export function GridViewTable({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const paneHeight = Math.max(80, el.clientHeight - rowH - dividerBottomInset);
-    const nextTop = Math.max(24, Math.min(paneHeight - 28, Math.round(paneHeight * 0.44)));
+    const paneHeight = Math.max(
+      80,
+      el.clientHeight - headerRowHeight - dividerBottomInset,
+    );
+    const nextTop = Math.max(
+      24,
+      Math.min(paneHeight - 28, Math.round(paneHeight * 0.44)),
+    );
     setFreezeTooltipTop(nextTop);
-  }, [containerRef, dividerBottomInset, rowH]);
+  }, [containerRef, dividerBottomInset, headerRowHeight]);
 
   const nearestFreezeCountForClientX = useCallback(
     (clientX: number) => {
@@ -319,13 +362,16 @@ export function GridViewTable({
       const el = containerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const paneHeight = Math.max(80, el.clientHeight - rowH - dividerBottomInset);
+      const paneHeight = Math.max(
+        80,
+        el.clientHeight - headerRowHeight - dividerBottomInset,
+      );
       const minTop = 24;
       const maxTop = Math.max(minTop, paneHeight - 28);
-      const nextTop = Math.round(clientY - rect.top - rowH - 14);
+      const nextTop = Math.round(clientY - rect.top - headerRowHeight - 14);
       setFreezeTooltipTop(Math.max(minTop, Math.min(maxTop, nextTop)));
     },
-    [containerRef, dividerBottomInset, rowH],
+    [containerRef, dividerBottomInset, headerRowHeight],
   );
 
   const beginFreezeDrag = useCallback(
@@ -407,7 +453,8 @@ export function GridViewTable({
   }
 
   function applyPrimaryFieldChange() {
-    if (!primaryColumn || !selectedPrimaryField || !canApplyPrimaryFieldChange) return;
+    if (!primaryColumn || !selectedPrimaryField || !canApplyPrimaryFieldChange)
+      return;
     changePrimaryField.mutate({
       tableId,
       columnId: selectedPrimaryField.id,
@@ -482,7 +529,9 @@ export function GridViewTable({
 
   function toggleRowSelection(rowId: string) {
     setSelectedRowIds((prev) =>
-      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId],
+      prev.includes(rowId)
+        ? prev.filter((id) => id !== rowId)
+        : [...prev, rowId],
     );
   }
 
@@ -517,15 +566,21 @@ export function GridViewTable({
     reorderRows.mutate({ tableId, orderedIds });
   }
 
-  const selectedInViewCount = rowIdsInViewOrder.filter((id) => selectedSet.has(id)).length;
+  const selectedInViewCount = rowIdsInViewOrder.filter((id) =>
+    selectedSet.has(id),
+  ).length;
   const allInViewSelected =
-    rowIdsInViewOrder.length > 0 && selectedInViewCount === rowIdsInViewOrder.length;
+    rowIdsInViewOrder.length > 0 &&
+    selectedInViewCount === rowIdsInViewOrder.length;
   const someInViewSelected = selectedInViewCount > 0 && !allInViewSelected;
 
   const summaryRowHeightPx = 21.5;
   const summaryBarHeightPx = 34;
   const summaryScrollbarLanePx = summaryBarHeightPx - summaryRowHeightPx;
-  const summaryBottomOffsetPx = Math.max(0, summaryScrollbarLanePx - horizontalScrollbarHeight);
+  const summaryBottomOffsetPx = Math.max(
+    0,
+    summaryScrollbarLanePx - horizontalScrollbarHeight,
+  );
   const summarySolidFillHeightPx = summaryBottomOffsetPx + summaryRowHeightPx;
   const summaryTopBorderBottomPx =
     summaryBottomOffsetPx + summaryRowHeightPx + horizontalScrollbarHeight;
@@ -535,7 +590,7 @@ export function GridViewTable({
       <div
         ref={containerRef}
         data-testid="grid-scroll-container"
-        className={`h-full w-full select-none bg-[#f6f8fc] ${scrollLocked ? "overflow-hidden" : "overflow-auto"}`}
+        className={`h-full w-full bg-[#f6f8fc] select-none ${scrollLocked ? "overflow-hidden" : "overflow-auto"}`}
         style={{ overflowAnchor: "none" }}
         onScroll={scrollLocked ? undefined : handleScroll}
         onClick={() => {
@@ -554,6 +609,7 @@ export function GridViewTable({
         >
           <GridViewTableHeader
             rowH={rowH}
+            wrapHeaders={wrapHeaders}
             rowNumberWidth={rowNumberWidth}
             visCols={visCols}
             freezeCount={clampedFreezeCount}
@@ -656,7 +712,7 @@ export function GridViewTable({
       <div
         className="pointer-events-none absolute z-[26] overflow-visible"
         style={{
-          top: rowH,
+          top: headerRowHeight,
           bottom: dividerBottomInset,
           left: dividerLeft,
           width: 0,
@@ -664,7 +720,7 @@ export function GridViewTable({
         }}
       >
         <div
-          className="pointer-events-auto absolute bottom-0 top-0 cursor-col-resize"
+          className="pointer-events-auto absolute top-0 bottom-0 cursor-col-resize"
           style={{ left: -4, width: 8 }}
           onMouseEnter={() => setIsFreezeDividerHover(true)}
           onMouseLeave={() => {
@@ -676,7 +732,7 @@ export function GridViewTable({
           onMouseDown={beginFreezeDrag}
         />
         <div
-          className="pointer-events-none absolute bottom-0 top-0 border-l border-[#afb5bf]"
+          className="pointer-events-none absolute top-0 bottom-0 border-l border-[#afb5bf]"
           style={{ left: 0, opacity: 1 }}
         />
         <div
@@ -690,7 +746,7 @@ export function GridViewTable({
           }}
         />
         <div
-          className="pointer-events-none absolute h-7 select-none border border-[#d6dae1] bg-[#f7f8fa] px-3 text-[13px] leading-7 text-[#8a8f99]"
+          className="pointer-events-none absolute h-7 border border-[#d6dae1] bg-[#f7f8fa] px-3 text-[13px] leading-7 text-[#8a8f99] select-none"
           style={{
             top: Math.max(8, freezeTooltipTop - 2),
             left: 10,
@@ -715,7 +771,7 @@ export function GridViewTable({
       </div>
 
       <div
-        className="pointer-events-none absolute bottom-0 left-0 right-0 z-[18] bg-white"
+        className="pointer-events-none absolute right-0 bottom-0 left-0 z-[18] bg-white"
         style={{
           bottom: horizontalScrollbarHeight,
           right: verticalScrollbarWidth,
@@ -723,8 +779,11 @@ export function GridViewTable({
         }}
       />
       <div
-        className="pointer-events-none absolute left-0 right-0 z-[25] h-px bg-[#e2e5e9]"
-        style={{ bottom: summaryTopBorderBottomPx, right: verticalScrollbarWidth }}
+        className="pointer-events-none absolute right-0 left-0 z-[25] h-px bg-[#e2e5e9]"
+        style={{
+          bottom: summaryTopBorderBottomPx,
+          right: verticalScrollbarWidth,
+        }}
       />
 
       <GridViewTableOverlays
@@ -763,15 +822,17 @@ export function GridViewTable({
           <div
             aria-label="Change primary field"
             role="dialog"
-            className="fixed left-1/2 top-1/2 z-[80] w-[min(525px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-[10px] border border-[#d6d8dc] bg-white px-6 pb-5 pt-6 shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
+            className="fixed top-1/2 left-1/2 z-[80] w-[min(525px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-[10px] border border-[#d6d8dc] bg-white px-6 pt-6 pb-5 shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="mb-6 text-[35px] font-semibold leading-[1.05] text-[#2a2d34]">
+            <h3 className="mb-6 text-[35px] leading-[1.05] font-semibold text-[#2a2d34]">
               Change the primary field
             </h3>
 
             <div className="mb-6">
-              <div className="mb-2 text-[13px] leading-[18px] text-[#616670]">Primary field</div>
+              <div className="mb-2 text-[13px] leading-[18px] text-[#616670]">
+                Primary field
+              </div>
               <div className="relative">
                 <button
                   type="button"
@@ -779,7 +840,9 @@ export function GridViewTable({
                   onClick={() => setPrimaryFieldPickerOpen((open) => !open)}
                 >
                   <span className="inline-flex min-w-0 items-center gap-2 truncate">
-                    {selectedPrimaryField && <FieldTypeIcon type={selectedPrimaryField.type} />}
+                    {selectedPrimaryField && (
+                      <FieldTypeIcon type={selectedPrimaryField.type} />
+                    )}
                     <span className="truncate text-[13px] leading-[18px]">
                       {selectedPrimaryField?.name ?? primaryColumn.name}
                     </span>
@@ -794,24 +857,32 @@ export function GridViewTable({
                     className="text-[#616670]"
                     aria-hidden="true"
                   >
-                    <path d="M4.5 6.5L8 10l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M4.5 6.5L8 10l3.5-3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
 
                 {primaryFieldPickerOpen && (
-                  <div className="absolute left-0 top-full z-[90] mt-1 w-full overflow-hidden rounded-[6px] border border-[#d8dbe1] bg-white shadow-[0_4px_10px_rgba(0,0,0,0.16)]">
+                  <div className="absolute top-full left-0 z-[90] mt-1 w-full overflow-hidden rounded-[6px] border border-[#d8dbe1] bg-white shadow-[0_4px_10px_rgba(0,0,0,0.16)]">
                     <div className="border-b border-[#e5e8ed] px-3 py-2">
                       <input
                         autoFocus
                         value={primaryFieldSearch}
-                        onChange={(event) => setPrimaryFieldSearch(event.target.value)}
+                        onChange={(event) =>
+                          setPrimaryFieldSearch(event.target.value)
+                        }
                         placeholder="Find a field"
                         className="h-8 w-full border-none bg-transparent px-0 text-[13px] text-[#1d1f25] outline-none placeholder:text-[#9ca3af]"
                       />
                     </div>
                     <div className="max-h-[260px] overflow-y-auto py-1">
                       {filteredPrimaryFieldOptions.map((column) => {
-                        const supported = isPrimaryFieldSupportedType(column.type);
+                        const supported = isPrimaryFieldSupportedType(
+                          column.type,
+                        );
                         const selected = selectedPrimaryFieldId === column.id;
                         return (
                           <button
@@ -832,7 +903,12 @@ export function GridViewTable({
                               setPrimaryFieldSearch("");
                             }}
                           >
-                            <FieldTypeIcon type={column.type} className={supported ? "text-[#1d1f25]" : "text-[#9ca3af]"} />
+                            <FieldTypeIcon
+                              type={column.type}
+                              className={
+                                supported ? "text-[#1d1f25]" : "text-[#9ca3af]"
+                              }
+                            />
                             <span className="truncate">{column.name}</span>
                           </button>
                         );
@@ -871,7 +947,7 @@ export function GridViewTable({
 
             <button
               type="button"
-              className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[#7f8794] hover:bg-[#f5f7fa]"
+              className="absolute top-3 right-3 flex h-6 w-6 items-center justify-center rounded-full text-[#7f8794] hover:bg-[#f5f7fa]"
               onClick={closeChangePrimaryFieldDialog}
               aria-label="Close dialog"
             >
@@ -884,7 +960,10 @@ export function GridViewTable({
                 strokeWidth="1.4"
                 aria-hidden="true"
               >
-                <path d="M4.5 4.5L11.5 11.5M11.5 4.5L4.5 11.5" strokeLinecap="round" />
+                <path
+                  d="M4.5 4.5L11.5 11.5M11.5 4.5L4.5 11.5"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </div>
@@ -926,4 +1005,3 @@ export function GridViewTable({
     </div>
   );
 }
-

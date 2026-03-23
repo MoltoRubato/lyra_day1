@@ -5,21 +5,10 @@ import { z } from "zod";
 import { publicProcedure } from "~/server/api/trpc";
 import {
   PreloadValueBatchOutput,
-  PreloadRowOutput,
   RowOutput,
   TableGetByIdInput,
   TableWithDataOutput,
 } from "~/types/schemas";
-
-type FlatRowCellRecord = {
-  row_id: string;
-  row_table_id: string;
-  row_order: number;
-  cell_value: string | null;
-  cell_column_id: string | null;
-};
-
-type PreloadRow = z.infer<typeof PreloadRowOutput>;
 type PreloadValueBatch = z.infer<typeof PreloadValueBatchOutput>;
 type GeneratedColumnMeta = {
   id: string;
@@ -49,11 +38,7 @@ type TableRowWithCells = {
 
 const GENERATED_ROW_ID_RE = /^r[a-z0-9]{6}[0-9a-f]+$/i;
 const GENERATED_POOL_SIZE = 96;
-const GENERATED_STATUS_LABELS = [
-  "Todo",
-  "In progress",
-  "Done",
-];
+const GENERATED_STATUS_LABELS = ["Todo", "In progress", "Done"];
 
 function stableHash(input: string) {
   let hash = 0;
@@ -71,14 +56,19 @@ function buildGeneratedPools() {
   const taskTitles = Array.from({ length: GENERATED_POOL_SIZE }, () =>
     faker.word.words({ count: { min: 2, max: 4 } }),
   );
-  const people = Array.from({ length: GENERATED_POOL_SIZE }, () => faker.person.fullName());
-  const companies = Array.from({ length: GENERATED_POOL_SIZE }, () => faker.company.name());
+  const people = Array.from({ length: GENERATED_POOL_SIZE }, () =>
+    faker.person.fullName(),
+  );
+  const companies = Array.from({ length: GENERATED_POOL_SIZE }, () =>
+    faker.company.name(),
+  );
   const emailDomains = Array.from(
     { length: Math.max(24, Math.floor(GENERATED_POOL_SIZE / 2)) },
     () => faker.internet.domainName().toLowerCase(),
   );
-  const hosts = Array.from({ length: Math.max(24, Math.floor(GENERATED_POOL_SIZE / 2)) }, () =>
-    faker.internet.domainName().toLowerCase(),
+  const hosts = Array.from(
+    { length: Math.max(24, Math.floor(GENERATED_POOL_SIZE / 2)) },
+    () => faker.internet.domainName().toLowerCase(),
   );
   const noteSnippets = Array.from({ length: GENERATED_POOL_SIZE }, () =>
     faker.word.words({ count: { min: 4, max: 8 } }),
@@ -87,36 +77,48 @@ function buildGeneratedPools() {
     { length: Math.max(48, Math.floor(GENERATED_POOL_SIZE / 2)) },
     () => faker.word.words({ count: { min: 8, max: 12 } }),
   );
-  const emailAddresses = Array.from({ length: GENERATED_POOL_SIZE }, (_, index) => {
-    const personSlug = people[index]!
-      .toLowerCase()
-      .replaceAll(/[^a-z0-9 ]/g, "")
-      .trim()
-      .replaceAll(/\s+/g, ".");
-    return `${personSlug || `person${index + 1}`}${index % 100}@${emailDomains[index % emailDomains.length]!}`;
-  });
-  const websiteUrls = Array.from({ length: GENERATED_POOL_SIZE }, (_, index) => {
-    const titleSlug = taskTitles[index]!
-      .toLowerCase()
-      .replaceAll(/[^a-z0-9 ]/g, "")
-      .trim()
-      .replaceAll(/\s+/g, "-");
-    return `https://${hosts[index % hosts.length]!}/${titleSlug || `task-${index + 1}`}`;
-  });
-  const phoneNumbers = Array.from({ length: GENERATED_POOL_SIZE }, (_, index) => {
-    return `+1 ${200 + (index % 700)}-${String(100 + ((index * 13) % 900)).padStart(3, "0")}-${String(1000 + ((index * 97) % 9000)).padStart(4, "0")}`;
-  });
-  const attachmentUrls = Array.from({ length: GENERATED_POOL_SIZE }, (_, index) => {
-    const companySlug = companies[index]!
-      .toLowerCase()
-      .replaceAll(/[^a-z0-9 ]/g, "")
-      .trim()
-      .replaceAll(/\s+/g, "-");
-    return `https://files.example.com/${companySlug || `company-${index + 1}`}/brief-${(index % 500) + 1}.pdf`;
-  });
-  const durationLabels = Array.from({ length: GENERATED_POOL_SIZE }, (_, index) => {
-    return `${15 * (1 + (index % 24))}m`;
-  });
+  const emailAddresses = Array.from(
+    { length: GENERATED_POOL_SIZE },
+    (_, index) => {
+      const personSlug = people[index]!.toLowerCase()
+        .replaceAll(/[^a-z0-9 ]/g, "")
+        .trim()
+        .replaceAll(/\s+/g, ".");
+      return `${personSlug || `person${index + 1}`}${index % 100}@${emailDomains[index % emailDomains.length]!}`;
+    },
+  );
+  const websiteUrls = Array.from(
+    { length: GENERATED_POOL_SIZE },
+    (_, index) => {
+      const titleSlug = taskTitles[index]!.toLowerCase()
+        .replaceAll(/[^a-z0-9 ]/g, "")
+        .trim()
+        .replaceAll(/\s+/g, "-");
+      return `https://${hosts[index % hosts.length]!}/${titleSlug || `task-${index + 1}`}`;
+    },
+  );
+  const phoneNumbers = Array.from(
+    { length: GENERATED_POOL_SIZE },
+    (_, index) => {
+      return `+1 ${200 + (index % 700)}-${String(100 + ((index * 13) % 900)).padStart(3, "0")}-${String(1000 + ((index * 97) % 9000)).padStart(4, "0")}`;
+    },
+  );
+  const attachmentUrls = Array.from(
+    { length: GENERATED_POOL_SIZE },
+    (_, index) => {
+      const companySlug = companies[index]!.toLowerCase()
+        .replaceAll(/[^a-z0-9 ]/g, "")
+        .trim()
+        .replaceAll(/\s+/g, "-");
+      return `https://files.example.com/${companySlug || `company-${index + 1}`}/brief-${(index % 500) + 1}.pdf`;
+    },
+  );
+  const durationLabels = Array.from(
+    { length: GENERATED_POOL_SIZE },
+    (_, index) => {
+      return `${15 * (1 + (index % 24))}m`;
+    },
+  );
 
   return {
     taskTitles,
@@ -175,7 +177,9 @@ function makeGeneratedCellValue(params: {
     case "RATING":
       return String(1 + (primaryHash % 5));
     case "DATE": {
-      const date = new Date(Date.UTC(2026, 0, 1) + (primaryHash % 365) * 86_400_000);
+      const date = new Date(
+        Date.UTC(2026, 0, 1) + (primaryHash % 365) * 86_400_000,
+      );
       return date.toISOString().slice(0, 10);
     }
     case "EMAIL":
@@ -220,11 +224,15 @@ function makeGeneratedCellValue(params: {
 
 function makeSeeds(rowOrder: number, columnHash: number) {
   const primary = (rowOrder * 1_315_423_911 + columnHash * 2_654_435_761) >>> 0;
-  const secondary = (rowOrder * 2_246_822_519 + columnHash * 3_266_489_917) >>> 0;
+  const secondary =
+    (rowOrder * 2_246_822_519 + columnHash * 3_266_489_917) >>> 0;
   return { primary, secondary };
 }
 
-async function loadColumnMeta(params: { ctx: { db: PrismaClient }; tableId: string }) {
+async function loadColumnMeta(params: {
+  ctx: { db: PrismaClient };
+  tableId: string;
+}) {
   const columns = await params.ctx.db.column.findMany({
     where: { tableId: params.tableId },
     select: {
@@ -253,65 +261,6 @@ async function loadColumnMeta(params: { ctx: { db: PrismaClient }; tableId: stri
       column.name.toLowerCase().includes("company") ||
       column.name.toLowerCase().includes("account"),
   }));
-}
-
-function hydrateGeneratedPreloadRows(
-  rows: PreloadRow[],
-  preloadColumn: GeneratedColumnMeta,
-): PreloadRow[] {
-  const preloadColumns = [preloadColumn];
-
-  return rows.map((row) => {
-    if (!shouldGenerateCellsForRow(row.id)) return row;
-
-    const byColumnId = new Map<string, string | null>();
-    for (const cell of row.cells) {
-      byColumnId.set(cell.columnId, cell.value);
-    }
-
-    const cells = preloadColumns.map((column) => {
-      if (byColumnId.has(column.id)) {
-        return {
-          columnId: column.id,
-          value: byColumnId.get(column.id) ?? null,
-        };
-      }
-
-      const seeds = makeSeeds(row.order, column.hash);
-      return {
-        columnId: column.id,
-        value: makeGeneratedCellValue({
-          columnType: column.type,
-          isSummary: column.isSummary,
-          isNameLike: column.isNameLike,
-          isAssigneeLike: column.isAssigneeLike,
-          isCompanyLike: column.isCompanyLike,
-          primaryHash: seeds.primary,
-          secondaryHash: seeds.secondary,
-          selectOptionLabels: column.selectOptionLabels,
-        }),
-      };
-    });
-
-    return {
-      ...row,
-      cells,
-    };
-  });
-}
-
-function toPreloadValueBatch(
-  rows: PreloadRow[],
-  preloadColumnId: string,
-): PreloadValueBatch {
-  return {
-    columnId: preloadColumnId,
-    rows: rows.map((row) => ({
-      id: row.id,
-      order: row.order,
-      value: row.cells.find((cell) => cell.columnId === preloadColumnId)?.value ?? null,
-    })),
-  };
 }
 
 function hydrateGeneratedTableRows(
@@ -393,7 +342,9 @@ async function fetchRowsAfterOrderRaw(params: {
     };
   }
 
-  const rows = await params.ctx.db.$queryRaw<Array<{ row_id: string; row_order: number }>>`
+  const rows = await params.ctx.db.$queryRaw<
+    Array<{ row_id: string; row_order: number }>
+  >`
     SELECT
       r.id AS row_id,
       r."order" AS row_order
@@ -459,12 +410,17 @@ export const tableQueryProcedures = {
           column.name.toLowerCase().includes("account"),
       }));
 
-      let rows = hydrateGeneratedTableRows(table.rows as TableRowWithCells[], columnMeta);
+      let rows = hydrateGeneratedTableRows(
+        table.rows as TableRowWithCells[],
+        columnMeta,
+      );
 
       if (input.filterColumnId && input.filterValue) {
         const needle = input.filterValue.toLowerCase();
         rows = rows.filter((row) => {
-          const cell = row.cells.find((c) => c.columnId === input.filterColumnId);
+          const cell = row.cells.find(
+            (c) => c.columnId === input.filterColumnId,
+          );
           return cell?.value?.toLowerCase().includes(needle) ?? false;
         });
       }
@@ -472,8 +428,12 @@ export const tableQueryProcedures = {
       if (input.sortByColumnId) {
         const col = table.columns.find((c) => c.id === input.sortByColumnId);
         rows = [...rows].sort((a, b) => {
-          const av = a.cells.find((c) => c.columnId === input.sortByColumnId)?.value ?? "";
-          const bv = b.cells.find((c) => c.columnId === input.sortByColumnId)?.value ?? "";
+          const av =
+            a.cells.find((c) => c.columnId === input.sortByColumnId)?.value ??
+            "";
+          const bv =
+            b.cells.find((c) => c.columnId === input.sortByColumnId)?.value ??
+            "";
           const dir = input.sortDir === "asc" ? 1 : -1;
           if (col?.type === "NUMBER") {
             return dir * ((parseFloat(av) || 0) - (parseFloat(bv) || 0));

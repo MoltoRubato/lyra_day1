@@ -58,6 +58,7 @@ export type GridViewTableProps = {
   containerRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   rowH: number;
+  wrapHeaders: boolean;
   table: { rowCount: number } | null | undefined;
   allCols: VisibleColumn[];
   sorts: SortRule[];
@@ -109,7 +110,9 @@ export type GridViewTableProps = {
     mutate: (v: { tableId: string; columnId: string }) => void;
     isPending?: boolean;
   };
-  addOption: { mutate: (v: { columnId: string; label: string; color: string }) => void };
+  addOption: {
+    mutate: (v: { columnId: string; label: string; color: string }) => void;
+  };
   deleteOption: { mutate: (v: { optionId: string }) => void };
   updateOption: {
     mutate: (v: { optionId: string; label: string; color: string }) => void;
@@ -128,14 +131,21 @@ export type GridViewTableProps = {
   isTall: boolean;
   editing: EditingCell | null;
   setEditing: (
-    v: EditingCell | null | ((p: EditingCell | null) => EditingCell | null)
+    v: EditingCell | null | ((p: EditingCell | null) => EditingCell | null),
   ) => void;
   openSelectCell: string | null;
   setOpenSelectCell: (id: string | null) => void;
-  handleCellClick: (row: RowWithCells, col: { id: string; type: string }) => void;
+  handleCellClick: (
+    row: RowWithCells,
+    col: { id: string; type: string },
+  ) => void;
   getCellValue: (row: RowWithCells, columnId: string) => string;
   isSelect: (type: string) => boolean;
-  safeUpdateCell: (rowId: string, columnId: string, value: string | null) => void;
+  safeUpdateCell: (
+    rowId: string,
+    columnId: string,
+    value: string | null,
+  ) => void;
   commitEdit: () => void;
   deleteRow: { mutate: (v: { rowId: string }) => void };
   addRow: { mutate: (v: { tableId: string }) => void };
@@ -150,7 +160,9 @@ export type GridViewTableProps = {
   bulkDeleteRows: {
     mutate: (v: BulkDeleteRowsPayload) => void;
   };
-  reorderRows: { mutate: (v: { tableId: string; orderedIds: string[] }) => void };
+  reorderRows: {
+    mutate: (v: { tableId: string; orderedIds: string[] }) => void;
+  };
   canReorderRows: boolean;
   allRowsForSummary: RowWithCells[];
   recordLabel?: string;
