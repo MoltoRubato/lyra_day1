@@ -864,7 +864,7 @@ export function GridViewTable({
             className="fixed top-1/2 left-1/2 z-[80] w-[min(525px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-[10px] border border-[#d6d8dc] bg-white px-6 pt-6 pb-5 shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="mb-6 text-[35px] leading-[1.05] font-semibold text-[#2a2d34]">
+            <h3 className="mb-6 text-[20px] leading-[1.05] font-semibold text-[#2a2d34]">
               Change the primary field
             </h3>
 
