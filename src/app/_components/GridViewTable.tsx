@@ -17,6 +17,9 @@ export function GridViewTable({
   handleScroll,
   rowH,
   wrapHeaders,
+  searchQuery,
+  searchMatchedCellKeys,
+  activeSearchCellKey,
   table,
   allCols,
   sorts,
@@ -692,6 +695,9 @@ export function GridViewTable({
           <GridViewTableBody
             rowH={rowH}
             rowNumberWidth={rowNumberWidth}
+            searchQuery={searchQuery}
+            searchMatchedCellKeys={searchMatchedCellKeys}
+            activeSearchCellKey={activeSearchCellKey}
             table={table}
             visCols={visCols}
             freezeCount={clampedFreezeCount}

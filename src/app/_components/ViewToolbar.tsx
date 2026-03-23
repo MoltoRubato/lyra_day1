@@ -1,6 +1,13 @@
-"use client";
+﻿"use client";
 // src/app/_components/ViewToolbar.tsx
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Column } from "@prisma/client";
 import type { FilterTree, SortRule, GroupRule, RowHeight } from "./tableUtils";
 import {
@@ -84,6 +91,30 @@ const ACTIVE_TOOL_CHIP: Record<
   height: { bg: "#EAF3FF", icon: "#3668B5" },
 };
 
+const GRID_SEARCH_COUNT_STYLE: CSSProperties = {
+  alignItems: "center",
+  boxSizing: "border-box",
+  color: "rgb(29, 31, 37)",
+  display: "flex",
+  flexBasis: "auto",
+  flexGrow: 0,
+  flexShrink: 0,
+  fontFamily:
+    '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"',
+  fontSize: "11px",
+  fontWeight: 400,
+  height: "37.6231px",
+  lineHeight: "18px",
+  margin: 0,
+  opacity: 0.5,
+  padding: "0 8px 0 0",
+  pointerEvents: "none",
+  unicodeBidi: "isolate",
+  userSelect: "none",
+  WebkitBoxAlign: "center",
+  WebkitBoxFlex: 0,
+};
+
 function ToolbarAssetIcon({
   asset,
   tintColor,
@@ -128,6 +159,15 @@ export default function ViewToolbar({
   availableGroupKeys = [],
   onCollapseAllGroups,
   onExpandAllGroups,
+  enableGridSearch = false,
+  gridSearchOpen = false,
+  gridSearchQuery = "",
+  gridSearchMatchCount = 0,
+  gridSearchActiveMatchNumber = 0,
+  onOpenGridSearch,
+  onCloseGridSearch,
+  onGridSearchQueryChange,
+  onGridSearchNavigate,
 }: {
   columns: Column[];
   config: ViewConfig;
@@ -149,6 +189,15 @@ export default function ViewToolbar({
   availableGroupKeys?: string[];
   onCollapseAllGroups?: () => void;
   onExpandAllGroups?: () => void;
+  enableGridSearch?: boolean;
+  gridSearchOpen?: boolean;
+  gridSearchQuery?: string;
+  gridSearchMatchCount?: number;
+  gridSearchActiveMatchNumber?: number;
+  onOpenGridSearch?: () => void;
+  onCloseGridSearch?: () => void;
+  onGridSearchQueryChange?: (value: string) => void;
+  onGridSearchNavigate?: (direction: 1 | -1) => void;
 }) {
   const [open, setOpen] = useState<OpenPanel>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -161,12 +210,19 @@ export default function ViewToolbar({
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftName, setDraftName] = useState(activeViewName ?? "");
   const [draftDesc, setDraftDesc] = useState(activeViewDescription ?? "");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!forcedOpenPanel) return;
     setOpen(forcedOpenPanel);
     onForcedOpenHandled?.();
   }, [forcedOpenPanel, onForcedOpenHandled]);
+
+  useEffect(() => {
+    if (!gridSearchOpen) return;
+    const frame = requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [gridSearchOpen]);
 
   function toggle(panel: Exclude<OpenPanel, null>) {
     setOpen((p) => (p === panel ? null : panel));
@@ -284,9 +340,16 @@ export default function ViewToolbar({
   const menuTop = viewMenuAnchor
     ? viewMenuAnchor.top + viewMenuAnchor.height + 8
     : 48;
+  const trimmedGridSearchQuery = gridSearchQuery.trim();
+  const hasGridSearchTerm =
+    enableGridSearch && gridSearchOpen && trimmedGridSearchQuery.length > 0;
+  const hasGridSearchMatches = hasGridSearchTerm && gridSearchMatchCount > 0;
+  const gridSearchSummaryLabel = hasGridSearchMatches
+    ? `${gridSearchActiveMatchNumber} of ${gridSearchMatchCount}`
+    : "No results";
 
   return (
-    <div className="flex h-12 flex-shrink-0 items-center gap-1 border-b border-[#e0e0e0] bg-white px-3">
+    <div className="relative flex h-12 flex-shrink-0 items-center gap-1 border-b border-[#e0e0e0] bg-white px-3">
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
@@ -498,9 +561,148 @@ export default function ViewToolbar({
         <ToolbarAssetIcon asset={430} tintColor={TOOLBAR_SUBTLE} />
         Share and sync
       </button>
-      <button className="inline-flex h-7 w-7 items-center justify-center rounded text-[#616670] transition-colors hover:bg-[#f5f5f4] hover:text-[#1d1f25]">
-        <ToolbarAssetIcon asset={175} tintColor={TOOLBAR_SUBTLE} />
-      </button>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            if (!enableGridSearch) return;
+            setOpen(null);
+            setViewMenuOpen(false);
+            onOpenGridSearch?.();
+          }}
+          className={`inline-flex h-7 w-7 items-center justify-center rounded transition-colors ${
+            gridSearchOpen
+              ? "bg-[#eef1f5] text-[#1d1f25]"
+              : "text-[#616670] hover:bg-[#f5f5f4] hover:text-[#1d1f25]"
+          }`}
+          aria-label="Find in view"
+          title="Find in view"
+        >
+          <ToolbarAssetIcon
+            asset={175}
+            tintColor={gridSearchOpen ? "#1d1f25" : TOOLBAR_SUBTLE}
+          />
+        </button>
+
+        {enableGridSearch && gridSearchOpen && (
+          <div
+            className="absolute top-full right-0 z-40 mt-2 w-[366px] max-w-[calc(100vw-32px)] overflow-hidden rounded-[6px] border border-[#d8dbe1] bg-white shadow-[0_4px_12px_rgba(15,23,42,0.08)]"
+            role="presentation"
+          >
+            <div className="flex h-[38px] items-stretch">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={gridSearchQuery}
+                placeholder="Find in view..."
+                autoComplete="off"
+                onChange={(e) => onGridSearchQueryChange?.(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    onCloseGridSearch?.();
+                    return;
+                  }
+                  if (e.key === "Enter" && hasGridSearchMatches) {
+                    e.preventDefault();
+                    onGridSearchNavigate?.(e.shiftKey ? -1 : 1);
+                  }
+                }}
+                className="min-w-0 flex-auto border-0 bg-transparent px-2 text-[13px] text-[#1d1f25] placeholder-[#8a8f99] outline-none"
+                style={{ border: "2px solid transparent" }}
+              />
+
+              {hasGridSearchTerm ? (
+                <>
+                  <div style={GRID_SEARCH_COUNT_STYLE}>
+                    {gridSearchSummaryLabel}
+                  </div>
+
+                  {hasGridSearchMatches && (
+                    <div className="flex flex-none items-center py-1">
+                      <button
+                        type="button"
+                        onClick={() => onGridSearchNavigate?.(-1)}
+                        className="flex h-full w-5 items-center justify-center rounded text-[#616670] transition-colors hover:bg-[#f2f3f5] hover:text-[#1d1f25]"
+                        aria-label="Previous result"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M2.75 7.25L6 4l3.25 3.25"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onGridSearchNavigate?.(1)}
+                        className="flex h-full w-5 items-center justify-center rounded text-[#616670] transition-colors hover:bg-[#f2f3f5] hover:text-[#1d1f25]"
+                        aria-label="Next result"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M2.75 4.75L6 8l3.25-3.25"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-none items-center pr-2" />
+              )}
+
+              <button
+                type="button"
+                className="mx-[2px] my-[7px] inline-flex h-6 flex-none items-center justify-center rounded-[999px] bg-[#1d1f25] px-2 text-[11px] font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.22)] transition-colors hover:bg-[#14161a]"
+              >
+                Ask Omni
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onCloseGridSearch?.()}
+                className="mx-[2px] my-[8px] inline-flex h-5 w-5 flex-none items-center justify-center rounded text-[#616670] transition-colors hover:bg-[#f2f3f5] hover:text-[#1d1f25]"
+                aria-label="Close find in view"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       {onBulkAddRows && (
         <button
           onClick={onBulkAddRows}

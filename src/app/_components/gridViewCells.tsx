@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { FIELD_TYPES, FIELD_TYPE_GROUPS } from "~/app/_components/tableUtils";
 import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
@@ -21,6 +21,61 @@ const OPTION_COLORS = [
   "#06b6d4",
   "#ec4899",
 ];
+
+export function SearchHighlightedText({
+  text,
+  query,
+}: {
+  text: string;
+  query?: string | null;
+}) {
+  const trimmedQuery = query?.trim();
+  if (!text || !trimmedQuery) return <>{text}</>;
+
+  const normalizedText = text.toLocaleLowerCase();
+  const normalizedQuery = trimmedQuery.toLocaleLowerCase();
+
+  if (!normalizedText.includes(normalizedQuery)) return <>{text}</>;
+
+  const nodes = [];
+  let cursor = 0;
+  let fragmentIndex = 0;
+
+  while (cursor < text.length) {
+    const matchIndex = normalizedText.indexOf(normalizedQuery, cursor);
+    if (matchIndex === -1) {
+      nodes.push(
+        <Fragment key={`text-${fragmentIndex}`}>
+          {text.slice(cursor)}
+        </Fragment>,
+      );
+      break;
+    }
+
+    if (matchIndex > cursor) {
+      nodes.push(
+        <Fragment key={`text-${fragmentIndex}`}>
+          {text.slice(cursor, matchIndex)}
+        </Fragment>,
+      );
+      fragmentIndex += 1;
+    }
+
+    nodes.push(
+      <mark
+        key={`match-${fragmentIndex}`}
+        className="rounded-[1px] bg-[#ffd66b] text-inherit"
+      >
+        {text.slice(matchIndex, matchIndex + trimmedQuery.length)}
+      </mark>,
+    );
+
+    cursor = matchIndex + trimmedQuery.length;
+    fragmentIndex += 1;
+  }
+
+  return <>{nodes}</>;
+}
 
 export function FieldTypePicker({
   current,
@@ -214,6 +269,7 @@ export function SelectCell({
   value,
   options,
   multi,
+  searchQuery,
   onSelect,
 }: {
   cellId: string;
@@ -222,6 +278,7 @@ export function SelectCell({
   value: string;
   options: SelectOption[];
   multi: boolean;
+  searchQuery?: string | null;
   onSelect: (v: string) => void;
 }) {
   const isOpen = openSelectCell === cellId;
@@ -283,7 +340,7 @@ export function SelectCell({
                   className="rounded-full px-3 py-1 text-[13px] leading-5 text-[#1d1f25]"
                   style={{ background: `${opt?.color ?? "#166254"}40` }}
                 >
-                  {lbl}
+                  <SearchHighlightedText text={lbl} query={searchQuery} />
                 </span>
               );
             })
@@ -370,9 +427,11 @@ export function SelectCell({
 export function AttachmentCell({
   value,
   onUpload,
+  searchQuery,
 }: {
   value: string;
   onUpload: (url: string) => void;
+  searchQuery?: string | null;
 }) {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -394,6 +453,7 @@ export function AttachmentCell({
 
   if (value) {
     const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(value);
+    const attachmentLabel = value.split("/").pop() ?? value;
     return (
       <div className="flex items-center gap-1 text-[13px]">
         {isImage ? (
@@ -415,7 +475,7 @@ export function AttachmentCell({
           className="max-w-[120px] truncate text-[11px] text-[#166254] hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
-          {value.split("/").pop()}
+          <SearchHighlightedText text={attachmentLabel} query={searchQuery} />
         </a>
         <button
           onClick={(e) => {

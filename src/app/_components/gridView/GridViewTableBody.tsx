@@ -1,7 +1,12 @@
 import type { ReactElement } from "react";
-import { AttachmentCell, SelectCell } from "~/app/_components/gridViewCells";
+import {
+  AttachmentCell,
+  SearchHighlightedText,
+  SelectCell,
+} from "~/app/_components/gridViewCells";
 import {
   formatCellValue,
+  getGridSearchCellKey,
   inputTypeForField,
   type RowWithCells,
 } from "~/app/_components/tableUtils";
@@ -15,6 +20,9 @@ import type {
 type GridViewTableBodyProps = {
   rowH: number;
   rowNumberWidth: number;
+  searchQuery: string;
+  searchMatchedCellKeys: Set<string>;
+  activeSearchCellKey: string | null;
   table: { rowCount: number } | null | undefined;
   visCols: VisibleColumn[];
   freezeCount: number;
@@ -210,6 +218,9 @@ function groupRowCellBackground(
 export function GridViewTableBody({
   rowH,
   rowNumberWidth,
+  searchQuery,
+  searchMatchedCellKeys,
+  activeSearchCellKey,
   table,
   visCols,
   freezeCount,
@@ -647,18 +658,29 @@ export function GridViewTableBody({
                   editing?.rowId === row.id && editing.columnId === col.id;
                 const isLongTextEditing = isEditing && col.type === "LONG_TEXT";
                 const value = getCellValue(row, col.id);
+                const formattedValue = formatCellValue(value, col.type) || "";
                 const isFrozen = colIndex < freezeCount;
                 const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
-                const highlightColor = cellHighlightColor(
+                const cellSearchKey = getGridSearchCellKey(row.id, col.id);
+                const hasSearchMatch = searchMatchedCellKeys.has(cellSearchKey);
+                const isActiveSearchMatch = activeSearchCellKey === cellSearchKey;
+                const searchHighlightQuery = hasSearchMatch ? searchQuery : null;
+                const accentColor = cellHighlightColor(
                   col.id,
                   highlightedSortColumnIds,
                   highlightedGroupColumnIds,
                   highlightedFilterColumnIds,
                 );
+                const highlightColor = isActiveSearchMatch
+                  ? "#ffd66b"
+                  : hasSearchMatch
+                    ? "#fff3d3"
+                    : accentColor;
                 return (
                   <td
                     key={col.id}
                     data-columnid={col.id}
+                    data-search-cell-key={cellSearchKey}
                     style={{
                       width: col.width,
                       minWidth: 60,
@@ -700,6 +722,7 @@ export function GridViewTableBody({
                           value={value}
                           options={col.selectOptions ?? []}
                           multi={col.type === "MULTI_SELECT"}
+                          searchQuery={searchHighlightQuery}
                           onSelect={(v) =>
                             safeUpdateCell(row.id, col.id, v || null)
                           }
@@ -707,6 +730,7 @@ export function GridViewTableBody({
                       ) : col.type === "ATTACHMENT" ? (
                         <AttachmentCell
                           value={value}
+                          searchQuery={searchHighlightQuery}
                           onUpload={(url) =>
                             safeUpdateCell(row.id, col.id, url)
                           }
@@ -748,7 +772,10 @@ export function GridViewTableBody({
                         <span
                           className={`cursor-pointer text-[13px] transition-colors ${isTall ? "line-clamp-4 break-words whitespace-normal" : "block truncate"} ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}
                         >
-                          {formatCellValue(value, col.type) || ""}
+                          <SearchHighlightedText
+                            text={formattedValue}
+                            query={searchHighlightQuery}
+                          />
                         </span>
                       )}
                     </div>

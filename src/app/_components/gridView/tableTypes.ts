@@ -60,6 +60,9 @@ export type GridViewTableProps = {
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   rowH: number;
   wrapHeaders: boolean;
+  searchQuery: string;
+  searchMatchedCellKeys: Set<string>;
+  activeSearchCellKey: string | null;
   table: { rowCount: number } | null | undefined;
   allCols: VisibleColumn[];
   sorts: SortRule[];

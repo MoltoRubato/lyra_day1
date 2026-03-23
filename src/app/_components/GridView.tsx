@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ColumnType } from "@prisma/client";
 import { GridViewTable } from "~/app/_components/GridViewTable";
 import {
@@ -11,6 +18,8 @@ import {
   collectGroupKeys,
   createFilterTree,
   flattenGroupTree,
+  getGridSearchCellKey,
+  getSearchableCellText,
   hasActiveFilters,
   normalizeFilterTree,
   type FilterTree,
@@ -39,6 +48,16 @@ export type BulkGeneratedRowsHint = {
   startOrder: number;
   tableId: string;
 } | null;
+
+export type GridSearchNavigationRequest = {
+  token: number;
+  direction: 1 | -1;
+};
+
+export type GridSearchStatus = {
+  totalMatches: number;
+  activeMatchNumber: number;
+};
 
 const OVERSCAN = 15;
 const MAX_FULL_LOAD_ROWS = 300_000;
@@ -245,6 +264,10 @@ export default function GridView({
   collapsedGroupKeys = [],
   onCollapsedGroupKeysChange,
   onAvailableGroupKeysChange,
+  searchOpen = false,
+  searchQuery = "",
+  searchNavigationRequest,
+  onSearchStatusChange,
 }: {
   tableId: string;
   hiddenFields?: Record<string, boolean>;
@@ -267,6 +290,10 @@ export default function GridView({
   collapsedGroupKeys?: string[];
   onCollapsedGroupKeysChange?: (keys: string[]) => void;
   onAvailableGroupKeysChange?: (keys: string[]) => void;
+  searchOpen?: boolean;
+  searchQuery?: string;
+  searchNavigationRequest?: GridSearchNavigationRequest;
+  onSearchStatusChange?: (status: GridSearchStatus) => void;
 }) {
   const {
     data: table,
@@ -319,6 +346,11 @@ export default function GridView({
   const [loadAllError, setLoadAllError] = useState<string | null>(null);
   const [preloadedRows, setPreloadedRows] = useState<PreloadRow[] | null>(null);
   const [loadAllRetryTick, setLoadAllRetryTick] = useState(0);
+  const [activeSearchCellKey, setActiveSearchCellKey] = useState<string | null>(
+    null,
+  );
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const handledSearchNavigationToken = useRef(0);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -612,6 +644,80 @@ export default function GridView({
   const rowH = ROW_HEIGHT_PX[resolvedRowHeight];
   const isTall =
     resolvedRowHeight === "tall" || resolvedRowHeight === "extra-tall";
+  const groupRowHeight = Math.max(rowH, 44);
+  const trimmedSearchQuery = useMemo(
+    () => (searchOpen ? deferredSearchQuery.trim() : ""),
+    [deferredSearchQuery, searchOpen],
+  );
+  const normalizedSearchQuery = useMemo(
+    () => trimmedSearchQuery.toLocaleLowerCase(),
+    [trimmedSearchQuery],
+  );
+  const rowLayoutById = useMemo(() => {
+    const layout = new Map<string, { top: number; height: number }>();
+    let nextTop = 0;
+
+    flatItems.forEach((item) => {
+      const itemHeight = item.kind === "group" ? groupRowHeight : rowH;
+      if (item.kind === "row") {
+        layout.set(item.row.id, { top: nextTop, height: itemHeight });
+      }
+      nextTop += itemHeight;
+    });
+
+    return layout;
+  }, [flatItems, groupRowHeight, rowH]);
+  const searchMatches = useMemo<
+    Array<{ key: string; rowId: string; columnId: string }>
+  >(() => {
+    if (!searchOpen || normalizedSearchQuery.length === 0) return [];
+
+    const matches: Array<{ key: string; rowId: string; columnId: string }> =
+      [];
+
+    for (const row of visibleRowsInViewOrder) {
+      for (const column of visCols) {
+        const cellText = getSearchableCellText(
+          getGridCellValue(row, column.id),
+          column.type,
+        );
+
+        if (!cellText.toLocaleLowerCase().includes(normalizedSearchQuery)) {
+          continue;
+        }
+
+        matches.push({
+          key: getGridSearchCellKey(row.id, column.id),
+          rowId: row.id,
+          columnId: column.id,
+        });
+      }
+    }
+
+    return matches;
+  }, [
+    getGridCellValue,
+    normalizedSearchQuery,
+    searchOpen,
+    visCols,
+    visibleRowsInViewOrder,
+  ]);
+  const searchMatchedCellKeys = useMemo(
+    () => new Set(searchMatches.map((match) => match.key)),
+    [searchMatches],
+  );
+  const activeSearchMatchIndex = useMemo(
+    () =>
+      activeSearchCellKey
+        ? searchMatches.findIndex((match) => match.key === activeSearchCellKey)
+        : -1,
+    [activeSearchCellKey, searchMatches],
+  );
+  const activeSearchMatch = useMemo(
+    () =>
+      activeSearchMatchIndex >= 0 ? searchMatches[activeSearchMatchIndex]! : null,
+    [activeSearchMatchIndex, searchMatches],
+  );
 
   const rawRowCount = table?.rowCount;
   const totalRows = rawRowCount ?? table?.rows.length ?? 0;
@@ -658,11 +764,118 @@ export default function GridView({
   const effectiveLoadingGapHeight = allRowsReady ? loadingGapHeight : 0;
 
   useEffect(() => {
+    if (!searchOpen || trimmedSearchQuery.length === 0 || searchMatches.length === 0) {
+      setActiveSearchCellKey((prev) => (prev === null ? prev : null));
+      return;
+    }
+
+    setActiveSearchCellKey((prev) =>
+      prev && searchMatchedCellKeys.has(prev) ? prev : searchMatches[0]!.key,
+    );
+  }, [searchMatchedCellKeys, searchMatches, searchOpen, trimmedSearchQuery]);
+
+  useEffect(() => {
+    if (!searchOpen || searchMatches.length === 0 || !searchNavigationRequest) {
+      return;
+    }
+    if (handledSearchNavigationToken.current === searchNavigationRequest.token) {
+      return;
+    }
+
+    handledSearchNavigationToken.current = searchNavigationRequest.token;
+    if (searchNavigationRequest.token === 0) return;
+
+    setActiveSearchCellKey((prev) => {
+      const currentIndex = prev
+        ? searchMatches.findIndex((match) => match.key === prev)
+        : -1;
+      const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+      const nextIndex =
+        (baseIndex + searchNavigationRequest.direction + searchMatches.length) %
+        searchMatches.length;
+      return searchMatches[nextIndex]!.key;
+    });
+  }, [searchMatches, searchNavigationRequest, searchOpen]);
+
+  useEffect(() => {
+    onSearchStatusChange?.({
+      totalMatches: searchMatches.length,
+      activeMatchNumber:
+        activeSearchMatchIndex >= 0 ? activeSearchMatchIndex + 1 : 0,
+    });
+  }, [activeSearchMatchIndex, onSearchStatusChange, searchMatches.length]);
+
+  useEffect(() => {
+    handledSearchNavigationToken.current = 0;
+  }, [tableId]);
+
+  useEffect(() => {
+    if (!activeSearchMatch) return;
+
+    const containerEl = containerRef.current;
+    if (!containerEl) return;
+
+    const rowLayout = rowLayoutById.get(activeSearchMatch.rowId);
+    if (rowLayout) {
+      const headerRow = containerEl.querySelector("thead tr:first-child");
+      const headerHeight =
+        headerRow instanceof HTMLElement ? headerRow.offsetHeight : rowH;
+      const footerHeight = 40;
+      const contentViewportHeight = Math.max(
+        rowLayout.height,
+        containerEl.clientHeight - headerHeight - footerHeight,
+      );
+      const nextScrollTop = Math.max(
+        0,
+        rowLayout.top -
+          Math.max(0, Math.floor((contentViewportHeight - rowLayout.height) / 2)),
+      );
+
+      if (Math.abs(containerEl.scrollTop - nextScrollTop) > 1) {
+        containerEl.scrollTop = nextScrollTop;
+        scrollTopRef.current = nextScrollTop;
+        forceRender((count) => count + 1);
+      }
+    }
+
+    let cancelled = false;
+    let rafId = 0;
+
+    const focusMatchedCell = () => {
+      if (cancelled) return;
+      const escapedKey =
+        typeof CSS !== "undefined" && typeof CSS.escape === "function"
+          ? CSS.escape(activeSearchMatch.key)
+          : activeSearchMatch.key
+              .replaceAll("\\", "\\\\")
+              .replaceAll('"', '\\"');
+      const cell = containerEl.querySelector(
+        `[data-search-cell-key="${escapedKey}"]`,
+      );
+
+      if (cell instanceof HTMLElement) {
+        cell.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    };
+
+    rafId = requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(focusMatchedCell);
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [activeSearchMatch, rowH, rowLayoutById]);
+
+  useEffect(() => {
     preloadCycle.current += 1;
     setLoadAllLoading(false);
     setLoadAllPhase("fetching");
     setLoadAllError(null);
     setPreloadedRows(null);
+    setActiveSearchCellKey(null);
+    handledSearchNavigationToken.current = 0;
     scrollTopRef.current = 0;
     if (containerRef.current) {
       containerRef.current.scrollTop = 0;
@@ -1059,6 +1272,9 @@ export default function GridView({
       handleScroll={handleScroll}
       rowH={rowH}
       wrapHeaders={wrapHeaders}
+      searchQuery={trimmedSearchQuery}
+      searchMatchedCellKeys={searchMatchedCellKeys}
+      activeSearchCellKey={activeSearchCellKey}
       table={table}
       allCols={allCols}
       sorts={sorts}

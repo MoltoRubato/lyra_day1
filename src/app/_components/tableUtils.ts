@@ -50,6 +50,19 @@ export function formatCellValue(value: string, type: string): string {
   }
 }
 
+export function getSearchableCellText(value: string, type: string): string {
+  if (!value) return "";
+  if (type === "ATTACHMENT") {
+    const lastSegment = value.split("/").filter(Boolean).pop();
+    return lastSegment ?? value;
+  }
+  return formatCellValue(value, type);
+}
+
+export function getGridSearchCellKey(rowId: string, columnId: string): string {
+  return `${rowId}:${columnId}`;
+}
+
 /** Input type attribute for HTML inputs */
 export function inputTypeForField(colType: string): string {
   switch (colType) {
