@@ -77,6 +77,8 @@ type GridViewTableHeaderProps = {
   someInViewSelected: boolean;
   toggleAllRowsInView: (checked: boolean) => void;
   highlightedFilterColumnIds: Set<string>;
+  highlightedSortColumnIds: Set<string>;
+  highlightedGroupColumnIds: Set<string>;
 };
 
 export function GridViewTableHeader({
@@ -126,6 +128,8 @@ export function GridViewTableHeader({
   someInViewSelected,
   toggleAllRowsInView,
   highlightedFilterColumnIds,
+  highlightedSortColumnIds,
+  highlightedGroupColumnIds,
 }: GridViewTableHeaderProps) {
   const [fieldTypeQuery, setFieldTypeQuery] = useState("");
   const [hoveredFieldAgent, setHoveredFieldAgent] = useState<string | null>(
@@ -330,13 +334,19 @@ export function GridViewTableHeader({
           const frozenLeft = frozenOffsets[colIndex] ?? rowNumberWidth;
           const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
           const isFilterHighlighted = highlightedFilterColumnIds.has(col.id);
+          const isSortHighlighted = highlightedSortColumnIds.has(col.id);
+          const isGroupHighlighted = highlightedGroupColumnIds.has(col.id);
           const trailingActionInset = col.description ? 42 : 22;
           const headerCellBackground =
             dragOverColId === col.id
               ? "#e8f5f1"
-              : isFilterHighlighted
-                ? "#ebfbec4D"
-                : undefined;
+              : isGroupHighlighted
+                ? "#fbfaff"
+                : isSortHighlighted
+                  ? "#fffbf9"
+                : isFilterHighlighted
+                  ? "#ebfbec4D"
+                  : undefined;
 
           return (
             <th

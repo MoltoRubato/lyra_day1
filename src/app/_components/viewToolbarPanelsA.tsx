@@ -30,7 +30,7 @@ export function PanelWrapper({
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="absolute top-full right-0 z-50 mt-1 overflow-hidden rounded-[4px] border border-[#d2d6dc] bg-white shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
+        className="absolute top-full right-0 z-50 mt-1 overflow-visible rounded-[4px] border border-[#d2d6dc] bg-white shadow-[0px_0px_1px_rgba(0,0,0,0.24),0px_0px_2px_rgba(0,0,0,0.16),0px_3px_4px_rgba(0,0,0,0.06),0px_6px_8px_rgba(0,0,0,0.06),0px_12px_16px_rgba(0,0,0,0.08),0px_18px_32px_rgba(0,0,0,0.06)]"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

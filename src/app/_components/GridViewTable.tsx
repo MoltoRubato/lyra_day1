@@ -19,7 +19,7 @@ export function GridViewTable({
   wrapHeaders,
   table,
   allCols,
-  sorts: _sorts,
+  sorts,
   filters,
   groups,
   onSortsChange: _onSortsChange,
@@ -85,6 +85,9 @@ export function GridViewTable({
   reorderRows,
   canReorderRows,
   allRowsForSummary,
+  visibleRowsInViewOrder,
+  collapsedGroupKeys,
+  onToggleGroupCollapsed,
   recordLabel = "record",
 }: GridViewTableProps) {
   const [renderedRowHeaderWidth, setRenderedRowHeaderWidth] = useState<
@@ -130,8 +133,10 @@ export function GridViewTable({
   >({});
   const [summaryMenu, setSummaryMenu] = useState<{
     colId: string;
+    targetId: string;
     left: number;
     top: number;
+    placement: "top" | "bottom";
   } | null>(null);
   const [hoveredSummaryCol, setHoveredSummaryCol] = useState<string | null>(
     null,
@@ -172,8 +177,8 @@ export function GridViewTable({
         : `${labelLower}s`;
 
   const rowIdsInViewOrder = useMemo(
-    () => allRowsForSummary.map((r) => r.id),
-    [allRowsForSummary],
+    () => visibleRowsInViewOrder.map((r) => r.id),
+    [visibleRowsInViewOrder],
   );
   const visibleColumnsSignature = useMemo(
     () => visCols.map((col) => `${col.id}:${col.width}`).join("|"),
@@ -212,19 +217,45 @@ export function GridViewTable({
     : "Drag to adjust the number of frozen columns";
   const hasSelectedRows = selectedRowIds.length > 0;
   const selectedSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+  const collapsedGroupKeySet = useMemo(
+    () => new Set(collapsedGroupKeys),
+    [collapsedGroupKeys],
+  );
   const highlightedFilterColumnIds = useMemo(
     () => new Set(getActiveFilterFieldIds(filters)),
     [filters],
   );
+  const highlightedSortColumnIds = useMemo(
+    () => new Set(sorts.map((sort) => sort.columnId)),
+    [sorts],
+  );
+  const highlightedGroupColumnIds = useMemo(
+    () => new Set(groups.map((group) => group.columnId)),
+    [groups],
+  );
+  const columnNameById = useMemo(
+    () =>
+      Object.fromEntries(
+        allCols.map((column) => [column.id, column.name] as const),
+      ),
+    [allCols],
+  );
+  const groupLabelColumnId = useMemo(
+    () =>
+      visCols.find((column) => highlightedGroupColumnIds.has(column.id))?.id ??
+      visCols[0]?.id ??
+      null,
+    [highlightedGroupColumnIds, visCols],
+  );
 
   useEffect(() => {
-    if (!allRowsForSummary.length) {
+    if (!visibleRowsInViewOrder.length) {
       setSelectedRowIds([]);
       return;
     }
-    const valid = new Set(allRowsForSummary.map((r) => r.id));
+    const valid = new Set(visibleRowsInViewOrder.map((r) => r.id));
     setSelectedRowIds((prev) => prev.filter((id) => valid.has(id)));
-  }, [allRowsForSummary]);
+  }, [visibleRowsInViewOrder]);
 
   useEffect(() => {
     if (!changingPrimaryField) return;
@@ -604,7 +635,7 @@ export function GridViewTable({
       >
         <table
           id="table"
-          className="min-h-full border-collapse bg-white text-sm"
+          className="min-h-full border-collapse bg-[#f6f8fc] text-sm"
           style={{ tableLayout: "fixed" }}
         >
           <GridViewTableHeader
@@ -654,6 +685,8 @@ export function GridViewTable({
             someInViewSelected={someInViewSelected}
             toggleAllRowsInView={toggleAllRowsInView}
             highlightedFilterColumnIds={highlightedFilterColumnIds}
+            highlightedSortColumnIds={highlightedSortColumnIds}
+            highlightedGroupColumnIds={highlightedGroupColumnIds}
           />
 
           <GridViewTableBody
@@ -705,6 +738,12 @@ export function GridViewTable({
             summaryRowHeightPx={summaryRowHeightPx}
             summaryBottomOffsetPx={summaryBottomOffsetPx}
             highlightedFilterColumnIds={highlightedFilterColumnIds}
+            highlightedSortColumnIds={highlightedSortColumnIds}
+            highlightedGroupColumnIds={highlightedGroupColumnIds}
+            groupLabelColumnId={groupLabelColumnId}
+            columnNameById={columnNameById}
+            collapsedGroupKeySet={collapsedGroupKeySet}
+            onToggleGroupCollapsed={onToggleGroupCollapsed}
           />
         </table>
       </div>

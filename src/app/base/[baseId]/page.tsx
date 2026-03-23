@@ -378,6 +378,12 @@ export default function BasePage({
   const [viewConfigs, setViewConfigs] = useState<Record<string, ViewConfig>>(
     {},
   );
+  const [collapsedGroupKeysByView, setCollapsedGroupKeysByView] = useState<
+    Record<string, string[]>
+  >({});
+  const [availableGroupKeysByView, setAvailableGroupKeysByView] = useState<
+    Record<string, string[]>
+  >({});
   const [forcedToolbarPanel, setForcedToolbarPanel] = useState<Exclude<
     OpenPanel,
     null
@@ -391,6 +397,26 @@ export default function BasePage({
       ...prev,
       [viewId]: { ...DEFAULT_VIEW_CONFIG, ...(prev[viewId] ?? {}), ...patch },
     }));
+  }
+  function updateCollapsedGroupKeys(viewId: string, keys: string[]) {
+    setCollapsedGroupKeysByView((prev) => {
+      const current = prev[viewId] ?? [];
+      const unchanged =
+        current.length === keys.length &&
+        current.every((key, index) => key === keys[index]);
+      if (unchanged) return prev;
+      return { ...prev, [viewId]: keys };
+    });
+  }
+  function updateAvailableGroupKeys(viewId: string, keys: string[]) {
+    setAvailableGroupKeysByView((prev) => {
+      const current = prev[viewId] ?? [];
+      const unchanged =
+        current.length === keys.length &&
+        current.every((key, index) => key === keys[index]);
+      if (unchanged) return prev;
+      return { ...prev, [viewId]: keys };
+    });
   }
   function getViewDescription(viewId: string): string | null {
     return viewDescriptions[viewId] ?? null;
@@ -692,6 +718,17 @@ export default function BasePage({
               onToggleSidebar={() => setViewSidebar((p) => !p)}
               forcedOpenPanel={forcedToolbarPanel}
               onForcedOpenHandled={() => setForcedToolbarPanel(null)}
+              collapsedGroupKeys={collapsedGroupKeysByView[activeView.id] ?? []}
+              availableGroupKeys={availableGroupKeysByView[activeView.id] ?? []}
+              onCollapseAllGroups={() =>
+                updateCollapsedGroupKeys(
+                  activeView.id,
+                  availableGroupKeysByView[activeView.id] ?? [],
+                )
+              }
+              onExpandAllGroups={() =>
+                updateCollapsedGroupKeys(activeView.id, [])
+              }
             />
           ) : (
             <div className="h-10 flex-shrink-0 border-b border-[#e0e0e0] bg-white" />
@@ -765,6 +802,15 @@ export default function BasePage({
                     }
                     onRequestOpenGroupPanel={() =>
                       setForcedToolbarPanel("group")
+                    }
+                    collapsedGroupKeys={
+                      collapsedGroupKeysByView[activeView.id] ?? []
+                    }
+                    onCollapsedGroupKeysChange={(keys) =>
+                      updateCollapsedGroupKeys(activeView.id, keys)
+                    }
+                    onAvailableGroupKeysChange={(keys) =>
+                      updateAvailableGroupKeys(activeView.id, keys)
                     }
                     bulkGeneratedRowsHint={bulkGeneratedRowsHint}
                     bulkAddInFlight={

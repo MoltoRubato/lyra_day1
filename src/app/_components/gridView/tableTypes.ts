@@ -45,8 +45,9 @@ export type VisibleColumn = {
 export type VisibleItem =
   | {
       kind: "group";
-      node: { key: string; depth: number; value: string };
+      node: { key: string; depth: number; value: string; columnId: string };
       totalRows: number;
+      rows: RowWithCells[];
     }
   | { kind: "row"; row: RowWithCells };
 
@@ -165,5 +166,8 @@ export type GridViewTableProps = {
   };
   canReorderRows: boolean;
   allRowsForSummary: RowWithCells[];
+  visibleRowsInViewOrder: RowWithCells[];
+  collapsedGroupKeys: string[];
+  onToggleGroupCollapsed?: (groupKey: string) => void;
   recordLabel?: string;
 };

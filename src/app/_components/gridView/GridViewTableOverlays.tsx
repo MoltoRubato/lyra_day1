@@ -25,8 +25,26 @@ const isSelectFieldType = (type: string) =>
   type === "SINGLE_SELECT" || type === "MULTI_SELECT";
 
 type GridViewTableOverlaysProps = {
-  summaryMenu: { colId: string; left: number; top: number } | null;
-  setSummaryMenu: (v: { colId: string; left: number; top: number } | null) => void;
+  summaryMenu:
+    | {
+        colId: string;
+        targetId: string;
+        left: number;
+        top: number;
+        placement: "top" | "bottom";
+      }
+    | null;
+  setSummaryMenu: (
+    v:
+      | {
+          colId: string;
+          targetId: string;
+          left: number;
+          top: number;
+          placement: "top" | "bottom";
+        }
+      | null,
+  ) => void;
   summaryByCol: Record<string, SummaryOption>;
   setSummaryByCol: (
     v: Record<string, SummaryOption> | ((prev: Record<string, SummaryOption>) => Record<string, SummaryOption>),
@@ -88,7 +106,12 @@ export function GridViewTableOverlays({
       {summaryMenu && (
         <div
           className="fixed z-[90] w-[140px] overflow-hidden rounded-[4px] bg-[#31353e] shadow-xl"
-          style={{ left: summaryMenu.left, top: summaryMenu.top, transform: "translateY(-100%)" }}
+          style={{
+            left: summaryMenu.left,
+            top: summaryMenu.top,
+            transform:
+              summaryMenu.placement === "top" ? "translateY(-100%)" : "none",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {SUMMARY_OPTIONS.map((opt) => {

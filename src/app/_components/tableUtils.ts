@@ -783,7 +783,8 @@ function buildGroupTree(
   const rule = rules[depth]!;
   const map  = new Map<string, RowWithCells[]>();
   for (const row of items) {
-    const val = getCellValue(row, rule.columnId) || "—";
+    const rawValue = getCellValue(row, rule.columnId).trim();
+    const val = rawValue.length ? rawValue : "(Empty)";
     if (!map.has(val)) map.set(val, []);
     map.get(val)!.push(row);
   }
@@ -814,25 +815,41 @@ export function applyGroups(
   return buildGroupTree(rows, groups, 0, "root");
 }
 
-/** Flatten a GroupNode tree into a flat renderable list */
-export type FlatItem =
-  | { kind: "group"; node: GroupNode; totalRows: number }
-  | { kind: "row";   row: RowWithCells };
-
-function totalRowsIn(node: GroupNode): number {
-  if (node.subgroups.length) return node.subgroups.reduce((s, n) => s + totalRowsIn(n), 0);
-  return node.rows.length;
+export function collectGroupKeys(nodes: GroupNode[]): string[] {
+  const keys: string[] = [];
+  for (const node of nodes) {
+    if (node.depth >= 0) keys.push(node.key);
+    if (node.subgroups.length) {
+      keys.push(...collectGroupKeys(node.subgroups));
+    }
+  }
+  return keys;
 }
 
-export function flattenGroupTree(nodes: GroupNode[]): FlatItem[] {
+/** Flatten a GroupNode tree into a flat renderable list */
+export type FlatItem =
+  | { kind: "group"; node: GroupNode; totalRows: number; rows: RowWithCells[] }
+  | { kind: "row";   row: RowWithCells };
+
+function rowsIn(node: GroupNode): RowWithCells[] {
+  if (node.subgroups.length) return node.subgroups.flatMap(rowsIn);
+  return node.rows;
+}
+
+export function flattenGroupTree(
+  nodes: GroupNode[],
+  collapsedGroupKeys: ReadonlySet<string> = new Set<string>(),
+): FlatItem[] {
   const result: FlatItem[] = [];
   for (const node of nodes) {
     // depth >= 0 means it's a real group that needs a header row
     if (node.depth >= 0) {
-      result.push({ kind: "group", node, totalRows: totalRowsIn(node) });
+      const rows = rowsIn(node);
+      result.push({ kind: "group", node, totalRows: rows.length, rows });
+      if (collapsedGroupKeys.has(node.key)) continue;
     }
     if (node.subgroups.length) {
-      result.push(...flattenGroupTree(node.subgroups));
+      result.push(...flattenGroupTree(node.subgroups, collapsedGroupKeys));
     } else {
       for (const row of node.rows) {
         result.push({ kind: "row", row });

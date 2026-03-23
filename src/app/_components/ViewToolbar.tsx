@@ -22,6 +22,7 @@ export type ViewConfig = {
   hiddenFields: Record<string, boolean>;
   filters: FilterTree;
   sorts: SortRule[];
+  autoSortRecords: boolean;
   groups: GroupRule[];
   rowHeight: RowHeight;
   wrapHeaders: boolean;
@@ -32,6 +33,7 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   hiddenFields: {},
   filters: createFilterTree(),
   sorts: [],
+  autoSortRecords: true,
   groups: [],
   rowHeight: "short",
   wrapHeaders: false,
@@ -122,6 +124,10 @@ export default function ViewToolbar({
   frozenColumnCount: _frozenColumnCount = 0,
   forcedOpenPanel,
   onForcedOpenHandled,
+  collapsedGroupKeys = [],
+  availableGroupKeys = [],
+  onCollapseAllGroups,
+  onExpandAllGroups,
 }: {
   columns: Column[];
   config: ViewConfig;
@@ -139,6 +145,10 @@ export default function ViewToolbar({
   frozenColumnCount?: number;
   forcedOpenPanel?: Exclude<OpenPanel, null> | null;
   onForcedOpenHandled?: () => void;
+  collapsedGroupKeys?: string[];
+  availableGroupKeys?: string[];
+  onCollapseAllGroups?: () => void;
+  onExpandAllGroups?: () => void;
 }) {
   const [open, setOpen] = useState<OpenPanel>(null);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -418,6 +428,10 @@ export default function ViewToolbar({
                   columns={columns}
                   groups={config.groups}
                   onChange={(g) => onConfigChange({ groups: g })}
+                  collapsedGroupKeys={collapsedGroupKeys}
+                  availableGroupKeys={availableGroupKeys}
+                  onCollapseAll={onCollapseAllGroups}
+                  onExpandAll={onExpandAllGroups}
                 />
               )}
               {btn.id === "sort" && (
@@ -425,6 +439,12 @@ export default function ViewToolbar({
                   columns={columns}
                   sorts={config.sorts}
                   onChange={(s) => onConfigChange({ sorts: s })}
+                  autoSortRecords={config.autoSortRecords}
+                  onToggleAutoSort={() =>
+                    onConfigChange({
+                      autoSortRecords: !config.autoSortRecords,
+                    })
+                  }
                 />
               )}
               {btn.id === "height" && (

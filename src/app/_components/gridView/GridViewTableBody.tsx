@@ -5,7 +5,6 @@ import {
   inputTypeForField,
   type RowWithCells,
 } from "~/app/_components/tableUtils";
-import { GROUP_DEPTH_COLORS } from "~/app/_components/gridView/tableShared";
 import type {
   EditingCell,
   SummaryOption,
@@ -66,24 +65,65 @@ type GridViewTableBodyProps = {
   setHoveredSummaryCol: (
     v: string | null | ((prev: string | null) => string | null),
   ) => void;
-  summaryMenu: { colId: string; left: number; top: number } | null;
+  summaryMenu:
+    | {
+        colId: string;
+        targetId: string;
+        left: number;
+        top: number;
+        placement: "top" | "bottom";
+      }
+    | null;
   setSummaryMenu: (
     v:
-      | { colId: string; left: number; top: number }
+      | {
+          colId: string;
+          targetId: string;
+          left: number;
+          top: number;
+          placement: "top" | "bottom";
+        }
       | null
       | ((
-          prev: { colId: string; left: number; top: number } | null,
-        ) => { colId: string; left: number; top: number } | null),
+          prev:
+            | {
+                colId: string;
+                targetId: string;
+                left: number;
+                top: number;
+                placement: "top" | "bottom";
+              }
+            | null,
+        ) =>
+          | {
+              colId: string;
+              targetId: string;
+              left: number;
+              top: number;
+              placement: "top" | "bottom";
+            }
+          | null),
   ) => void;
   setRowContextMenu: (v: { x: number; y: number } | null) => void;
   totalRows: number;
   summaryRowHeightPx: number;
   summaryBottomOffsetPx: number;
   highlightedFilterColumnIds: Set<string>;
+  highlightedSortColumnIds: Set<string>;
+  highlightedGroupColumnIds: Set<string>;
+  groupLabelColumnId: string | null;
+  columnNameById: Record<string, string>;
+  collapsedGroupKeySet: Set<string>;
+  onToggleGroupCollapsed?: (groupKey: string) => void;
 };
 
 // Smaller chunks avoid large single-row spacer glitches in table layout engines.
 const MAX_SPACER_ROW_HEIGHT = 20_000;
+const SUMMARY_MENU_HEIGHT = 34 * 7;
+const SUMMARY_MENU_WIDTH = 140;
+const SUMMARY_MENU_GAP = 4;
+const GROUP_INDENT_PX = 24;
+const GROUP_GUTTER_BASE_PX = 8;
 
 function renderSpacerRows(
   totalHeight: number,
@@ -112,14 +152,14 @@ function renderSpacerRows(
 function summaryResult(
   colId: string,
   summaryByCol: Record<string, SummaryOption>,
-  allRowsForSummary: RowWithCells[],
+  rowsForSummary: RowWithCells[],
   getCellValue: (row: RowWithCells, columnId: string) => string,
 ): { label: string; value: string } | null {
   const mode = summaryByCol[colId] ?? "None";
   if (mode === "None") return null;
 
-  const total = allRowsForSummary.length;
-  const values = allRowsForSummary.map((row) =>
+  const total = rowsForSummary.length;
+  const values = rowsForSummary.map((row) =>
     (getCellValue(row, colId) ?? "").trim(),
   );
   const emptyCount = values.filter((v) => v.length === 0).length;
@@ -141,6 +181,30 @@ function summaryResult(
     return { label: "Percent Filled", value: percent(filledCount) };
   }
   return { label: "Percent Unique", value: percent(uniqueCount) };
+}
+
+function cellHighlightColor(
+  columnId: string,
+  highlightedSortColumnIds: Set<string>,
+  highlightedGroupColumnIds: Set<string>,
+  highlightedFilterColumnIds: Set<string>,
+) {
+  if (highlightedGroupColumnIds.has(columnId)) return "#f2f0fe";
+  if (highlightedSortColumnIds.has(columnId)) return "#fff2ea";
+  if (highlightedFilterColumnIds.has(columnId)) return "#ebfbec";
+  return undefined;
+}
+
+function groupRowCellBackground(
+  columnId: string,
+  highlightedSortColumnIds: Set<string>,
+  highlightedGroupColumnIds: Set<string>,
+  highlightedFilterColumnIds: Set<string>,
+) {
+  if (highlightedGroupColumnIds.has(columnId)) return "#f5f5fd";
+  if (highlightedSortColumnIds.has(columnId)) return "#fff2ea";
+  if (highlightedFilterColumnIds.has(columnId)) return "#ebfbec";
+  return "#f6f8fc";
 }
 
 export function GridViewTableBody({
@@ -192,9 +256,49 @@ export function GridViewTableBody({
   summaryRowHeightPx,
   summaryBottomOffsetPx,
   highlightedFilterColumnIds,
+  highlightedSortColumnIds,
+  highlightedGroupColumnIds,
+  groupLabelColumnId,
+  columnNameById,
+  collapsedGroupKeySet,
+  onToggleGroupCollapsed,
 }: GridViewTableBodyProps) {
   const hasLoadingGap = loadingGapHeight > 0;
-  const colSpan = visCols.length + 2;
+  const colSpan = visCols.length + 1;
+  const resolvedGroupLabelColumnId = groupLabelColumnId ?? visCols[0]?.id ?? null;
+  const groupRowHeight = Math.max(rowH, 44);
+
+  function openSummaryMenuForTarget(
+    target: HTMLElement,
+    colId: string,
+    targetId: string,
+  ) {
+    const rect = target.getBoundingClientRect();
+    const canOpenAbove = rect.top >= SUMMARY_MENU_HEIGHT + SUMMARY_MENU_GAP + 8;
+    const canOpenBelow =
+      window.innerHeight - rect.bottom >= SUMMARY_MENU_HEIGHT + SUMMARY_MENU_GAP + 8;
+    const placement =
+      !canOpenAbove && canOpenBelow ? "bottom" : "top";
+    const left = Math.max(
+      8,
+      Math.min(window.innerWidth - SUMMARY_MENU_WIDTH - 8, rect.right - SUMMARY_MENU_WIDTH),
+    );
+    const top =
+      placement === "top" ? rect.top - SUMMARY_MENU_GAP : rect.bottom + SUMMARY_MENU_GAP;
+
+    setSummaryMenu((prev) =>
+      prev?.targetId === targetId
+        ? null
+        : {
+            colId,
+            targetId,
+            left,
+            top,
+            placement,
+          },
+    );
+    setRowContextMenu(null);
+  }
 
   return (
     <>
@@ -215,40 +319,205 @@ export function GridViewTableBody({
         {visItems.map((item, vi) => {
           const absIdx = startIdx + vi;
           if (item.kind === "group") {
-            const { node, totalRows: groupedRows } = item;
-            const depth = Math.min(node.depth, GROUP_DEPTH_COLORS.length - 1);
-            const colors = GROUP_DEPTH_COLORS[depth]!;
+            const { node, totalRows: groupedRows, rows: groupRows } = item;
+            const groupFieldName =
+              columnNameById[node.columnId]?.toUpperCase() ?? "GROUP";
+            const isCollapsed = collapsedGroupKeySet.has(node.key);
+            const groupChevronOffsetPx =
+              GROUP_GUTTER_BASE_PX + node.depth * GROUP_INDENT_PX;
             return (
-              <tr key={node.key} style={{ background: colors.bg }}>
+              <tr
+                key={node.key}
+                className="bg-[#f6f8fc]"
+              >
                 <td
-                  colSpan={visCols.length + 2}
-                  className="border-t border-b"
+                  className="sticky left-0 z-[13] box-border border-r border-b border-[#dfe3e8] bg-[#f6f8fc] px-0 py-0"
                   style={{
-                    borderColor: colors.border,
-                    paddingLeft: `${node.depth * 16 + 12}px`,
-                    paddingTop: "6px",
-                    paddingBottom: "6px",
+                    width: rowNumberWidth,
+                    minWidth: rowNumberWidth,
+                    maxWidth: rowNumberWidth,
+                    height: groupRowHeight,
                   }}
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 flex-shrink-0 rounded-full"
-                      style={{ background: colors.dot }}
-                    />
-                    <span
-                      className="text-[11px] font-semibold"
-                      style={{ color: colors.text }}
+                  <div
+                    className="relative flex items-center"
+                    style={{ height: groupRowHeight }}
+                  >
+                    <div
+                      className="flex h-full items-center"
+                      style={{ paddingLeft: groupChevronOffsetPx }}
                     >
-                      {node.value}
-                    </span>
-                    <span
-                      className="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                      style={{ background: colors.border, color: colors.text }}
-                    >
-                      {groupedRows}
-                    </span>
+                      {node.depth > 0 ? (
+                        <span
+                          aria-hidden="true"
+                          className="mr-1 h-px w-[8px] flex-none bg-[#d9dde5]"
+                        />
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-label={
+                          isCollapsed
+                            ? `Expand group ${node.value}`
+                            : `Collapse group ${node.value}`
+                        }
+                        aria-expanded={!isCollapsed}
+                        disabled={!onToggleGroupCollapsed}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setHoveredSummaryCol(null);
+                          setSummaryMenu(null);
+                          setRowContextMenu(null);
+                          onToggleGroupCollapsed?.(node.key);
+                        }}
+                        className="inline-flex h-4 w-4 items-center justify-center rounded text-[#2f343c] hover:bg-[#e8ecf4] disabled:cursor-default disabled:hover:bg-transparent"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          style={{
+                            transform: isCollapsed
+                              ? "rotate(-90deg)"
+                              : undefined,
+                          }}
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M2.75 4.25L6 7.5l3.25-3.25"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </td>
+
+                {visCols.map((col, colIndex) => {
+                  const isFrozen = colIndex < freezeCount;
+                  const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
+                  const isLabelColumn = col.id === resolvedGroupLabelColumnId;
+                  const cellBackground = groupRowCellBackground(
+                    col.id,
+                    highlightedSortColumnIds,
+                    highlightedGroupColumnIds,
+                    highlightedFilterColumnIds,
+                  );
+                  const summaryTargetId = `group:${node.key}:${col.id}`;
+                  const result = summaryResult(
+                    col.id,
+                    summaryByCol,
+                    groupRows,
+                    getCellValue,
+                  );
+                  const mode = summaryByCol[col.id] ?? "None";
+                  const shouldShowPrompt =
+                    hoveredSummaryCol === summaryTargetId && mode === "None";
+                  const isSummaryCellHoverOrOpen =
+                    hoveredSummaryCol === summaryTargetId ||
+                    summaryMenu?.targetId === summaryTargetId;
+                  const buttonBackground =
+                    isSummaryCellHoverOrOpen ? "#eeeff1" : cellBackground;
+                  return (
+                    <td
+                      key={`${node.key}-${col.id}`}
+                      data-columnid={col.id}
+                      className={`box-border border-r border-b border-[#dfe3e8] px-0 py-0 ${isFrozen ? "sticky" : ""}`}
+                      style={{
+                        width: col.width,
+                        minWidth: 60,
+                        maxWidth: col.width,
+                        height: groupRowHeight,
+                        ...(isFrozen
+                          ? {
+                              left: frozenOffsets[colIndex] ?? rowNumberWidth,
+                              zIndex: 11,
+                            }
+                          : {}),
+                        ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
+                        backgroundColor: cellBackground,
+                      }}
+                    >
+                      {isLabelColumn ? (
+                        <div
+                          className="flex h-full flex-col justify-center"
+                          style={{
+                            paddingLeft: `${12 + node.depth * GROUP_INDENT_PX}px`,
+                            paddingRight: "16px",
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[11px] leading-[14px] tracking-[0.08em] text-[#6f7782] uppercase">
+                                {groupFieldName}
+                              </div>
+                              <div className="truncate pt-[2px] text-[13px] leading-[18px] font-semibold text-[#1d1f25]">
+                                {node.value}
+                              </div>
+                            </div>
+                            <div className="pl-3 text-[13px] leading-none text-[#616670]">
+                              {groupedRows.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          className="flex w-full items-center justify-end gap-1.5 px-3 text-[#6b7280]"
+                          style={{
+                            height: groupRowHeight,
+                            backgroundColor: buttonBackground,
+                          }}
+                          onMouseEnter={() => setHoveredSummaryCol(summaryTargetId)}
+                          onMouseLeave={() =>
+                            setHoveredSummaryCol((prev) =>
+                              prev === summaryTargetId ? null : prev,
+                            )
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openSummaryMenuForTarget(
+                              e.currentTarget,
+                              col.id,
+                              summaryTargetId,
+                            );
+                          }}
+                        >
+                          {result ? (
+                            <>
+                              <span className="text-[11px] leading-none">
+                                {result.label}
+                              </span>
+                              <span className="text-[13px] leading-none text-[#374151]">
+                                {result.value}
+                              </span>
+                            </>
+                          ) : shouldShowPrompt ? (
+                            <>
+                              <svg
+                                width="11"
+                                height="11"
+                                viewBox="0 0 12 12"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                              >
+                                <path
+                                  d="M2.5 4.5L6 8l3.5-3.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              <span className="text-[13px]">Summary</span>
+                            </>
+                          ) : null}
+                        </button>
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             );
           }
@@ -267,7 +536,7 @@ export function GridViewTableBody({
           return (
             <tr
               key={row.id}
-              className={`dataRow group relative border-b border-[#e2e5e9] transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-[#1c76d2] ring-inset" : ""}`}
+              className={`dataRow group relative transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-[#1c76d2] ring-inset" : ""}`}
               style={{
                 height: rowH,
                 zIndex: editingLongTextRow ? 15 : undefined,
@@ -287,7 +556,7 @@ export function GridViewTableBody({
               }}
             >
               <td
-                className={`sticky left-0 z-[13] box-border px-0 py-0 transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                className={`sticky left-0 z-[13] box-border border-b border-[#e2e5e9] px-0 py-0 transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
                 style={{
                   width: rowNumberWidth,
                   minWidth: rowNumberWidth,
@@ -380,8 +649,11 @@ export function GridViewTableBody({
                 const value = getCellValue(row, col.id);
                 const isFrozen = colIndex < freezeCount;
                 const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
-                const isFilterHighlighted = highlightedFilterColumnIds.has(
+                const highlightColor = cellHighlightColor(
                   col.id,
+                  highlightedSortColumnIds,
+                  highlightedGroupColumnIds,
+                  highlightedFilterColumnIds,
                 );
                 return (
                   <td
@@ -400,11 +672,9 @@ export function GridViewTableBody({
                         : {}),
                       ...(isLongTextEditing && !isFrozen ? { zIndex: 30 } : {}),
                       ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
-                      ...(isFilterHighlighted
-                        ? { backgroundColor: "#ebfbec" }
-                        : {}),
+                      ...(highlightColor ? { backgroundColor: highlightColor } : {}),
                     }}
-                    className={`cell relative box-border overflow-visible border-r border-[#e2e5e9] px-2 py-0 ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCellClick(row, col);
@@ -485,27 +755,6 @@ export function GridViewTableBody({
                   </td>
                 );
               })}
-
-              <td className="w-8 px-1">
-                <button
-                  className="rounded-md border border-[#d4d7dc] bg-[#f3f4f6] p-1.5 text-[13px] text-[#6d7480] opacity-0 transition-all group-hover:opacity-100"
-                  title="Expand row"
-                >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                  >
-                    <path
-                      d="M4.2 1.8H1.8v2.4M7.8 10.2h2.4V7.8M10.2 4.2V1.8H7.8M1.8 7.8v2.4h2.4"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
-              </td>
             </tr>
           );
         })}
@@ -531,11 +780,11 @@ export function GridViewTableBody({
 
         {renderSpacerRows(bottomPad, colSpan, "bottom-pad")}
 
-        <tr
-          className="border-t border-[#e2e5e9] bg-white"
-          style={{ height: rowH }}
-        >
-          <td colSpan={colSpan} className="px-0 py-0">
+        <tr className="bg-white" style={{ height: rowH }}>
+          <td
+            colSpan={colSpan}
+            className="border-t border-[#e2e5e9] px-0 py-0"
+          >
             <button
               onClick={() => addRow.mutate({ tableId })}
               className="flex h-full w-full items-center gap-2 px-4 py-2 text-[13px] text-[#9ca3af] transition-colors hover:bg-[#f9fafb] hover:text-[#1f2937]"
@@ -612,12 +861,20 @@ export function GridViewTableBody({
               getCellValue,
             );
             const mode = summaryByCol[col.id] ?? "None";
+            const summaryTargetId = `footer:${col.id}`;
             const shouldShowPrompt =
-              hoveredSummaryCol === col.id && mode === "None";
+              hoveredSummaryCol === summaryTargetId && mode === "None";
             const isSummaryCellHoverOrOpen =
-              hoveredSummaryCol === col.id || summaryMenu?.colId === col.id;
+              hoveredSummaryCol === summaryTargetId ||
+              summaryMenu?.targetId === summaryTargetId;
             const isFrozen = colIndex < freezeCount;
             const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
+            const highlightColor = cellHighlightColor(
+              col.id,
+              highlightedSortColumnIds,
+              highlightedGroupColumnIds,
+              highlightedFilterColumnIds,
+            );
             return (
               <td
                 key={`summary-${col.id}`}
@@ -632,30 +889,30 @@ export function GridViewTableBody({
                       }
                     : {}),
                   ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
+                  ...(highlightColor ? { backgroundColor: highlightColor } : {}),
                 }}
               >
                 <button
-                  className={`flex w-full items-center justify-end gap-1.5 px-3 text-[#6b7280] ${isSummaryCellHoverOrOpen ? "bg-[#eeeff1]" : "bg-white hover:bg-[#eeeff1]"}`}
-                  style={{ height: summaryRowHeightPx }}
-                  onMouseEnter={() => setHoveredSummaryCol(col.id)}
+                  className="flex w-full items-center justify-end gap-1.5 px-3 text-[#6b7280]"
+                  onMouseEnter={() => setHoveredSummaryCol(summaryTargetId)}
                   onMouseLeave={() =>
                     setHoveredSummaryCol((prev) =>
-                      prev === col.id ? null : prev,
+                      prev === summaryTargetId ? null : prev,
                     )
                   }
                   onClick={(e) => {
                     e.stopPropagation();
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setSummaryMenu((prev) =>
-                      prev?.colId === col.id
-                        ? null
-                        : {
-                            colId: col.id,
-                            left: rect.right - 140,
-                            top: rect.top - 4,
-                          },
+                    openSummaryMenuForTarget(
+                      e.currentTarget,
+                      col.id,
+                      summaryTargetId,
                     );
-                    setRowContextMenu(null);
+                  }}
+                  style={{
+                    height: summaryRowHeightPx,
+                    backgroundColor: isSummaryCellHoverOrOpen
+                      ? "#eeeff1"
+                      : highlightColor ?? "#fff",
                   }}
                 >
                   {result ? (
@@ -690,8 +947,6 @@ export function GridViewTableBody({
               </td>
             );
           })}
-
-          <td className="w-24 bg-white px-0 py-0" />
         </tr>
       </tfoot>
     </>

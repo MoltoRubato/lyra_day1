@@ -8,6 +8,7 @@ import {
   applyFilters,
   applyGroups,
   applySorts,
+  collectGroupKeys,
   createFilterTree,
   flattenGroupTree,
   hasActiveFilters,
@@ -241,6 +242,9 @@ export default function GridView({
   onRequestOpenGroupPanel,
   bulkGeneratedRowsHint = null,
   bulkAddInFlight = false,
+  collapsedGroupKeys = [],
+  onCollapsedGroupKeysChange,
+  onAvailableGroupKeysChange,
 }: {
   tableId: string;
   hiddenFields?: Record<string, boolean>;
@@ -260,6 +264,9 @@ export default function GridView({
   onRequestOpenGroupPanel?: () => void;
   bulkGeneratedRowsHint?: BulkGeneratedRowsHint;
   bulkAddInFlight?: boolean;
+  collapsedGroupKeys?: string[];
+  onCollapsedGroupKeysChange?: (keys: string[]) => void;
+  onAvailableGroupKeysChange?: (keys: string[]) => void;
 }) {
   const {
     data: table,
@@ -511,16 +518,11 @@ export default function GridView({
       })),
     }));
   }, [noTransform, combinedRows, allCols, getGridCellValue]);
-
-  const flatItems = useMemo(() => {
+  const transformedRows = useMemo(() => {
     if (!table) return [];
-    if (noTransform) {
-      return combinedRows.map((row) => ({ kind: "row" as const, row }));
-    }
+    if (noTransform) return combinedRows;
     const filtered = applyFilters(rowsForTransforms, normalizedFilters);
-    const sorted = applySorts(filtered, sorts, table.columns);
-    const grouped = applyGroups(sorted, groups);
-    return flattenGroupTree(grouped);
+    return applySorts(filtered, sorts, table.columns);
   }, [
     table,
     noTransform,
@@ -528,19 +530,82 @@ export default function GridView({
     rowsForTransforms,
     normalizedFilters,
     sorts,
-    groups,
+  ]);
+  const groupedTree = useMemo(() => {
+    if (!table || groups.length === 0) return [];
+    return applyGroups(transformedRows, groups);
+  }, [table, transformedRows, groups]);
+  const availableGroupKeys = useMemo(
+    () => collectGroupKeys(groupedTree),
+    [groupedTree],
+  );
+  const collapsedGroupKeySet = useMemo(
+    () => new Set(collapsedGroupKeys),
+    [collapsedGroupKeys],
+  );
+
+  useEffect(() => {
+    onAvailableGroupKeysChange?.(availableGroupKeys);
+  }, [availableGroupKeys, onAvailableGroupKeysChange]);
+
+  useEffect(() => {
+    if (!onCollapsedGroupKeysChange) return;
+    if (groups.length === 0 || availableGroupKeys.length === 0) {
+      if (collapsedGroupKeys.length > 0) onCollapsedGroupKeysChange([]);
+      return;
+    }
+    const availableKeySet = new Set(availableGroupKeys);
+    const nextCollapsedKeys = [...new Set(collapsedGroupKeys)].filter((key) =>
+      availableKeySet.has(key),
+    );
+    const changed =
+      nextCollapsedKeys.length !== collapsedGroupKeys.length ||
+      nextCollapsedKeys.some((key, index) => key !== collapsedGroupKeys[index]);
+    if (changed) onCollapsedGroupKeysChange(nextCollapsedKeys);
+  }, [
+    groups.length,
+    availableGroupKeys,
+    collapsedGroupKeys,
+    onCollapsedGroupKeysChange,
   ]);
 
+  const flatItems = useMemo(() => {
+    if (!table) return [];
+    if (noTransform) {
+      return combinedRows.map((row) => ({ kind: "row" as const, row }));
+    }
+    if (groups.length === 0) {
+      return transformedRows.map((row) => ({ kind: "row" as const, row }));
+    }
+    return flattenGroupTree(groupedTree, collapsedGroupKeySet);
+  }, [
+    table,
+    noTransform,
+    combinedRows,
+    groups,
+    transformedRows,
+    groupedTree,
+    collapsedGroupKeySet,
+  ]);
+
+  const visibleRowsInViewOrder = useMemo(
+    () => flatItems.flatMap((item) => (item.kind === "row" ? [item.row] : [])),
+    [flatItems],
+  );
+  const rowNumberById = useMemo(() => {
+    const rows = noTransform ? combinedRows : transformedRows;
+    return new Map(rows.map((row, index) => [row.id, index + 1] as const));
+  }, [noTransform, combinedRows, transformedRows]);
   const rowNumbers = useMemo(() => {
-    let n = 0;
-    return flatItems.map((item) => (item.kind === "row" ? ++n : null));
-  }, [flatItems]);
+    return flatItems.map((item) =>
+      item.kind === "row" ? (rowNumberById.get(item.row.id) ?? null) : null,
+    );
+  }, [flatItems, rowNumberById]);
 
   const allRowsForSummary = useMemo(() => {
     if (!table) return [];
-    if (noTransform) return combinedRows;
-    return flatItems.flatMap((item) => (item.kind === "row" ? [item.row] : []));
-  }, [table, noTransform, combinedRows, flatItems]);
+    return noTransform ? combinedRows : transformedRows;
+  }, [table, noTransform, combinedRows, transformedRows]);
 
   const resolvedRowHeight: RowHeight =
     rowHeight in ROW_HEIGHT_PX ? rowHeight : "short";
@@ -569,6 +634,23 @@ export default function GridView({
   const loadingGapHeight = loadingGapRows * rowH;
   const bottomPad = Math.max(0, (visibleTotal - viewportEnd) * rowH);
   const visItems = flatItems.slice(sliceStart, sliceEnd);
+  const toggleGroupCollapsed = useCallback(
+    (groupKey: string) => {
+      if (!onCollapsedGroupKeysChange) return;
+      if (collapsedGroupKeySet.has(groupKey)) {
+        onCollapsedGroupKeysChange(
+          collapsedGroupKeys.filter((key) => key !== groupKey),
+        );
+        return;
+      }
+      onCollapsedGroupKeysChange([...collapsedGroupKeys, groupKey]);
+    },
+    [
+      collapsedGroupKeySet,
+      collapsedGroupKeys,
+      onCollapsedGroupKeysChange,
+    ],
+  );
 
   const tableLoadedRows = combinedRows.length;
   const allRowsReady = tableLoadedRows >= totalRows;
@@ -1045,6 +1127,9 @@ export default function GridView({
       reorderRows={reorderRows}
       canReorderRows={noTransform}
       allRowsForSummary={allRowsForSummary}
+      visibleRowsInViewOrder={visibleRowsInViewOrder}
+      collapsedGroupKeys={collapsedGroupKeys}
+      onToggleGroupCollapsed={toggleGroupCollapsed}
       recordLabel={recordLabel}
     />
   );
