@@ -1338,3 +1338,44 @@ prisma:query SELECT "public"."Cell"."id", "public"."Cell"."value", "public"."Cel
  GET /api/trpc/base.getById,view.getByTableId,table.getById?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22id%22%3A%22cmn2mmxxm000p7k58p9opseu5%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22tableId%22%3A%22cmn2mmxxm000q7k58fpokjzd2%22%7D%7D%2C%222%22%3A%7B%22json%22%3A%7B%22id%22%3A%22cmn2mmxxm000q7k58fpokjzd2%22%7D%7D%7D 200 in 1096ms
  GET /api/auth/session 200 in 547ms
  GET /api/auth/session 200 in 493ms
+ GET /api/auth/session 200 in 938ms
+prisma:query UPDATE "public"."Base" SET "lastOpenedAt" = $1, "updatedAt" = $2 WHERE ("public"."Base"."id" = $3 AND 1=1) RETURNING "public"."Base"."id", "public"."Base"."name", "public"."Base"."color", "public"."Base"."icon", "public"."Base"."guide", "public"."Base"."starred", "public"."Base"."lastOpenedAt", "public"."Base"."workspaceId", "public"."Base"."createdAt", "public"."Base"."updatedAt"
+prisma:query SELECT "public"."Table"."id", "public"."Table"."name", "public"."Table"."baseId", "public"."Table"."createdAt", "public"."Table"."updatedAt", COALESCE("aggr_selection_0_Row"."_aggr_count_rows", 0) AS "_aggr_count_rows" FROM "public"."Table" LEFT JOIN (SELECT "public"."Row"."tableId", COUNT(*) AS "_aggr_count_rows" FROM "public"."Row" WHERE 1=1 GROUP BY "public"."Row"."tableId") AS "aggr_selection_0_Row" ON ("public"."Table"."id" = "aggr_selection_0_Row"."tableId") WHERE ("public"."Table"."id" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."View"."id", "public"."View"."name", "public"."View"."type"::text, "public"."View"."order", "public"."View"."groupByColumnId", "public"."View"."tableId", "public"."View"."createdAt", "public"."View"."updatedAt" FROM "public"."View" WHERE "public"."View"."tableId" = $1 ORDER BY "public"."View"."order" ASC OFFSET $2
+[TRPC] view.getByTableId took 654ms to execute
+prisma:query SELECT "public"."Base"."id", "public"."Base"."name", "public"."Base"."color", "public"."Base"."icon", "public"."Base"."guide", "public"."Base"."starred", "public"."Base"."lastOpenedAt", "public"."Base"."workspaceId", "public"."Base"."createdAt", "public"."Base"."updatedAt" FROM "public"."Base" WHERE ("public"."Base"."id" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Column"."id", "public"."Column"."name", "public"."Column"."description", "public"."Column"."type"::text, "public"."Column"."order", "public"."Column"."width", "public"."Column"."tableId", "public"."Column"."createdAt", "public"."Column"."updatedAt" FROM "public"."Column" WHERE "public"."Column"."tableId" IN ($1) ORDER BY "public"."Column"."order" ASC OFFSET $2
+prisma:query SELECT "public"."Table"."id", "public"."Table"."name", "public"."Table"."baseId", "public"."Table"."createdAt", "public"."Table"."updatedAt", COALESCE("aggr_selection_0_Row"."_aggr_count_rows", 0) AS "_aggr_count_rows" FROM "public"."Table" LEFT JOIN (SELECT "public"."Row"."tableId", COUNT(*) AS "_aggr_count_rows" FROM "public"."Row" WHERE 1=1 GROUP BY "public"."Row"."tableId") AS "aggr_selection_0_Row" ON ("public"."Table"."id" = "aggr_selection_0_Row"."tableId") WHERE "public"."Table"."baseId" IN ($1) OFFSET $2
+[TRPC] base.getById took 769ms to execute
+prisma:query SELECT "public"."SelectOption"."id", "public"."SelectOption"."label", "public"."SelectOption"."color", "public"."SelectOption"."order", "public"."SelectOption"."columnId" FROM "public"."SelectOption" WHERE "public"."SelectOption"."columnId" IN ($1,$2,$3,$4,$5,$6,$7) ORDER BY "public"."SelectOption"."order" ASC OFFSET $8
+prisma:query SELECT "public"."Row"."id", "public"."Row"."order", "public"."Row"."tableId", "public"."Row"."createdAt", "public"."Row"."updatedAt" FROM "public"."Row" WHERE "public"."Row"."tableId" IN ($1) ORDER BY "public"."Row"."order" ASC LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Cell"."id", "public"."Cell"."value", "public"."Cell"."rowId", "public"."Cell"."columnId", "public"."Cell"."createdAt", "public"."Cell"."updatedAt" FROM "public"."Cell" WHERE "public"."Cell"."rowId" IN ($1,$2,$3,$4,$5,$6,$7,$8) OFFSET $9
+[TRPC] table.getById took 1052ms to execute
+ GET /api/trpc/base.getById,view.getByTableId,table.getById?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22id%22%3A%22cmn2mmxxm000p7k58p9opseu5%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22tableId%22%3A%22cmn2mmxxm000q7k58fpokjzd2%22%7D%7D%2C%222%22%3A%7B%22json%22%3A%7B%22id%22%3A%22cmn2mmxxm000q7k58fpokjzd2%22%7D%7D%7D 200 in 1974ms
+ GET /api/auth/session 200 in 967ms
+ GET /api/auth/session 200 in 899ms
+ GET /api/auth/session 200 in 787ms
+ GET /api/auth/session 200 in 1193ms
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT "public"."View"."id", "public"."View"."name", "public"."View"."type"::text, "public"."View"."order", "public"."View"."groupByColumnId", "public"."View"."tableId", "public"."View"."createdAt", "public"."View"."updatedAt" FROM "public"."View" WHERE "public"."View"."tableId" = $1 ORDER BY "public"."View"."order" ASC OFFSET $2
+prisma:query UPDATE "public"."Base" SET "lastOpenedAt" = $1, "updatedAt" = $2 WHERE ("public"."Base"."id" = $3 AND 1=1) RETURNING "public"."Base"."id", "public"."Base"."name", "public"."Base"."color", "public"."Base"."icon", "public"."Base"."guide", "public"."Base"."starred", "public"."Base"."lastOpenedAt", "public"."Base"."workspaceId", "public"."Base"."createdAt", "public"."Base"."updatedAt"
+prisma:query SELECT "public"."Table"."id", "public"."Table"."name", "public"."Table"."baseId", "public"."Table"."createdAt", "public"."Table"."updatedAt", COALESCE("aggr_selection_0_Row"."_aggr_count_rows", 0) AS "_aggr_count_rows" FROM "public"."Table" LEFT JOIN (SELECT "public"."Row"."tableId", COUNT(*) AS "_aggr_count_rows" FROM "public"."Row" WHERE 1=1 GROUP BY "public"."Row"."tableId") AS "aggr_selection_0_Row" ON ("public"."Table"."id" = "aggr_selection_0_Row"."tableId") WHERE ("public"."Table"."id" = $1 AND 1=1) LIMIT $2 OFFSET $3
+[TRPC] view.getByTableId took 144ms to execute
+prisma:query SELECT "public"."Column"."id", "public"."Column"."name", "public"."Column"."description", "public"."Column"."type"::text, "public"."Column"."order", "public"."Column"."width", "public"."Column"."tableId", "public"."Column"."createdAt", "public"."Column"."updatedAt" FROM "public"."Column" WHERE "public"."Column"."tableId" IN ($1) ORDER BY "public"."Column"."order" ASC OFFSET $2
+prisma:query SELECT "public"."Base"."id", "public"."Base"."name", "public"."Base"."color", "public"."Base"."icon", "public"."Base"."guide", "public"."Base"."starred", "public"."Base"."lastOpenedAt", "public"."Base"."workspaceId", "public"."Base"."createdAt", "public"."Base"."updatedAt" FROM "public"."Base" WHERE ("public"."Base"."id" = $1 AND 1=1) LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."SelectOption"."id", "public"."SelectOption"."label", "public"."SelectOption"."color", "public"."SelectOption"."order", "public"."SelectOption"."columnId" FROM "public"."SelectOption" WHERE "public"."SelectOption"."columnId" IN ($1,$2,$3,$4,$5,$6,$7) ORDER BY "public"."SelectOption"."order" ASC OFFSET $8
+prisma:query SELECT "public"."Table"."id", "public"."Table"."name", "public"."Table"."baseId", "public"."Table"."createdAt", "public"."Table"."updatedAt", COALESCE("aggr_selection_0_Row"."_aggr_count_rows", 0) AS "_aggr_count_rows" FROM "public"."Table" LEFT JOIN (SELECT "public"."Row"."tableId", COUNT(*) AS "_aggr_count_rows" FROM "public"."Row" WHERE 1=1 GROUP BY "public"."Row"."tableId") AS "aggr_selection_0_Row" ON ("public"."Table"."id" = "aggr_selection_0_Row"."tableId") WHERE "public"."Table"."baseId" IN ($1) OFFSET $2
+[TRPC] base.getById took 346ms to execute
+prisma:query SELECT "public"."Row"."id", "public"."Row"."order", "public"."Row"."tableId", "public"."Row"."createdAt", "public"."Row"."updatedAt" FROM "public"."Row" WHERE "public"."Row"."tableId" IN ($1) ORDER BY "public"."Row"."order" ASC LIMIT $2 OFFSET $3
+prisma:query SELECT "public"."Cell"."id", "public"."Cell"."value", "public"."Cell"."rowId", "public"."Cell"."columnId", "public"."Cell"."createdAt", "public"."Cell"."updatedAt" FROM "public"."Cell" WHERE "public"."Cell"."rowId" IN ($1,$2,$3,$4,$5,$6,$7,$8) OFFSET $9
+[TRPC] table.getById took 568ms to execute
+ GET /api/trpc/base.getById,view.getByTableId,table.getById?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22id%22%3A%22cmn2mmxxm000p7k58p9opseu5%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22tableId%22%3A%22cmn2mmxxm000q7k58fpokjzd2%22%7D%7D%2C%222%22%3A%7B%22json%22%3A%7B%22id%22%3A%22cmn2mmxxm000q7k58fpokjzd2%22%7D%7D%7D 200 in 1737ms
+ GET /api/auth/session 200 in 783ms
+ GET /api/auth/session 200 in 819ms
+ GET /api/auth/session 200 in 812ms
+ GET /api/auth/session 200 in 731ms
+ GET /api/auth/session 200 in 853ms
+ GET /api/auth/session 200 in 725ms
+ GET /api/auth/session 200 in 775ms

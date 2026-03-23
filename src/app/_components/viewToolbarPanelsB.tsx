@@ -186,7 +186,7 @@ export function GroupPanel({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [emptySearch, setEmptySearch] = useState("");
   const [fieldMenu, setFieldMenu] = useState<{
-    targetId: string | "add";
+    targetId: string;
     search: string;
   } | null>(null);
   const [sortMenuGroupId, setSortMenuGroupId] = useState<string | null>(null);
@@ -630,7 +630,7 @@ export function SortPanel({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [emptySearch, setEmptySearch] = useState("");
   const [fieldMenu, setFieldMenu] = useState<{
-    targetId: string | "add";
+    targetId: string;
     search: string;
   } | null>(null);
   const [dirMenuSortId, setDirMenuSortId] = useState<string | null>(null);
