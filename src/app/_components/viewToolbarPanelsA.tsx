@@ -726,31 +726,10 @@ export function FilterPanel({
     commit(nextTree);
   }
   function renderPrefix(parentGroup: FilterGroup, index: number) {
-    const showsRootConjunctionPicker =
-      parentGroup.depth <= 1 && parentGroup.children.length > 1;
-
-    if (index === 0 && showsRootConjunctionPicker) {
-      return (
-        <button
-          type="button"
-          className="focus-container pointer flex h-8 items-center rounded border border-[#ced3db] bg-white px-2 text-[13px] hover:bg-[#eef4ff]"
-          style={{ width: 56 }}
-          onClick={(event) =>
-            openConjunctionMenu(parentGroup.id, event.currentTarget)
-          }
-        >
-          <div className="link-quiet pointer flex w-full items-center justify-between text-left text-[#1d1f25]">
-            <div>{parentGroup.conjunction}</div>
-            <ChevronDown />
-          </div>
-        </button>
-      );
-    }
-
     if (index === 0) {
       return (
         <div
-          className="flex h-full w-full items-center px-1"
+          className="flex h-full w-full items-start justify-start px-1 pt-1 text-[13px] text-[#1d1f25]"
           data-testid="filter-prefix-label"
         >
           Where
@@ -758,9 +737,28 @@ export function FilterPanel({
       );
     }
 
+    if (index === 1) {
+      return (
+        <div className="flex h-8 w-[56px] items-center">
+          <button
+            type="button"
+            className="focus-container pointer flex h-8 w-full items-center rounded border border-[#ced3db] bg-white px-2 text-[13px] hover:bg-[#eef4ff]"
+            onClick={(event) =>
+              openConjunctionMenu(parentGroup.id, event.currentTarget)
+            }
+          >
+            <div className="link-quiet pointer flex w-full items-center justify-between text-left text-[#1d1f25]">
+              <div>{parentGroup.conjunction}</div>
+              <ChevronDown />
+            </div>
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div
-        className="flex h-full w-full items-center px-1 text-[13px] text-[#1d1f25]"
+        className="flex h-8 w-[56px] items-center px-2 text-[13px] text-[#1d1f25]"
         data-testid="filter-prefix-label"
       >
         {parentGroup.conjunction}
