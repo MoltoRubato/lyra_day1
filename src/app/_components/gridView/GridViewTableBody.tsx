@@ -4,6 +4,7 @@ import {
   SearchHighlightedText,
   SelectCell,
 } from "~/app/_components/gridViewCells";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import {
   formatCellValue,
   getGridSearchCellKey,
@@ -138,7 +139,7 @@ type GridViewTableBodyProps = {
   setSelectedCell: (cell: GridCellLocation | null) => void;
   visibleRowsInViewOrder: RowWithCells[];
   expandedLongTextCell: GridCellLocation | null;
-  openExpandedLongTextCell: (rowId: string, columnId: string) => void;
+  openExpandedLongTextCell: (rowId: string, columnId: string, anchorRect: DOMRect) => void;
 };
 
 // Smaller chunks avoid large single-row spacer glitches in table layout engines.
@@ -303,6 +304,7 @@ export function GridViewTableBody({
   const resolvedGroupLabelColumnId = groupLabelColumnId ?? visCols[0]?.id ?? null;
   const groupRowHeight = Math.max(rowH, 44);
   const skipBlurCommitCellKeyRef = useRef<string | null>(null);
+  const justFocusedCellRef = useRef<string | null>(null);
 
   function handleEditBlur(cellKey: string) {
     if (skipBlurCommitCellKeyRef.current === cellKey) {
@@ -620,7 +622,7 @@ export function GridViewTableBody({
           return (
             <tr
               key={row.id}
-              className={`dataRow group relative transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f9fafb]"} ${dragOverRowId === row.id ? "ring-1 ring-[#1c76d2] ring-inset" : ""}`}
+              className={`dataRow group relative ${rowSelected ? "bg-[#dfe5ef]" : "hover:bg-[#f8f8f8]"} ${dragOverRowId === row.id ? "ring-1 ring-[#1c76d2] ring-inset" : ""}`}
               style={{
                 height: rowH,
                 zIndex: editingLongTextRow ? 15 : undefined,
@@ -640,7 +642,7 @@ export function GridViewTableBody({
               }}
             >
               <td
-                className={`sticky left-0 z-[13] box-border border-b border-[#e2e5e9] px-0 py-0 transition-colors ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                className={`sticky left-0 z-[13] box-border border-b border-[#e2e5e9] px-0 py-0 ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f8f8f8]"}`}
                 style={{
                   width: rowNumberWidth,
                   minWidth: rowNumberWidth,
@@ -736,8 +738,11 @@ export function GridViewTableBody({
                   expandedLongTextCell?.rowId === row.id &&
                   expandedLongTextCell?.columnId === col.id;
                 const isLongTextEditing = isEditing && col.type === "LONG_TEXT";
+                const isInlineLongTextEditing =
+                  isLongTextEditing && !isExpandedLongTextEditingCell;
                 const isInlineEditing =
                   isEditing && !(isLongTextEditing && isExpandedLongTextEditingCell);
+                const cellHeight = rowH;
                 const value = getCellValue(row, col.id);
                 const liveValue =
                   isExpandedLongTextEditingCell && isEditing ? editing.value : value;
@@ -760,10 +765,10 @@ export function GridViewTableBody({
                     ? "#fff3d3"
                     : accentColor;
                 const cellBackgroundColor =
-                  highlightColor ?? (rowSelected ? "#dfe5ef" : "#ffffff");
+                  highlightColor ?? (rowSelected ? "#dfe5ef" : undefined);
                 const cellBoxShadow = [
                   isLastFrozen ? "1px 0 0 #afb5bf" : null,
-                  isEditing
+                  isEditing && !isExpandedLongTextEditingCell
                     ? "inset 0 0 0 3px #166ee1"
                     : isSelectedCell
                       ? "inset 0 0 0 2px #166ee1"
@@ -800,27 +805,38 @@ export function GridViewTableBody({
                       width: col.width,
                       minWidth: 60,
                       maxWidth: col.width,
-                      height: rowH,
+                      height: cellHeight,
                       ...(isFrozen
                         ? {
                             left: frozenOffsets[colIndex] ?? rowNumberWidth,
                             zIndex: cellZIndex,
                           }
                         : {}),
-                      ...(isLongTextEditing && !isFrozen && cellZIndex
-                        ? { zIndex: cellZIndex }
+                      ...(isInlineLongTextEditing && !isFrozen
+                        ? { zIndex: 5 }
                         : {}),
                       backgroundColor: cellBackgroundColor,
                       ...(cellBoxShadow ? { boxShadow: cellBoxShadow } : {}),
                     }}
-                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 focus:outline-none ${isFrozen ? "sticky" : ""} ${!highlightColor && !rowSelected ? "bg-white group-hover:bg-[#f9fafb]" : ""}`}
-                    onFocus={() =>
-                      setSelectedCell({ rowId: row.id, columnId: col.id })
-                    }
+                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 focus:outline-none ${isFrozen ? "sticky" : ""} ${!highlightColor && !rowSelected ? "bg-white group-hover:bg-[#f8f8f8]" : ""}`}
+                    onFocus={() => {
+                      const key = `${row.id}-${col.id}`;
+                      if (selectedCell?.rowId !== row.id || selectedCell?.columnId !== col.id) {
+                        justFocusedCellRef.current = key;
+                      }
+                      setSelectedCell({ rowId: row.id, columnId: col.id });
+                    }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleCellClick(row, col);
-                      setSelectedCell({ rowId: row.id, columnId: col.id });
+                      const key = `${row.id}-${col.id}`;
+                      const justFocused = justFocusedCellRef.current === key;
+                      justFocusedCellRef.current = null;
+                      if (!justFocused && isSelectedCell && isSelect(col.type)) {
+                        activateCell(row, col);
+                      } else {
+                        handleCellClick(row, col);
+                        setSelectedCell({ rowId: row.id, columnId: col.id });
+                      }
                       e.currentTarget.focus({ preventScroll: true });
                     }}
                     onDoubleClick={(e) => {
@@ -874,8 +890,11 @@ export function GridViewTableBody({
                     }}
                   >
                     <div
-                      className={`flex ${isTall || isLongTextEditing ? "items-start pt-1.5" : "items-center"} ${isLongTextEditing ? "relative z-[2]" : ""} ${showExpandButton ? "pr-7" : ""}`}
-                      style={{ height: rowH }}
+                      className={`flex ${isTall || isInlineLongTextEditing ? "items-start pt-1.5" : "items-center"} ${isInlineLongTextEditing ? "absolute inset-x-0 top-0 z-[5] overflow-hidden bg-white px-2" : ""} ${showExpandButton ? "pr-7" : ""}`}
+                      style={{
+                        height: isInlineLongTextEditing ? Math.max(rowH, 142) : cellHeight,
+                        ...(isInlineLongTextEditing ? { boxShadow: "inset 0 0 0 3px #166ee1" } : {}),
+                      }}
                     >
                       {col.type === "CHECKBOX" ? (
                         <input
@@ -893,6 +912,7 @@ export function GridViewTableBody({
                           options={col.selectOptions ?? []}
                           multi={col.type === "MULTI_SELECT"}
                           searchQuery={searchHighlightQuery}
+                          isSelected={isSelectedCell}
                           onNavigateAdjacentCell={(direction) =>
                             navigateAdjacentCell(row.id, col.id, direction)
                           }
@@ -913,7 +933,8 @@ export function GridViewTableBody({
                           <textarea
                             autoFocus
                             rows={3}
-                            className="relative z-[3] min-h-[56px] w-full resize-none border-0 bg-transparent px-0 py-1 text-[13px] text-[#1f2937] outline-none"
+                            className="contentEditableTextbox relative z-[3] h-full w-full resize-none overflow-y-auto border-0 bg-transparent text-[13px] text-[#1f2937] outline-none"
+                            style={{ padding: "7px 27px 5px 7px" }}
                             value={editing.value}
                             onChange={(e) =>
                               setEditing({ ...editing, value: e.target.value })
@@ -977,33 +998,24 @@ export function GridViewTableBody({
                       <button
                         type="button"
                         aria-label="Expand cell"
-                        className="absolute right-2 z-[4] flex h-5 w-5 items-center justify-center rounded text-[#166ee1] transition-colors hover:bg-[#e8f1fe]"
+                        className="absolute right-[7px] z-[6] flex h-4 w-4 items-center justify-center rounded transition-colors hover:bg-[#e8f1fe]"
                         style={expandButtonStyle}
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={(event) => {
                           event.stopPropagation();
-                          openExpandedLongTextCell(row.id, col.id);
+                          openExpandedLongTextCell(row.id, col.id, event.currentTarget.getBoundingClientRect());
                         }}
                       >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.7"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M9.75 3.75h2.5v2.5M6.25 12.25h-2.5v-2.5M10.25 5.75l2-2M5.75 10.25l-2 2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                        <AirtableAssetIcon
+                          asset={417}
+                          alt=""
+                          tintColor="#166ee1"
+                          style={{ width: 11, height: 11 }}
+                        />
                       </button>
                     )}
 
-                    {(isSelectedCell || isEditing) && (
+                    {isSelectedCell && !isEditing && (
                       <span className="pointer-events-none absolute -right-[6px] -bottom-[6px] z-[5] h-3 w-3 rounded-[3px] border border-[#166ee1] bg-white" />
                     )}
                   </td>

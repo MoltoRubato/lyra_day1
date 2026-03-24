@@ -44,9 +44,11 @@ export function uid(prefix: string): string {
 export function FieldTypeIcon({
   type,
   className = "text-[#111827]",
+  tintColor,
 }: {
   type: string;
   className?: string;
+  tintColor?: string;
 }) {
   const assetByType: Record<string, number> = {
     TEXT: 53,
@@ -71,7 +73,8 @@ export function FieldTypeIcon({
         <AirtableAssetIcon
           asset={assetByType[type]}
           alt=""
-          className={className}
+          tintColor={tintColor}
+          className={tintColor ? undefined : className}
           style={{ width: dimensions.width, height: dimensions.height }}
         />
       </FieldIconFrame>

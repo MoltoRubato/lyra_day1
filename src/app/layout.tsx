@@ -30,6 +30,39 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`${geist.variable}`}>
+      <head>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              .contentEditableTextbox,
+              .light-scrollbar {
+                scrollbar-width: thin;
+                scrollbar-color: #c1c7d0 transparent;
+              }
+              .contentEditableTextbox::-webkit-scrollbar,
+              .light-scrollbar::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+              }
+              .contentEditableTextbox::-webkit-scrollbar-button,
+              .light-scrollbar::-webkit-scrollbar-button {
+                display: none;
+                height: 0;
+                width: 0;
+              }
+              .contentEditableTextbox::-webkit-scrollbar-thumb,
+              .light-scrollbar::-webkit-scrollbar-thumb {
+                background: #c1c7d0;
+                border-radius: 3px;
+              }
+              .contentEditableTextbox::-webkit-scrollbar-track,
+              .light-scrollbar::-webkit-scrollbar-track {
+                background: transparent;
+              }
+            `,
+          }}
+        />
+      </head>
       <body>
         <AppSessionProvider session={session}>
           <TRPCReactProvider>{children}</TRPCReactProvider>

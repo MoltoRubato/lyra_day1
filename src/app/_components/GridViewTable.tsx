@@ -3,6 +3,7 @@ import type { ColumnType } from "@prisma/client";
 import { GridViewTableBody } from "~/app/_components/gridView/GridViewTableBody";
 import { GridViewTableHeader } from "~/app/_components/gridView/GridViewTableHeader";
 import { GridViewTableOverlays } from "~/app/_components/gridView/GridViewTableOverlays";
+import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import type {
   FieldEditorState,
   GridCellLocation,
@@ -169,6 +170,7 @@ export function GridViewTable({
   const [expandedLongTextCell, setExpandedLongTextCell] =
     useState<ExpandedLongTextCell | null>(null);
   const expandedLongTextTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const expandedLongTextContainerRef = useRef<HTMLDivElement | null>(null);
   const expandedLongTextDragCleanupRef = useRef<(() => void) | null>(null);
   const dividerBottomInset = Math.max(34, horizontalScrollbarHeight + 21.5);
   const primaryColumn = allCols[0] ?? null;
@@ -400,16 +402,25 @@ export function GridViewTable({
   );
 
   const openExpandedLongTextEditor = useCallback(
-    (rowId: string, columnId: string) => {
+    (rowId: string, columnId: string, anchorRect?: DOMRect) => {
       const row = rowById.get(rowId);
       const column = columnById.get(columnId);
       if (!row || column?.type !== "LONG_TEXT") return;
 
       const nextSelection = { rowId, columnId };
       const nextDimensions = getExpandedLongTextDimensions();
+      const desiredLeft = anchorRect
+        ? anchorRect.left - 8
+        : Math.round((window.innerWidth - nextDimensions.width) / 2);
+      const cellCenterY = anchorRect
+        ? anchorRect.top + anchorRect.height / 2
+        : window.innerHeight / 2;
+      const desiredTop = Math.round(
+        cellCenterY - nextDimensions.height / 2,
+      );
       const centeredPosition = clampExpandedLongTextPosition(
-        Math.round((window.innerWidth - nextDimensions.width) / 2),
-        Math.round((window.innerHeight - nextDimensions.height) / 2),
+        desiredLeft,
+        desiredTop,
         nextDimensions.width,
         nextDimensions.height,
       );
@@ -469,6 +480,8 @@ export function GridViewTable({
       const { clientX: startX, clientY: startY } = event;
       const { left: originLeft, top: originTop, width, height } =
         expandedLongTextCell;
+      let lastLeft = originLeft;
+      let lastTop = originTop;
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
         const nextPosition = clampExpandedLongTextPosition(
@@ -477,15 +490,22 @@ export function GridViewTable({
           width,
           height,
         );
-        setExpandedLongTextCell((prev) =>
-          prev ? { ...prev, ...nextPosition } : prev,
-        );
+        lastLeft = nextPosition.left;
+        lastTop = nextPosition.top;
+        const el = expandedLongTextContainerRef.current;
+        if (el) {
+          el.style.left = `${nextPosition.left}px`;
+          el.style.top = `${nextPosition.top}px`;
+        }
       };
 
       const cleanup = () => {
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", cleanup);
         expandedLongTextDragCleanupRef.current = null;
+        setExpandedLongTextCell((prev) =>
+          prev ? { ...prev, left: lastLeft, top: lastTop } : prev,
+        );
       };
 
       expandedLongTextDragCleanupRef.current?.();
@@ -1079,12 +1099,14 @@ export function GridViewTable({
 
       {expandedLongTextCell && expandedLongTextColumn && expandedLongTextRow && (
         <div
-          className="fixed z-[85] overflow-hidden rounded-[14px] border border-[#d8dce4] bg-[#eef3fb] shadow-[0_1px_3px_rgba(15,23,42,0.16),0_18px_40px_rgba(15,23,42,0.18)]"
+          ref={expandedLongTextContainerRef}
+          className="fixed z-[85] overflow-visible rounded-[14px] border border-[#d8dce4] bg-[#f2f4f8] shadow-[0_1px_3px_rgba(15,23,42,0.16),0_18px_40px_rgba(15,23,42,0.18)]"
           style={{
             left: expandedLongTextCell.left,
             top: expandedLongTextCell.top,
             width: expandedLongTextCell.width,
             height: expandedLongTextCell.height,
+            padding: 24,
           }}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
@@ -1092,42 +1114,42 @@ export function GridViewTable({
           <button
             type="button"
             aria-label="Close expanded cell"
-            className="absolute -top-5 -right-5 z-[2] flex h-10 w-10 items-center justify-center rounded-full bg-[#6b7280] text-white shadow-[0_1px_3px_rgba(15,23,42,0.32)] transition-colors hover:bg-[#4b5563]"
+            className="absolute z-[2] flex h-6 w-6 items-center justify-center rounded-full bg-[#616670] text-white shadow-[0_1px_3px_rgba(15,23,42,0.32)] transition-colors hover:bg-[#4f5560]"
+            style={{ top: -12, right: -12 }}
             onClick={() => closeExpandedLongTextEditor()}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              aria-hidden="true"
-            >
-              <path
-                d="M4 4l8 8M12 4l-8 8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <AirtableAssetIcon
+              asset={5}
+              alt=""
+              tintColor="#ffffff"
+              style={{ width: 10, height: 10 }}
+            />
           </button>
 
           <div
-            className="expandedCellDragHandle flex cursor-move items-center gap-2 px-12 pt-12 pb-5 text-[#9aa3af]"
+            className="expandedCellDragHandle dragHandle flex cursor-move items-center gap-1 text-[#979aa0]"
+            style={{ marginBottom: 4 }}
             onMouseDown={beginExpandedLongTextDrag}
           >
-            <FieldTypeIcon type={expandedLongTextColumn.type} />
-            <span className="truncate text-[18px] font-medium">
+            <FieldTypeIcon
+              type={expandedLongTextColumn.type}
+              tintColor="#979aa0"
+            />
+            <span className="truncate text-[13px] font-normal text-[#979aa0]">
               {expandedLongTextColumn.name}
             </span>
           </div>
 
-          <div className="px-12 pb-12">
+          <div
+            className="relative"
+            style={{ width: "100%", height: "calc(100% - 24px)" }}
+          >
             <textarea
               ref={expandedLongTextTextareaRef}
               autoFocus
               value={expandedLongTextValue}
-              className="contentEditableTextbox ignore-baymax-defaults h-[360px] w-full resize-none overflow-y-auto rounded-[12px] border border-white bg-white px-6 py-4 text-[13px] leading-[1.62] text-[#1d1f25] outline-none"
+              className="contentEditableTextbox ignore-baymax-defaults light-scrollbar h-full w-full resize-none overflow-y-auto rounded-lg bg-white text-[13px] leading-[20px] text-[#1d1f25] outline-none"
+              style={{ padding: "12px 24px 12px 12px" }}
               onChange={(event) =>
                 setEditing((prev) =>
                   prev?.rowId === expandedLongTextCell.rowId &&
@@ -1154,9 +1176,31 @@ export function GridViewTable({
                 }
               }}
             />
+            <div
+              className="pointer-events-none absolute bottom-0 right-0 p-2 text-[13px] font-semibold text-[#979aa0]"
+              style={{ marginRight: 4 }}
+            >
+              @
+            </div>
           </div>
         </div>
       )}
+
+      <div
+        className="pointer-events-none absolute z-[60] overflow-visible"
+        style={{
+          top: 0,
+          bottom: dividerBottomInset,
+          left: dividerLeft,
+          width: 0,
+          userSelect: "none",
+        }}
+      >
+        <div
+          className="pointer-events-none absolute top-0 bottom-0 border-l border-[#afb5bf]"
+          style={{ left: 0, opacity: 1 }}
+        />
+      </div>
 
       <div
         className="pointer-events-none absolute z-[26] overflow-visible"
@@ -1180,10 +1224,7 @@ export function GridViewTable({
           }}
           onMouseDown={beginFreezeDrag}
         />
-        <div
-          className="pointer-events-none absolute top-0 bottom-0 border-l border-[#afb5bf]"
-          style={{ left: 0, opacity: 1 }}
-        />
+        
         <div
           className="pointer-events-none absolute w-[6px] rounded-full bg-[#1c76d2]"
           style={{

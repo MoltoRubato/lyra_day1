@@ -22,6 +22,16 @@ const OPTION_COLORS = [
   "#ec4899",
 ];
 
+const OPTION_BG_OVERRIDES: Record<string, string> = {
+  Todo: "#ffd4e0",
+  "In progress": "#ffeab6",
+  Done: "#cff5d1",
+};
+
+function optionBg(label: string, color: string): string {
+  return OPTION_BG_OVERRIDES[label] ?? `${color}40`;
+}
+
 export function SearchHighlightedText({
   text,
   query,
@@ -270,6 +280,7 @@ export function SelectCell({
   options,
   multi,
   searchQuery,
+  isSelected,
   onSelect,
   onNavigateAdjacentCell,
 }: {
@@ -280,6 +291,7 @@ export function SelectCell({
   options: SelectOption[];
   multi: boolean;
   searchQuery?: string | null;
+  isSelected?: boolean;
   onSelect: (v: string) => void;
   onNavigateAdjacentCell?: (direction: 1 | -1) => void;
 }) {
@@ -318,14 +330,12 @@ export function SelectCell({
   return (
     <div
       className="relative h-full w-full"
-      onClick={isOpen ? (event) => event.stopPropagation() : undefined}
+      onClick={isOpen ? (event) => { event.stopPropagation(); setOpenSelectCell(null); } : undefined}
     >
       <div
-        className={`flex h-8 w-full items-center justify-between gap-2 px-0 transition-colors ${
-          isOpen ? "bg-white" : "bg-transparent"
-        }`}
+        className="flex h-full w-full items-start justify-between gap-2 bg-transparent px-0 pt-1"
       >
-        <div className="flex min-h-[20px] flex-1 flex-wrap items-center gap-1 overflow-hidden">
+        <div className="flex min-h-[20px] flex-1 flex-wrap items-start gap-1 overflow-hidden">
           {selected.length === 0 ? (
             <span className="block h-5 w-full" aria-hidden="true" />
           ) : (
@@ -334,8 +344,8 @@ export function SelectCell({
               return (
                 <span
                   key={lbl}
-                  className="rounded-full px-3 py-1 text-[13px] leading-5 text-[#1d1f25]"
-                  style={{ background: `${opt?.color ?? "#166254"}40` }}
+                  className="shrink-0 truncate rounded-full px-2 py-0 text-[13px] leading-[22px] text-[#1d1f25]"
+                  style={{ background: optionBg(lbl, opt?.color ?? "#166254") }}
                 >
                   <SearchHighlightedText text={lbl} query={searchQuery} />
                 </span>
@@ -343,26 +353,42 @@ export function SelectCell({
             })
           )}
         </div>
-        <svg
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          className={`h-3.5 w-3.5 text-[#6b7280] transition-transform ${isOpen ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        >
-          <path
-            d="M2.5 4.5L6 8l3.5-3.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {(isSelected || isOpen) && (
+          <button
+            type="button"
+            aria-label={isOpen ? "Close options" : "Open options"}
+            className="flex shrink-0 items-center justify-center p-0.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isOpen) {
+                setOpenSelectCell(null);
+              } else {
+                setOpenSelectCell(cellId);
+              }
+            }}
+          >
+            <svg
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              className={`h-3.5 w-3.5 text-[#6b7280] transition-transform ${isOpen ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            >
+              <path
+                d="M2.5 4.5L6 8l3.5-3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
       </div>
 
       {isOpen && (
         <div
-          className="absolute left-[-2px] z-50 w-[calc(100%+4px)] overflow-hidden rounded-b-md border border-t-0 border-[#cfd5de] bg-white shadow-[0_12px_20px_rgba(15,23,42,0.14)]"
-          style={{ top: 30 }}
+          className="absolute z-50 overflow-hidden rounded-b-md border border-t-0 border-[#cfd5de] bg-white shadow-[0_12px_20px_rgba(15,23,42,0.14)]"
+          style={{ top: 30, left: -8, width: "calc(100% + 16px)", minWidth: "163.33px" }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="border-b border-[#d3d9e2] bg-white px-2 py-1">
@@ -414,7 +440,7 @@ export function SelectCell({
               >
                 <span
                   className="rounded-full px-3 py-1 text-[13px] leading-5 text-[#1d1f25]"
-                  style={{ background: `${opt.color}40` }}
+                  style={{ background: optionBg(opt.label, opt.color) }}
                 >
                   {opt.label}
                 </span>

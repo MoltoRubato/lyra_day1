@@ -147,10 +147,10 @@ export type GroupRule = {
 export type RowHeight = "short" | "medium" | "tall" | "extra-tall";
 
 export const ROW_HEIGHT_PX: Record<RowHeight, number> = {
-  short: 30,
-  medium: 40,
-  tall: 64,
-  "extra-tall": 96,
+  short: 32,
+  medium: 56,
+  tall: 88,
+  "extra-tall": 128,
 };
 
 // -- Filter operators metadata ------------------------------------------------
