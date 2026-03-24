@@ -83,6 +83,8 @@ type GridViewTableOverlaysProps = {
   insertRowBelow: { mutate: (v: { anchorRowId: string }) => void };
   duplicateRow: { mutate: (v: { rowId: string }) => void };
   deleteRow: { mutate: (v: { rowId: string }) => void };
+  contextRowIds: string[] | null;
+  setCellRange: (v: null) => void;
 };
 
 export function GridViewTableOverlays({
@@ -117,6 +119,8 @@ export function GridViewTableOverlays({
   insertRowBelow,
   duplicateRow,
   deleteRow,
+  contextRowIds,
+  setCellRange,
 }: GridViewTableOverlaysProps) {
   return (
     <>
@@ -150,38 +154,141 @@ export function GridViewTableOverlays({
         </div>
       )}
 
-      {rowContextMenu && hasSelectedRows && (
+      {rowContextMenu && (hasSelectedRows || (contextRowIds && contextRowIds.length > 0)) && (
         <div
-          className="fixed z-[70] w-[360px] rounded-[12px] border border-[#d9dce2] bg-white shadow-xl px-0 py-3"
-          style={{ left: rowContextMenu.x, top: rowContextMenu.y }}
+          role="dialog"
+          tabIndex={-1}
+          className="fixed z-[9999999] min-w-[240px] w-min rounded-[8px] border border-[#e3e5e8] bg-white shadow-[0_6px_20px_rgba(0,0,0,0.13),0_1px_4px_rgba(0,0,0,0.08)] overflow-y-auto"
+          style={{
+            left: Math.min(
+              rowContextMenu.x,
+              typeof window !== "undefined"
+                ? window.innerWidth - 244
+                : rowContextMenu.x,
+            ),
+            top: Math.min(
+              rowContextMenu.y,
+              typeof window !== "undefined"
+                ? window.innerHeight - 200
+                : rowContextMenu.y,
+            ),
+            maxHeight:
+              typeof window !== "undefined"
+                ? `${window.innerHeight - 24}px`
+                : "480px",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button className="mx-5 h-[48px] w-[calc(100%-40px)] rounded-[8px] text-left px-4 text-[13px] text-[#2d3138] hover:bg-[#f4f5f7]">
-            Ask Omni about {selectedRowIds.length} {pluralLabel(selectedRowIds.length)}
-          </button>
-          <div className="mx-5 my-2 h-px bg-[#eceff3]" />
-          <button className="mx-5 h-[48px] w-[calc(100%-40px)] rounded-[8px] text-left px-4 text-[13px] text-[#2d3138] hover:bg-[#f4f5f7] inline-flex items-center gap-3">
-            <AirtableAssetIcon asset={289} size={18} />
-            <span>Send all selected records</span>
-          </button>
-          <div className="mx-5 my-2 h-px bg-[#eceff3]" />
-          <button
-            className="mx-5 h-[48px] w-[calc(100%-40px)] rounded-[8px] text-left px-4 text-[13px] text-[#c91f4a] hover:bg-[#fff1f5] inline-flex items-center gap-3"
-            onClick={() => {
-              if (allRowsSelected) {
-                bulkDeleteRows.mutate({ tableId, deleteAll: true });
-              } else {
-                const ids = [...selectedRowIds];
-                if (ids.length === 0) return;
-                bulkDeleteRows.mutate({ rowIds: ids });
-              }
-              setSelectedRowIds([]);
-              setRowContextMenu(null);
-            }}
-          >
-            <AirtableAssetIcon asset={32} size={18} />
-            <span>Delete all selected records</span>
-          </button>
+          <ul role="menu" tabIndex={-1} className="py-[12px] px-[12px]">
+            {/* Ask Omni about N records */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setRowContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <Image
+                  src="/airtable_assets/AskOmni.png"
+                  width={16}
+                  height={16}
+                  alt=""
+                  unoptimized
+                  draggable={false}
+                />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Ask Omni about {(contextRowIds ?? selectedRowIds).length} {pluralLabel((contextRowIds ?? selectedRowIds).length)}
+                </div>
+              </span>
+            </li>
+
+            {/* Separator */}
+            <li
+              role="presentation"
+              style={{ height: 1, margin: "8px 0", backgroundColor: "rgba(0,0,0,0.05)" }}
+            />
+
+            {/* Send all selected records */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setRowContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={289} style={{ width: 13, height: 10 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Send all selected {pluralLabel((contextRowIds ?? selectedRowIds).length)}
+                </div>
+              </span>
+            </li>
+
+            {/* Separator */}
+            <li
+              role="presentation"
+              style={{ height: 1, margin: "8px 0", backgroundColor: "rgba(0,0,0,0.05)" }}
+            />
+
+            {/* Delete all selected records */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              aria-label={`Delete all selected ${pluralLabel((contextRowIds ?? selectedRowIds).length)}`}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#fff1f5] text-[13px] text-[#c91f4a]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => {
+                if (contextRowIds) {
+                  // Cell range delete
+                  bulkDeleteRows.mutate({ rowIds: [...contextRowIds] });
+                  setCellRange(null);
+                } else if (allRowsSelected) {
+                  bulkDeleteRows.mutate({ tableId, deleteAll: true });
+                } else {
+                  const ids = [...selectedRowIds];
+                  if (ids.length === 0) return;
+                  bulkDeleteRows.mutate({ rowIds: ids });
+                }
+                if (!contextRowIds) setSelectedRowIds([]);
+                setRowContextMenu(null);
+              }}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={32} style={{ width: 12, height: 13 }} tintColor="#c91f4a" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Delete all selected {pluralLabel((contextRowIds ?? selectedRowIds).length)}
+                </div>
+              </span>
+            </li>
+          </ul>
         </div>
       )}
 

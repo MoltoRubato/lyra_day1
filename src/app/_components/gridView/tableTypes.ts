@@ -60,6 +60,13 @@ export type GridCellLocation = {
   columnId: string;
 };
 
+export type CellRange = {
+  anchorRowId: string;
+  anchorColumnId: string;
+  endRowId: string;
+  endColumnId: string;
+};
+
 export type GridViewTableProps = {
   containerRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;

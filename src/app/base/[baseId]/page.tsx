@@ -797,7 +797,7 @@ export default function BasePage({
           )}
 
           {/* ── Body ──────────────────────────────────────────────────────────── */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="relative z-0 flex flex-1 overflow-hidden">
             <ViewSidebar
               open={viewSidebarOpen}
               views={views}

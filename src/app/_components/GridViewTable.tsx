@@ -5,6 +5,7 @@ import { GridViewTableHeader } from "~/app/_components/gridView/GridViewTableHea
 import { GridViewTableOverlays } from "~/app/_components/gridView/GridViewTableOverlays";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import type {
+  CellRange,
   FieldEditorState,
   GridCellLocation,
   GridViewTableProps,
@@ -174,6 +175,8 @@ export function GridViewTable({
     y: number;
     rowId: string;
   } | null>(null);
+  const [cellRange, setCellRange] = useState<CellRange | null>(null);
+  const isDraggingCellRange = useRef(false);
   const [expandedLongTextCell, setExpandedLongTextCell] =
     useState<ExpandedLongTextCell | null>(null);
   const expandedLongTextTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -559,7 +562,11 @@ export function GridViewTable({
         setSelectedCellState(null);
         setOpenSelectCell(null);
         setExpandedLongTextCell(null);
+        setCellRange(null);
         return;
+      }
+      if (!isDraggingCellRange.current) {
+        setCellRange(null);
       }
 
       const nextCellId = `${nextCell.rowId}-${nextCell.columnId}`;
@@ -1007,6 +1014,122 @@ export function GridViewTable({
     };
   }, [containerRef]);
 
+  // --- Multi-cell rectangle selection ---
+  const normalizedCellRange = useMemo(() => {
+    if (!cellRange) return null;
+    const rowIds = visibleRowsInViewOrder.map((r) => r.id);
+    const colIds = visCols.map((c) => c.id);
+    const r1 = rowIds.indexOf(cellRange.anchorRowId);
+    const r2 = rowIds.indexOf(cellRange.endRowId);
+    const c1 = colIds.indexOf(cellRange.anchorColumnId);
+    const c2 = colIds.indexOf(cellRange.endColumnId);
+    if (r1 < 0 || r2 < 0 || c1 < 0 || c2 < 0) return null;
+    return {
+      minRowIdx: Math.min(r1, r2),
+      maxRowIdx: Math.max(r1, r2),
+      minColIdx: Math.min(c1, c2),
+      maxColIdx: Math.max(c1, c2),
+    };
+  }, [cellRange, visibleRowsInViewOrder, visCols]);
+
+  const cellRangeSet = useMemo(() => {
+    if (!normalizedCellRange) return null;
+    const set = new Set<string>();
+    const rowIds = visibleRowsInViewOrder.map((r) => r.id);
+    const colIds = visCols.map((c) => c.id);
+    for (
+      let ri = normalizedCellRange.minRowIdx;
+      ri <= normalizedCellRange.maxRowIdx;
+      ri++
+    ) {
+      for (
+        let ci = normalizedCellRange.minColIdx;
+        ci <= normalizedCellRange.maxColIdx;
+        ci++
+      ) {
+        const rId = rowIds[ri];
+        const cId = colIds[ci];
+        if (rId && cId) set.add(`${rId}-${cId}`);
+      }
+    }
+    return set;
+  }, [normalizedCellRange, visibleRowsInViewOrder, visCols]);
+
+  const cellRangeRowIds = useMemo(() => {
+    if (!normalizedCellRange) return null;
+    const rowIds = visibleRowsInViewOrder.map((r) => r.id);
+    const ids: string[] = [];
+    for (
+      let ri = normalizedCellRange.minRowIdx;
+      ri <= normalizedCellRange.maxRowIdx;
+      ri++
+    ) {
+      const rId = rowIds[ri];
+      if (rId) ids.push(rId);
+    }
+    return ids;
+  }, [normalizedCellRange, visibleRowsInViewOrder]);
+
+  const cellRangeRowSet = useMemo(
+    () => (cellRangeRowIds ? new Set(cellRangeRowIds) : null),
+    [cellRangeRowIds],
+  );
+
+  const cellRangeEndCell = useMemo(() => {
+    if (!normalizedCellRange) return null;
+    const rowIds = visibleRowsInViewOrder.map((r) => r.id);
+    const colIds = visCols.map((c) => c.id);
+    const rId = rowIds[normalizedCellRange.maxRowIdx];
+    const cId = colIds[normalizedCellRange.maxColIdx];
+    if (!rId || !cId) return null;
+    return { rowId: rId, columnId: cId };
+  }, [normalizedCellRange, visibleRowsInViewOrder, visCols]);
+
+  function onCellMouseDown(
+    e: React.MouseEvent,
+    rowId: string,
+    columnId: string,
+  ) {
+    if (e.button !== 0) return;
+    isDraggingCellRange.current = true;
+    setCellRange({
+      anchorRowId: rowId,
+      anchorColumnId: columnId,
+      endRowId: rowId,
+      endColumnId: columnId,
+    });
+    selectGridCell({ rowId, columnId });
+  }
+
+  function onCellMouseEnter(rowId: string, columnId: string) {
+    if (!isDraggingCellRange.current) return;
+    setCellRange((prev) => {
+      if (!prev) return prev;
+      if (prev.endRowId === rowId && prev.endColumnId === columnId)
+        return prev;
+      return { ...prev, endRowId: rowId, endColumnId: columnId };
+    });
+  }
+
+  useEffect(() => {
+    function handleMouseUp() {
+      if (!isDraggingCellRange.current) return;
+      isDraggingCellRange.current = false;
+      setCellRange((prev) => {
+        if (!prev) return null;
+        if (
+          prev.anchorRowId === prev.endRowId &&
+          prev.anchorColumnId === prev.endColumnId
+        ) {
+          return null;
+        }
+        return prev;
+      });
+    }
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  }, []);
+
   function openColMenu(colId: string, e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
     setMenuForCol((prev) => (prev === colId ? null : colId));
@@ -1134,15 +1257,32 @@ export function GridViewTable({
     setRowContextMenu({ x: e.clientX, y: e.clientY });
   }
 
-  function openCellContextMenu(e: React.MouseEvent, rowId: string) {
+  function openCellContextMenu(
+    e: React.MouseEvent,
+    rowId: string,
+    columnId?: string,
+  ) {
     e.preventDefault();
     e.stopPropagation();
     setHeaderPanel(null);
     setOpenSelectCell(null);
     closeColMenu();
     setSummaryMenu(null);
-    setRowContextMenu(null);
-    setCellContextMenu({ x: e.clientX, y: e.clientY, rowId });
+
+    const cellKey = columnId ? `${rowId}-${columnId}` : null;
+    const isInRange = cellKey ? cellRangeSet?.has(cellKey) : false;
+
+    if (cellRange && isInRange && cellRangeRowIds) {
+      setCellContextMenu(null);
+      setRowContextMenu({ x: e.clientX, y: e.clientY });
+    } else if (selectedRowIds.length > 1 && selectedSet.has(rowId)) {
+      setCellContextMenu(null);
+      setRowContextMenu({ x: e.clientX, y: e.clientY });
+    } else {
+      setCellRange(null);
+      setRowContextMenu(null);
+      setCellContextMenu({ x: e.clientX, y: e.clientY, rowId });
+    }
   }
 
   function handleRowDrop(targetRowId: string) {
@@ -1296,6 +1436,11 @@ export function GridViewTable({
             toggleRowSelection={toggleRowSelection}
             openRowContextMenu={openRowContextMenu}
             openCellContextMenu={openCellContextMenu}
+            cellRangeSet={cellRangeSet}
+            cellRangeRowSet={cellRangeRowSet}
+            cellRangeEndCell={cellRangeEndCell}
+            onCellMouseDown={onCellMouseDown}
+            onCellMouseEnter={onCellMouseEnter}
             summaryByCol={summaryByCol}
             hoveredSummaryCol={hoveredSummaryCol}
             setHoveredSummaryCol={setHoveredSummaryCol}
@@ -1539,6 +1684,8 @@ export function GridViewTable({
         insertRowBelow={insertRowBelow}
         duplicateRow={duplicateRow}
         deleteRow={_deleteRow}
+        contextRowIds={cellRangeRowIds}
+        setCellRange={setCellRange}
       />
 
       {changingPrimaryField && primaryColumn && (

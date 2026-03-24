@@ -394,7 +394,7 @@ export default function ViewToolbar({
     : "No results";
 
   return (
-    <div className="relative flex h-12 flex-shrink-0 items-center gap-1 border-b border-[#e0e0e0] bg-white px-3">
+    <div className="relative z-[50] flex h-12 flex-shrink-0 items-center gap-1 border-b border-[#e0e0e0] bg-white px-3">
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
