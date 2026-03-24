@@ -13,6 +13,8 @@ import type {
 import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
 import { getActiveFilterFieldIds } from "~/app/_components/tableUtils";
 import { isPrimaryFieldSupportedType } from "~/shared/primaryField";
+import { useGridViewCacheHelpers } from "~/app/_components/gridView/useGridViewCacheHelpers";
+import { api } from "~/trpc/react";
 
 type ExpandedLongTextCell = GridCellLocation & {
   top: number;
@@ -167,6 +169,11 @@ export function GridViewTable({
   const [selectedCell, setSelectedCellState] = useState<GridCellLocation | null>(
     null,
   );
+  const [cellContextMenu, setCellContextMenu] = useState<{
+    x: number;
+    y: number;
+    rowId: string;
+  } | null>(null);
   const [expandedLongTextCell, setExpandedLongTextCell] =
     useState<ExpandedLongTextCell | null>(null);
   const expandedLongTextTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -281,6 +288,217 @@ export function GridViewTable({
     () => new Map(visCols.map((column) => [column.id, column] as const)),
     [visCols],
   );
+
+  // Cell context menu row mutations (need access to selectGridCell)
+  const cellMenuCacheHelpers = useGridViewCacheHelpers(tableId);
+
+  const insertRowAbove = api.table.insertRowAbove.useMutation({
+    onMutate: async ({ anchorRowId }) => {
+      await cellMenuCacheHelpers.cancelCache();
+      const snapshot = cellMenuCacheHelpers.snapshotCache();
+      const tempId = `temp-${Date.now()}-above`;
+      cellMenuCacheHelpers.patchCache((prev) => {
+        if (!prev) return prev;
+        const anchor = prev.rows.find((r) => r.id === anchorRowId);
+        if (!anchor) return prev;
+        const insertOrder = anchor.order;
+        const updatedRows = prev.rows.map((r) => ({
+          ...r,
+          order: r.order >= insertOrder ? r.order + 1 : r.order,
+        }));
+        const newRow = {
+          id: tempId,
+          tableId,
+          order: insertOrder,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          cells: prev.columns.map((c) => ({
+            id: `tc-${c.id}-${tempId}`,
+            rowId: tempId,
+            columnId: c.id,
+            value: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })),
+        };
+        return {
+          ...prev,
+          rows: [...updatedRows, newRow].sort((a, b) => a.order - b.order),
+          rowCount: prev.rowCount + 1,
+        };
+      });
+      const firstEditable = visCols.find(
+        (c) =>
+          c.type !== "CHECKBOX" && c.type !== "ATTACHMENT" && !isSelect(c.type),
+      );
+      if (firstEditable) {
+        setEditing({ rowId: tempId, columnId: firstEditable.id, value: "" });
+      }
+      return { snapshot, tempId };
+    },
+    onSuccess: (realRow, _vars, ctx) => {
+      if (!ctx?.tempId) return;
+      const { tempId } = ctx;
+      cellMenuCacheHelpers.patchCache((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rows: prev.rows.map((r) =>
+            r.id === tempId
+              ? { ...realRow, cells: r.cells.map((c) => ({ ...c, rowId: realRow.id })) }
+              : r,
+          ),
+        };
+      });
+      setEditing((prev) =>
+        prev?.rowId === tempId ? { ...prev, rowId: realRow.id } : prev,
+      );
+    },
+    onError: (_e, _v, ctx) => cellMenuCacheHelpers.restoreCache(ctx?.snapshot),
+    onSettled: cellMenuCacheHelpers.invalidate,
+  });
+
+  const insertRowBelow = api.table.insertRowBelow.useMutation({
+    onMutate: async ({ anchorRowId }) => {
+      await cellMenuCacheHelpers.cancelCache();
+      const snapshot = cellMenuCacheHelpers.snapshotCache();
+      const tempId = `temp-${Date.now()}-below`;
+      cellMenuCacheHelpers.patchCache((prev) => {
+        if (!prev) return prev;
+        const anchor = prev.rows.find((r) => r.id === anchorRowId);
+        if (!anchor) return prev;
+        const insertOrder = anchor.order + 1;
+        const updatedRows = prev.rows.map((r) => ({
+          ...r,
+          order: r.order > anchor.order ? r.order + 1 : r.order,
+        }));
+        const newRow = {
+          id: tempId,
+          tableId,
+          order: insertOrder,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          cells: prev.columns.map((c) => ({
+            id: `tc-${c.id}-${tempId}`,
+            rowId: tempId,
+            columnId: c.id,
+            value: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })),
+        };
+        return {
+          ...prev,
+          rows: [...updatedRows, newRow].sort((a, b) => a.order - b.order),
+          rowCount: prev.rowCount + 1,
+        };
+      });
+      const firstEditable = visCols.find(
+        (c) =>
+          c.type !== "CHECKBOX" && c.type !== "ATTACHMENT" && !isSelect(c.type),
+      );
+      if (firstEditable) {
+        setEditing({ rowId: tempId, columnId: firstEditable.id, value: "" });
+      }
+      return { snapshot, tempId };
+    },
+    onSuccess: (realRow, _vars, ctx) => {
+      if (!ctx?.tempId) return;
+      const { tempId } = ctx;
+      cellMenuCacheHelpers.patchCache((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rows: prev.rows.map((r) =>
+            r.id === tempId
+              ? { ...realRow, cells: r.cells.map((c) => ({ ...c, rowId: realRow.id })) }
+              : r,
+          ),
+        };
+      });
+      setEditing((prev) =>
+        prev?.rowId === tempId ? { ...prev, rowId: realRow.id } : prev,
+      );
+    },
+    onError: (_e, _v, ctx) => cellMenuCacheHelpers.restoreCache(ctx?.snapshot),
+    onSettled: cellMenuCacheHelpers.invalidate,
+  });
+
+  const duplicateRow = api.table.duplicateRow.useMutation({
+    onMutate: async ({ rowId }) => {
+      await cellMenuCacheHelpers.cancelCache();
+      const snapshot = cellMenuCacheHelpers.snapshotCache();
+      const tempId = `temp-${Date.now()}-dup`;
+      cellMenuCacheHelpers.patchCache((prev) => {
+        if (!prev) return prev;
+        const sourceRow = prev.rows.find((r) => r.id === rowId);
+        if (!sourceRow) return prev;
+        const primaryColId = [...prev.columns].sort(
+          (a, b) => a.order - b.order,
+        )[0]?.id;
+        const insertOrder = sourceRow.order + 1;
+        const updatedRows = prev.rows.map((r) => ({
+          ...r,
+          order: r.order > sourceRow.order ? r.order + 1 : r.order,
+        }));
+        const newRow = {
+          id: tempId,
+          tableId,
+          order: insertOrder,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          cells: prev.columns.map((c) => {
+            const sourceCell = sourceRow.cells.find(
+              (sc) => sc.columnId === c.id,
+            );
+            return {
+              id: `tc-${c.id}-${tempId}`,
+              rowId: tempId,
+              columnId: c.id,
+              value:
+                primaryColId &&
+                c.id === primaryColId &&
+                sourceCell?.value != null
+                  ? `${sourceCell.value} copy`
+                  : (sourceCell?.value ?? null),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+          }),
+        };
+        return {
+          ...prev,
+          rows: [...updatedRows, newRow].sort((a, b) => a.order - b.order),
+          rowCount: prev.rowCount + 1,
+        };
+      });
+      const firstCol = visCols[0];
+      if (firstCol) {
+        selectGridCell({ rowId: tempId, columnId: firstCol.id });
+      }
+      return { snapshot, tempId };
+    },
+    onSuccess: (realRow, _vars, ctx) => {
+      if (!ctx?.tempId) return;
+      const { tempId } = ctx;
+      cellMenuCacheHelpers.patchCache((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rows: prev.rows.map((r) =>
+            r.id === tempId
+              ? { ...realRow, cells: r.cells.map((c) => ({ ...c, rowId: realRow.id })) }
+              : r,
+          ),
+        };
+      });
+      setSelectedCellState((prev) =>
+        prev?.rowId === tempId ? { ...prev, rowId: realRow.id } : prev,
+      );
+    },
+    onError: (_e, _v, ctx) => cellMenuCacheHelpers.restoreCache(ctx?.snapshot),
+    onSettled: cellMenuCacheHelpers.invalidate,
+  });
   const expandedLongTextRow = expandedLongTextCell
     ? rowById.get(expandedLongTextCell.rowId) ?? null
     : null;
@@ -916,6 +1134,17 @@ export function GridViewTable({
     setRowContextMenu({ x: e.clientX, y: e.clientY });
   }
 
+  function openCellContextMenu(e: React.MouseEvent, rowId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setHeaderPanel(null);
+    setOpenSelectCell(null);
+    closeColMenu();
+    setSummaryMenu(null);
+    setRowContextMenu(null);
+    setCellContextMenu({ x: e.clientX, y: e.clientY, rowId });
+  }
+
   function handleRowDrop(targetRowId: string) {
     if (!canReorderRows || !dragRowId || dragRowId === targetRowId) return;
     const orderedIds = [...rowIdsInViewOrder];
@@ -962,6 +1191,7 @@ export function GridViewTable({
           setAddingCol(false);
           setSummaryMenu(null);
           setRowContextMenu(null);
+          setCellContextMenu(null);
         }}
       >
         <table
@@ -1065,6 +1295,7 @@ export function GridViewTable({
             handleRowDrop={handleRowDrop}
             toggleRowSelection={toggleRowSelection}
             openRowContextMenu={openRowContextMenu}
+            openCellContextMenu={openCellContextMenu}
             summaryByCol={summaryByCol}
             hoveredSummaryCol={hoveredSummaryCol}
             setHoveredSummaryCol={setHoveredSummaryCol}
@@ -1301,6 +1532,13 @@ export function GridViewTable({
         editingDescription={editingDescription}
         setEditingDescription={setEditingDescription}
         updateColumnDescription={updateColumnDescription}
+        cellContextMenu={cellContextMenu}
+        setCellContextMenu={setCellContextMenu}
+        labelLower={labelLower}
+        insertRowAbove={insertRowAbove}
+        insertRowBelow={insertRowBelow}
+        duplicateRow={duplicateRow}
+        deleteRow={_deleteRow}
       />
 
       {changingPrimaryField && primaryColumn && (

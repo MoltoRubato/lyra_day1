@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import { FIELD_TYPES } from "~/app/_components/tableUtils";
 import {
@@ -73,6 +74,15 @@ type GridViewTableOverlaysProps = {
   updateColumnDescription: {
     mutate: (v: { columnId: string; description: string | null }) => void;
   };
+  cellContextMenu: { x: number; y: number; rowId: string } | null;
+  setCellContextMenu: (
+    v: { x: number; y: number; rowId: string } | null,
+  ) => void;
+  labelLower: string;
+  insertRowAbove: { mutate: (v: { anchorRowId: string }) => void };
+  insertRowBelow: { mutate: (v: { anchorRowId: string }) => void };
+  duplicateRow: { mutate: (v: { rowId: string }) => void };
+  deleteRow: { mutate: (v: { rowId: string }) => void };
 };
 
 export function GridViewTableOverlays({
@@ -100,6 +110,13 @@ export function GridViewTableOverlays({
   editingDescription,
   setEditingDescription,
   updateColumnDescription,
+  cellContextMenu,
+  setCellContextMenu,
+  labelLower,
+  insertRowAbove,
+  insertRowBelow,
+  duplicateRow,
+  deleteRow,
 }: GridViewTableOverlaysProps) {
   return (
     <>
@@ -165,6 +182,336 @@ export function GridViewTableOverlays({
             <AirtableAssetIcon asset={32} size={18} />
             <span>Delete all selected records</span>
           </button>
+        </div>
+      )}
+
+      {cellContextMenu && (
+        <div
+          role="dialog"
+          tabIndex={-1}
+          className="fixed z-[9999999] min-w-[240px] w-min rounded-[8px] border border-[#e3e5e8] bg-white shadow-[0_6px_20px_rgba(0,0,0,0.13),0_1px_4px_rgba(0,0,0,0.08)] overflow-y-auto"
+          style={{
+            left: Math.min(
+              cellContextMenu.x,
+              typeof window !== "undefined"
+                ? window.innerWidth - 244
+                : cellContextMenu.x,
+            ),
+            top: Math.min(
+              cellContextMenu.y,
+              typeof window !== "undefined"
+                ? window.innerHeight - 420
+                : cellContextMenu.y,
+            ),
+            maxHeight:
+              typeof window !== "undefined"
+                ? `${window.innerHeight - 24}px`
+                : "480px",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ul role="menu" tabIndex={-1} className="py-[12px] px-[12px]">
+            {/* Ask Omni */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setCellContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <Image
+                  src="/airtable_assets/AskOmni.png"
+                  width={16}
+                  height={16}
+                  alt=""
+                  unoptimized
+                  draggable={false}
+                />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Ask Omni
+                </div>
+              </span>
+            </li>
+
+            {/* Separator */}
+            <li
+              role="presentation"
+              className="bg-[#e3e5e8]"
+              style={{ height: 1, margin: "4px 0" }}
+            />
+
+            {/* Insert record above */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              aria-label={`Insert ${labelLower} above`}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => {
+                insertRowAbove.mutate({ anchorRowId: cellContextMenu.rowId });
+                setCellContextMenu(null);
+              }}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={427} style={{ width: 10, height: 12 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Insert {labelLower} above
+                </div>
+              </span>
+            </li>
+
+            {/* Insert record below */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              aria-label={`Insert ${labelLower} below`}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => {
+                insertRowBelow.mutate({ anchorRowId: cellContextMenu.rowId });
+                setCellContextMenu(null);
+              }}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={441} style={{ width: 10, height: 12 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Insert {labelLower} below
+                </div>
+              </span>
+            </li>
+
+            {/* Separator */}
+            <li
+              role="presentation"
+              className="bg-[#e3e5e8]"
+              style={{ height: 1, margin: "4px 0" }}
+            />
+
+            {/* Duplicate record */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              aria-label={`Duplicate ${labelLower}`}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => {
+                duplicateRow.mutate({ rowId: cellContextMenu.rowId });
+                setCellContextMenu(null);
+              }}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={320} style={{ width: 12, height: 12 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Duplicate {labelLower}
+                </div>
+              </span>
+            </li>
+
+            {/* Apply template */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setCellContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={149} style={{ width: 15, height: 14 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Apply template
+                </div>
+              </span>
+            </li>
+
+            {/* Expand record */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setCellContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={417} style={{ width: 11, height: 11 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Expand {labelLower}
+                </div>
+              </span>
+            </li>
+
+            {/* Separator */}
+            <li
+              role="presentation"
+              className="bg-[#e3e5e8]"
+              style={{ height: 1, margin: "4px 0" }}
+            />
+
+            {/* Add comment */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setCellContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={365} style={{ width: 13, height: 12 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Add comment
+                </div>
+              </span>
+            </li>
+
+            {/* Copy cell URL */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setCellContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={190} style={{ width: 12, height: 12 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Copy cell URL
+                </div>
+              </span>
+            </li>
+
+            {/* Send record */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#f4f5f7] text-[13px] text-[#1d1f25]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => setCellContextMenu(null)}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={289} style={{ width: 13, height: 10 }} tintColor="#1d1f25" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Send {labelLower}
+                </div>
+              </span>
+            </li>
+
+            {/* Separator */}
+            <li
+              role="presentation"
+              className="bg-[#e3e5e8]"
+              style={{ height: 1, margin: "4px 0" }}
+            />
+
+            {/* Delete record */}
+            <li
+              role="menuitem"
+              tabIndex={-1}
+              aria-label={`Delete ${labelLower}`}
+              className="flex items-center h-[34px] rounded-[4px] px-[8px] cursor-pointer hover:bg-[#fff1f5] text-[13px] text-[#c91f4a]"
+              style={{
+                fontFamily:
+                  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif',
+                userSelect: "none",
+              }}
+              onClick={() => {
+                deleteRow.mutate({ rowId: cellContextMenu.rowId });
+                setCellContextMenu(null);
+              }}
+            >
+              <span className="flex-none mr-[8px] flex items-center justify-center w-4 h-4">
+                <AirtableAssetIcon asset={32} style={{ width: 12, height: 13 }} tintColor="#c91f4a" />
+              </span>
+              <span className="truncate flex-auto">
+                <div
+                  className="flex-auto truncate overflow-hidden whitespace-nowrap"
+                  style={{ marginLeft: 4 }}
+                >
+                  Delete {labelLower}
+                </div>
+              </span>
+            </li>
+          </ul>
         </div>
       )}
 

@@ -7,9 +7,47 @@ import {
   CellUpdateInput,
   RowAddInput,
   RowDeleteInput,
+  RowDuplicateInput,
+  RowInsertAboveInput,
+  RowInsertBelowInput,
   RowOutput,
   RowReorderInput,
 } from "~/types/schemas";
+import type { PrismaClient } from "@prisma/client";
+
+async function insertEmptyRowAt(
+  db: PrismaClient,
+  tableId: string,
+  insertOrder: number,
+) {
+  await db.row.updateMany({
+    where: { tableId, order: { gte: insertOrder } },
+    data: { order: { increment: 1 } },
+  });
+  const row = await db.row.create({
+    data: { tableId, order: insertOrder },
+    include: { cells: true },
+  });
+  const columns = await db.column.findMany({
+    where: { tableId },
+    select: { id: true },
+  });
+  if (columns.length > 0) {
+    await db.cell.createMany({
+      data: columns.map((col) => ({
+        rowId: row.id,
+        columnId: col.id,
+        value: null,
+      })),
+    });
+  }
+  const result = await db.row.findUnique({
+    where: { id: row.id },
+    include: { cells: true },
+  });
+  if (!result) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+  return result;
+}
 
 export const rowMutationProcedures = {
   addRow: publicProcedure
@@ -153,5 +191,98 @@ export const rowMutationProcedures = {
           value: input.value,
         },
       });
+    }),
+
+  insertRowAbove: publicProcedure
+    .input(RowInsertAboveInput)
+    .output(RowOutput)
+    .mutation(async ({ ctx, input }) => {
+      const anchor = await ctx.db.row.findUnique({
+        where: { id: input.anchorRowId },
+      });
+      if (!anchor)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Row "${input.anchorRowId}" not found`,
+        });
+      return insertEmptyRowAt(ctx.db, anchor.tableId, anchor.order);
+    }),
+
+  insertRowBelow: publicProcedure
+    .input(RowInsertBelowInput)
+    .output(RowOutput)
+    .mutation(async ({ ctx, input }) => {
+      const anchor = await ctx.db.row.findUnique({
+        where: { id: input.anchorRowId },
+      });
+      if (!anchor)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Row "${input.anchorRowId}" not found`,
+        });
+      return insertEmptyRowAt(ctx.db, anchor.tableId, anchor.order + 1);
+    }),
+
+  duplicateRow: publicProcedure
+    .input(RowDuplicateInput)
+    .output(RowOutput)
+    .mutation(async ({ ctx, input }) => {
+      const sourceRow = await ctx.db.row.findUnique({
+        where: { id: input.rowId },
+        include: { cells: true },
+      });
+      if (!sourceRow)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Row "${input.rowId}" not found`,
+        });
+
+      const primaryCol = await ctx.db.column.findFirst({
+        where: { tableId: sourceRow.tableId },
+        orderBy: { order: "asc" },
+        select: { id: true },
+      });
+
+      const newRow = await insertEmptyRowAt(
+        ctx.db,
+        sourceRow.tableId,
+        sourceRow.order + 1,
+      );
+
+      if (sourceRow.cells.length > 0) {
+        await ctx.db.$transaction(
+          sourceRow.cells.map((cell) =>
+            ctx.db.cell.upsert({
+              where: {
+                rowId_columnId: {
+                  rowId: newRow.id,
+                  columnId: cell.columnId,
+                },
+              },
+              update: {
+                value:
+                  primaryCol?.id === cell.columnId && cell.value != null
+                    ? `${cell.value} copy`
+                    : cell.value,
+              },
+              create: {
+                rowId: newRow.id,
+                columnId: cell.columnId,
+                value:
+                  primaryCol?.id === cell.columnId && cell.value != null
+                    ? `${cell.value} copy`
+                    : cell.value,
+              },
+            }),
+          ),
+        );
+      }
+
+      const result = await ctx.db.row.findUnique({
+        where: { id: newRow.id },
+        include: { cells: true },
+      });
+      if (!result) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      return result;
     }),
 };

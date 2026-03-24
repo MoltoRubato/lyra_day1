@@ -276,6 +276,9 @@ export const CellUpdateInput = z.object({
 });
 export const RowAddInput = z.object({ tableId: z.string() });
 export const RowDeleteInput = z.object({ rowId: z.string() });
+export const RowInsertAboveInput = z.object({ anchorRowId: z.string() });
+export const RowInsertBelowInput = z.object({ anchorRowId: z.string() });
+export const RowDuplicateInput = z.object({ rowId: z.string() });
 export const RowReorderInput = z.object({
   tableId: z.string(),
   orderedIds: z.array(z.string()).min(1),

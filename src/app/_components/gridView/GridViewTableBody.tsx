@@ -81,6 +81,7 @@ type GridViewTableBodyProps = {
   handleRowDrop: (targetRowId: string) => void;
   toggleRowSelection: (rowId: string) => void;
   openRowContextMenu: (e: React.MouseEvent, rowId: string) => void;
+  openCellContextMenu: (e: React.MouseEvent, rowId: string) => void;
   summaryByCol: Record<string, SummaryOption>;
   hoveredSummaryCol: string | null;
   setHoveredSummaryCol: (
@@ -330,7 +331,8 @@ export function GridViewTableBody({
   canReorderRows,
   handleRowDrop,
   toggleRowSelection,
-  openRowContextMenu,
+  openRowContextMenu: _openRowContextMenu,
+  openCellContextMenu,
   summaryByCol,
   hoveredSummaryCol,
   setHoveredSummaryCol,
@@ -730,7 +732,7 @@ export function GridViewTableBody({
                 height: rowH,
                 zIndex: editingLongTextRow ? 15 : undefined,
               }}
-              onContextMenu={(e) => openRowContextMenu(e, row.id)}
+              onContextMenu={(e) => openCellContextMenu(e, row.id)}
               onDragOver={(e) => {
                 if (!canReorderRows || !dragRowId) return;
                 e.preventDefault();
@@ -974,7 +976,7 @@ export function GridViewTableBody({
                       setSelectedCell({ rowId: row.id, columnId: col.id });
                       activateCell(row, col);
                     }}
-                    onContextMenu={(e) => openRowContextMenu(e, row.id)}
+                    onContextMenu={(e) => openCellContextMenu(e, row.id)}
                     onKeyDown={(e) => {
                       if (e.target !== e.currentTarget) return;
 
