@@ -353,7 +353,7 @@ export function SelectCell({
             })
           )}
         </div>
-        {(isSelected || isOpen) && (
+        {(isSelected ? true : isOpen) && (
           <button
             type="button"
             aria-label={isOpen ? "Close options" : "Open options"}
