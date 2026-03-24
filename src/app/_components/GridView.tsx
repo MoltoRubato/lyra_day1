@@ -1188,14 +1188,22 @@ export default function GridView({
   }
 
   function handleCellClick(
+    _row: RowWithCells,
+    _col: { id: string; type: string },
+  ) {
+    setHeaderPanel(null);
+    setOpenSelectCell(null);
+  }
+
+  function activateCell(
     row: RowWithCells,
     col: { id: string; type: string },
   ) {
     setHeaderPanel(null);
-    if (editing?.rowId === row.id && editing.columnId === col.id) return;
 
     if (col.type === "CHECKBOX") {
       setOpenSelectCell(null);
+      setEditing(null);
       safeUpdateCellWithPreloaded(
         row.id,
         col.id,
@@ -1207,7 +1215,7 @@ export default function GridView({
     if (isSelect(col.type)) {
       const cellId = `${row.id}-${col.id}`;
       setEditing(null);
-      setOpenSelectCell((prev) => (prev === cellId ? null : cellId));
+      setOpenSelectCell(cellId);
       return;
     }
 
@@ -1222,6 +1230,90 @@ export default function GridView({
       columnId: col.id,
       value: getGridCellValue(row, col.id),
     });
+  }
+
+  function focusGridCell(rowId: string, columnId: string) {
+    const containerEl = containerRef.current;
+    if (!containerEl) return;
+
+    const rowLayout = rowLayoutById.get(rowId);
+    if (rowLayout) {
+      const headerRow = containerEl.querySelector("thead tr:first-child");
+      const headerHeight =
+        headerRow instanceof HTMLElement ? headerRow.offsetHeight : rowH;
+      const footerHeight = 40;
+      const contentViewportHeight = Math.max(
+        rowLayout.height,
+        containerEl.clientHeight - headerHeight - footerHeight,
+      );
+      const rowTop = rowLayout.top;
+      const rowBottom = rowTop + rowLayout.height;
+      const viewportTop = containerEl.scrollTop;
+      const viewportBottom = viewportTop + contentViewportHeight;
+      const scrollPadding = Math.max(rowLayout.height, rowH);
+      let nextScrollTop = viewportTop;
+
+      if (rowTop < viewportTop + scrollPadding) {
+        nextScrollTop = Math.max(0, rowTop - scrollPadding);
+      } else if (rowBottom > viewportBottom - scrollPadding) {
+        nextScrollTop = Math.max(
+          0,
+          rowBottom - contentViewportHeight + scrollPadding,
+        );
+      }
+
+      if (Math.abs(containerEl.scrollTop - nextScrollTop) > 1) {
+        containerEl.scrollTop = nextScrollTop;
+        scrollTopRef.current = nextScrollTop;
+        if (scrollLocked) {
+          forceRender((count) => count + 1);
+        }
+      }
+    }
+
+    const cellKey = getGridSearchCellKey(rowId, columnId);
+    const escapedKey =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(cellKey)
+        : cellKey.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const cell = containerEl.querySelector(
+          `[data-search-cell-key="${escapedKey}"]`,
+        );
+        if (!(cell instanceof HTMLElement)) return;
+        cell.focus({ preventScroll: true });
+        cell.scrollIntoView({ block: "nearest", inline: "nearest" });
+      });
+    });
+  }
+
+  function navigateAdjacentCell(
+    rowId: string,
+    columnId: string,
+    direction: 1 | -1,
+  ) {
+    if (visCols.length === 0 || visibleRowsInViewOrder.length === 0) return;
+
+    const rowIndex = visibleRowsInViewOrder.findIndex((row) => row.id === rowId);
+    const columnIndex = visCols.findIndex((column) => column.id === columnId);
+    if (rowIndex < 0 || columnIndex < 0) return;
+
+    const linearIndex = rowIndex * visCols.length + columnIndex;
+    const nextLinearIndex = linearIndex + direction;
+    const maxLinearIndex = visibleRowsInViewOrder.length * visCols.length - 1;
+    if (nextLinearIndex < 0 || nextLinearIndex > maxLinearIndex) return;
+
+    const nextRow =
+      visibleRowsInViewOrder[Math.floor(nextLinearIndex / visCols.length)];
+    const nextColumn = visCols[nextLinearIndex % visCols.length];
+    if (!nextRow || !nextColumn) return;
+
+    setHeaderPanel(null);
+    setEditing(null);
+    setOpenSelectCell(null);
+    focusGridCell(nextRow.id, nextColumn.id);
   }
 
   function commitEdit() {
@@ -1370,6 +1462,9 @@ export default function GridView({
       openSelectCell={openSelectCell}
       setOpenSelectCell={setOpenSelectCell}
       handleCellClick={handleCellClick}
+      activateCell={activateCell}
+      focusCell={focusGridCell}
+      navigateAdjacentCell={navigateAdjacentCell}
       getCellValue={getGridCellValue}
       isSelect={isSelect}
       safeUpdateCell={safeUpdateCellWithPreloaded}

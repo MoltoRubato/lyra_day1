@@ -1,16 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnType } from "@prisma/client";
 import { GridViewTableBody } from "~/app/_components/gridView/GridViewTableBody";
 import { GridViewTableHeader } from "~/app/_components/gridView/GridViewTableHeader";
 import { GridViewTableOverlays } from "~/app/_components/gridView/GridViewTableOverlays";
 import type {
   FieldEditorState,
+  GridCellLocation,
   GridViewTableProps,
   SummaryOption,
 } from "~/app/_components/gridView/tableTypes";
 import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
 import { getActiveFilterFieldIds } from "~/app/_components/tableUtils";
 import { isPrimaryFieldSupportedType } from "~/shared/primaryField";
+
+type ExpandedLongTextCell = GridCellLocation & {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+};
+
+const EXPANDED_LONG_TEXT_WIDTH = 480;
+const EXPANDED_LONG_TEXT_HEIGHT = 482;
 
 export function GridViewTable({
   containerRef,
@@ -70,6 +81,9 @@ export function GridViewTable({
   openSelectCell,
   setOpenSelectCell,
   handleCellClick,
+  activateCell,
+  focusCell,
+  navigateAdjacentCell,
   getCellValue,
   isSelect,
   safeUpdateCell,
@@ -149,6 +163,13 @@ export function GridViewTable({
   const [isFreezeDividerHover, setIsFreezeDividerHover] = useState(false);
   const [isFreezeDragging, setIsFreezeDragging] = useState(false);
   const [freezeTooltipTop, setFreezeTooltipTop] = useState(220);
+  const [selectedCell, setSelectedCellState] = useState<GridCellLocation | null>(
+    null,
+  );
+  const [expandedLongTextCell, setExpandedLongTextCell] =
+    useState<ExpandedLongTextCell | null>(null);
+  const expandedLongTextTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const expandedLongTextDragCleanupRef = useRef<(() => void) | null>(null);
   const dividerBottomInset = Math.max(34, horizontalScrollbarHeight + 21.5);
   const primaryColumn = allCols[0] ?? null;
   const selectedPrimaryField = useMemo(
@@ -250,6 +271,230 @@ export function GridViewTable({
       null,
     [highlightedGroupColumnIds, visCols],
   );
+  const rowById = useMemo(
+    () => new Map(allRowsForSummary.map((row) => [row.id, row] as const)),
+    [allRowsForSummary],
+  );
+  const columnById = useMemo(
+    () => new Map(visCols.map((column) => [column.id, column] as const)),
+    [visCols],
+  );
+  const expandedLongTextRow = expandedLongTextCell
+    ? rowById.get(expandedLongTextCell.rowId) ?? null
+    : null;
+  const expandedLongTextColumn = expandedLongTextCell
+    ? columnById.get(expandedLongTextCell.columnId) ?? null
+    : null;
+  const expandedLongTextValue =
+    expandedLongTextCell && expandedLongTextRow
+      ? editing?.rowId === expandedLongTextCell.rowId &&
+        editing?.columnId === expandedLongTextCell.columnId
+        ? editing.value
+        : getCellValue(expandedLongTextRow, expandedLongTextCell.columnId)
+      : "";
+
+  const clampExpandedLongTextPosition = useCallback(
+    (left: number, top: number, width: number, height: number) => {
+      if (typeof window === "undefined") return { left, top };
+      const horizontalMargin = 24;
+      const verticalMargin = 24;
+      const maxLeft = Math.max(
+        horizontalMargin,
+        window.innerWidth - width - horizontalMargin,
+      );
+      const maxTop = Math.max(
+        verticalMargin,
+        window.innerHeight - height - verticalMargin,
+      );
+      return {
+        left: Math.max(horizontalMargin, Math.min(maxLeft, left)),
+        top: Math.max(verticalMargin, Math.min(maxTop, top)),
+      };
+    },
+    [],
+  );
+
+  const getExpandedLongTextDimensions = useCallback(() => {
+    if (typeof window === "undefined") {
+      return {
+        width: EXPANDED_LONG_TEXT_WIDTH,
+        height: EXPANDED_LONG_TEXT_HEIGHT,
+      };
+    }
+    return {
+      width: Math.min(
+        EXPANDED_LONG_TEXT_WIDTH,
+        Math.max(320, window.innerWidth - 32),
+      ),
+      height: Math.min(
+        EXPANDED_LONG_TEXT_HEIGHT,
+        Math.max(240, window.innerHeight - 32),
+      ),
+    };
+  }, []);
+
+  const selectGridCell = useCallback(
+    (nextCell: GridCellLocation | null) => {
+      if (!nextCell) {
+        setSelectedCellState(null);
+        setOpenSelectCell(null);
+        setExpandedLongTextCell(null);
+        return;
+      }
+
+      const nextCellId = `${nextCell.rowId}-${nextCell.columnId}`;
+      const editingDifferentCell =
+        editing &&
+        (editing.rowId !== nextCell.rowId ||
+          editing.columnId !== nextCell.columnId);
+      const expandedDifferentCell =
+        expandedLongTextCell &&
+        (expandedLongTextCell.rowId !== nextCell.rowId ||
+          expandedLongTextCell.columnId !== nextCell.columnId);
+
+      if (editingDifferentCell) {
+        commitEdit();
+      }
+
+      if (expandedDifferentCell) {
+        setExpandedLongTextCell(null);
+      }
+
+      if (openSelectCell && openSelectCell !== nextCellId) {
+        setOpenSelectCell(null);
+      }
+
+      setSelectedCellState(nextCell);
+    },
+    [commitEdit, editing, expandedLongTextCell, openSelectCell, setOpenSelectCell],
+  );
+
+  const closeExpandedLongTextEditor = useCallback(
+    ({
+      commit = true,
+      restoreFocus = true,
+    }: { commit?: boolean; restoreFocus?: boolean } = {}) => {
+      if (!expandedLongTextCell) return;
+
+      const { rowId, columnId } = expandedLongTextCell;
+      const isEditingExpandedCell =
+        editing?.rowId === rowId && editing?.columnId === columnId;
+
+      if (isEditingExpandedCell) {
+        if (commit) {
+          commitEdit();
+        } else {
+          setEditing(null);
+        }
+      }
+
+      setExpandedLongTextCell(null);
+      setSelectedCellState({ rowId, columnId });
+      if (restoreFocus) {
+        requestAnimationFrame(() => {
+          focusCell(rowId, columnId);
+        });
+      }
+    },
+    [commitEdit, editing, expandedLongTextCell, focusCell, setEditing],
+  );
+
+  const openExpandedLongTextEditor = useCallback(
+    (rowId: string, columnId: string) => {
+      const row = rowById.get(rowId);
+      const column = columnById.get(columnId);
+      if (!row || column?.type !== "LONG_TEXT") return;
+
+      const nextSelection = { rowId, columnId };
+      const nextDimensions = getExpandedLongTextDimensions();
+      const centeredPosition = clampExpandedLongTextPosition(
+        Math.round((window.innerWidth - nextDimensions.width) / 2),
+        Math.round((window.innerHeight - nextDimensions.height) / 2),
+        nextDimensions.width,
+        nextDimensions.height,
+      );
+
+      setHeaderPanel(null);
+      setOpenSelectCell(null);
+      setSelectedCellState(nextSelection);
+
+      const isEditingTargetCell =
+        editing?.rowId === rowId && editing?.columnId === columnId;
+
+      if (editing && !isEditingTargetCell) {
+        commitEdit();
+      }
+
+      if (!isEditingTargetCell) {
+        setEditing({
+          rowId,
+          columnId,
+          value: getCellValue(row, columnId),
+        });
+      }
+
+      setExpandedLongTextCell((prev) =>
+        prev && prev.rowId === rowId && prev.columnId === columnId
+          ? prev
+          : {
+              ...nextSelection,
+              ...centeredPosition,
+              ...nextDimensions,
+            },
+      );
+
+      requestAnimationFrame(() => {
+        expandedLongTextTextareaRef.current?.focus({ preventScroll: true });
+      });
+    },
+    [
+      clampExpandedLongTextPosition,
+      columnById,
+      commitEdit,
+      editing,
+      getCellValue,
+      getExpandedLongTextDimensions,
+      rowById,
+      setEditing,
+      setHeaderPanel,
+      setOpenSelectCell,
+    ],
+  );
+
+  const beginExpandedLongTextDrag = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!expandedLongTextCell) return;
+      event.preventDefault();
+
+      const { clientX: startX, clientY: startY } = event;
+      const { left: originLeft, top: originTop, width, height } =
+        expandedLongTextCell;
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const nextPosition = clampExpandedLongTextPosition(
+          originLeft + (moveEvent.clientX - startX),
+          originTop + (moveEvent.clientY - startY),
+          width,
+          height,
+        );
+        setExpandedLongTextCell((prev) =>
+          prev ? { ...prev, ...nextPosition } : prev,
+        );
+      };
+
+      const cleanup = () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", cleanup);
+        expandedLongTextDragCleanupRef.current = null;
+      };
+
+      expandedLongTextDragCleanupRef.current?.();
+      expandedLongTextDragCleanupRef.current = cleanup;
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", cleanup);
+    },
+    [clampExpandedLongTextPosition, expandedLongTextCell],
+  );
 
   useEffect(() => {
     if (!visibleRowsInViewOrder.length) {
@@ -268,6 +513,69 @@ export function GridViewTable({
     }
     setSelectedPrimaryFieldId((prev) => prev ?? primaryColumn.id);
   }, [changingPrimaryField, primaryColumn]);
+
+  useEffect(() => {
+    if (!selectedCell) return;
+    const hasSelectedRow = visibleRowsInViewOrder.some(
+      (row) => row.id === selectedCell.rowId,
+    );
+    const hasSelectedColumn = visCols.some(
+      (column) => column.id === selectedCell.columnId,
+    );
+    if (!hasSelectedRow || !hasSelectedColumn) {
+      setSelectedCellState(null);
+    }
+  }, [selectedCell, visCols, visibleRowsInViewOrder]);
+
+  useEffect(() => {
+    if (!expandedLongTextCell) return;
+    if (
+      !expandedLongTextRow ||
+      expandedLongTextColumn?.type !== "LONG_TEXT" ||
+      editing?.rowId !== expandedLongTextCell.rowId ||
+      editing?.columnId !== expandedLongTextCell.columnId
+    ) {
+      setExpandedLongTextCell(null);
+    }
+  }, [editing, expandedLongTextCell, expandedLongTextColumn, expandedLongTextRow]);
+
+  useEffect(() => {
+    if (!expandedLongTextCell) return;
+
+    const handleResize = () => {
+      setExpandedLongTextCell((prev) => {
+        if (!prev) return prev;
+        const nextDimensions = getExpandedLongTextDimensions();
+        const nextPosition = clampExpandedLongTextPosition(
+          prev.left,
+          prev.top,
+          nextDimensions.width,
+          nextDimensions.height,
+        );
+        return {
+          ...prev,
+          ...nextPosition,
+          ...nextDimensions,
+        };
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [
+    clampExpandedLongTextPosition,
+    expandedLongTextCell,
+    getExpandedLongTextDimensions,
+  ]);
+
+  useEffect(
+    () => () => {
+      expandedLongTextDragCleanupRef.current?.();
+    },
+    [],
+  );
 
   useEffect(() => {
     const containerEl = containerRef.current;
@@ -715,6 +1023,9 @@ export function GridViewTable({
             openSelectCell={openSelectCell}
             setOpenSelectCell={setOpenSelectCell}
             handleCellClick={handleCellClick}
+            activateCell={activateCell}
+            focusCell={focusCell}
+            navigateAdjacentCell={navigateAdjacentCell}
             getCellValue={getCellValue}
             isSelect={isSelect}
             safeUpdateCell={safeUpdateCell}
@@ -750,9 +1061,102 @@ export function GridViewTable({
             columnNameById={columnNameById}
             collapsedGroupKeySet={collapsedGroupKeySet}
             onToggleGroupCollapsed={onToggleGroupCollapsed}
+            selectedCell={selectedCell}
+            setSelectedCell={selectGridCell}
+            visibleRowsInViewOrder={visibleRowsInViewOrder}
+            expandedLongTextCell={
+              expandedLongTextCell
+                ? {
+                    rowId: expandedLongTextCell.rowId,
+                    columnId: expandedLongTextCell.columnId,
+                  }
+                : null
+            }
+            openExpandedLongTextCell={openExpandedLongTextEditor}
           />
         </table>
       </div>
+
+      {expandedLongTextCell && expandedLongTextColumn && expandedLongTextRow && (
+        <div
+          className="fixed z-[85] overflow-hidden rounded-[14px] border border-[#d8dce4] bg-[#eef3fb] shadow-[0_1px_3px_rgba(15,23,42,0.16),0_18px_40px_rgba(15,23,42,0.18)]"
+          style={{
+            left: expandedLongTextCell.left,
+            top: expandedLongTextCell.top,
+            width: expandedLongTextCell.width,
+            height: expandedLongTextCell.height,
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            aria-label="Close expanded cell"
+            className="absolute -top-5 -right-5 z-[2] flex h-10 w-10 items-center justify-center rounded-full bg-[#6b7280] text-white shadow-[0_1px_3px_rgba(15,23,42,0.32)] transition-colors hover:bg-[#4b5563]"
+            onClick={() => closeExpandedLongTextEditor()}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              aria-hidden="true"
+            >
+              <path
+                d="M4 4l8 8M12 4l-8 8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+
+          <div
+            className="expandedCellDragHandle flex cursor-move items-center gap-2 px-12 pt-12 pb-5 text-[#9aa3af]"
+            onMouseDown={beginExpandedLongTextDrag}
+          >
+            <FieldTypeIcon type={expandedLongTextColumn.type} />
+            <span className="truncate text-[18px] font-medium">
+              {expandedLongTextColumn.name}
+            </span>
+          </div>
+
+          <div className="px-12 pb-12">
+            <textarea
+              ref={expandedLongTextTextareaRef}
+              autoFocus
+              value={expandedLongTextValue}
+              className="contentEditableTextbox ignore-baymax-defaults h-[360px] w-full resize-none overflow-y-auto rounded-[12px] border border-white bg-white px-6 py-4 text-[13px] leading-[1.62] text-[#1d1f25] outline-none"
+              onChange={(event) =>
+                setEditing((prev) =>
+                  prev?.rowId === expandedLongTextCell.rowId &&
+                  prev?.columnId === expandedLongTextCell.columnId
+                    ? { ...prev, value: event.target.value }
+                    : prev,
+                )
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  closeExpandedLongTextEditor({ commit: false });
+                  return;
+                }
+
+                if (event.key === "Tab") {
+                  event.preventDefault();
+                  closeExpandedLongTextEditor({ restoreFocus: false });
+                  navigateAdjacentCell(
+                    expandedLongTextCell.rowId,
+                    expandedLongTextCell.columnId,
+                    event.shiftKey ? -1 : 1,
+                  );
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <div
         className="pointer-events-none absolute z-[26] overflow-visible"

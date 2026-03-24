@@ -55,6 +55,11 @@ export type BulkDeleteRowsPayload =
   | { rowIds: string[] }
   | { tableId: string; deleteAll: true };
 
+export type GridCellLocation = {
+  rowId: string;
+  columnId: string;
+};
+
 export type GridViewTableProps = {
   containerRef: React.RefObject<HTMLDivElement | null>;
   handleScroll: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -142,6 +147,16 @@ export type GridViewTableProps = {
   handleCellClick: (
     row: RowWithCells,
     col: { id: string; type: string },
+  ) => void;
+  activateCell: (
+    row: RowWithCells,
+    col: { id: string; type: string },
+  ) => void;
+  focusCell: (rowId: string, columnId: string) => void;
+  navigateAdjacentCell: (
+    rowId: string,
+    columnId: string,
+    direction: 1 | -1,
   ) => void;
   getCellValue: (row: RowWithCells, columnId: string) => string;
   isSelect: (type: string) => boolean;

@@ -271,6 +271,7 @@ export function SelectCell({
   multi,
   searchQuery,
   onSelect,
+  onNavigateAdjacentCell,
 }: {
   cellId: string;
   openSelectCell: string | null;
@@ -280,6 +281,7 @@ export function SelectCell({
   multi: boolean;
   searchQuery?: string | null;
   onSelect: (v: string) => void;
+  onNavigateAdjacentCell?: (direction: 1 | -1) => void;
 }) {
   const isOpen = openSelectCell === cellId;
   const optionListId = `${cellId}-option-list`;
@@ -316,16 +318,11 @@ export function SelectCell({
   return (
     <div
       className="relative h-full w-full"
-      onClick={(e) => {
-        e.stopPropagation();
-        setOpenSelectCell(isOpen ? null : cellId);
-      }}
+      onClick={isOpen ? (event) => event.stopPropagation() : undefined}
     >
       <div
-        className={`flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded border px-2 transition-colors ${
-          isOpen
-            ? "border-[#1f7ae0] bg-white shadow-[0_0_0_1px_#1f7ae0]"
-            : "border-transparent bg-transparent hover:border-[#d3d9e2] hover:bg-white"
+        className={`flex h-8 w-full items-center justify-between gap-2 px-0 transition-colors ${
+          isOpen ? "bg-white" : "bg-transparent"
         }`}
       >
         <div className="flex min-h-[20px] flex-1 flex-wrap items-center gap-1 overflow-hidden">
@@ -364,7 +361,8 @@ export function SelectCell({
 
       {isOpen && (
         <div
-          className="absolute top-full left-[-2px] z-50 mt-0 w-[calc(100%+4px)] overflow-hidden rounded-b-md border border-t-0 border-[#cfd5de] bg-white shadow-[0_12px_20px_rgba(15,23,42,0.14)]"
+          className="absolute left-[-2px] z-50 w-[calc(100%+4px)] overflow-hidden rounded-b-md border border-t-0 border-[#cfd5de] bg-white shadow-[0_12px_20px_rgba(15,23,42,0.14)]"
+          style={{ top: 30 }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="border-b border-[#d3d9e2] bg-white px-2 py-1">
@@ -379,6 +377,11 @@ export function SelectCell({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setOpenSelectCell(null);
+                if (e.key === "Tab") {
+                  e.preventDefault();
+                  setOpenSelectCell(null);
+                  onNavigateAdjacentCell?.(e.shiftKey ? -1 : 1);
+                }
               }}
               className="h-8 w-full border-0 bg-transparent px-2 py-0 text-[13px] text-[#1d1f25] placeholder-[#8a8f99] outline-none"
             />

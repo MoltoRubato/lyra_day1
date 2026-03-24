@@ -726,6 +726,27 @@ export function FilterPanel({
     commit(nextTree);
   }
   function renderPrefix(parentGroup: FilterGroup, index: number) {
+    const showsRootConjunctionPicker =
+      parentGroup.depth <= 1 && parentGroup.children.length > 1;
+
+    if (index === 0 && showsRootConjunctionPicker) {
+      return (
+        <button
+          type="button"
+          className="focus-container pointer flex h-8 items-center rounded border border-[#ced3db] bg-white px-2 text-[13px] hover:bg-[#eef4ff]"
+          style={{ width: 56 }}
+          onClick={(event) =>
+            openConjunctionMenu(parentGroup.id, event.currentTarget)
+          }
+        >
+          <div className="link-quiet pointer flex w-full items-center justify-between text-left text-[#1d1f25]">
+            <div>{parentGroup.conjunction}</div>
+            <ChevronDown />
+          </div>
+        </button>
+      );
+    }
+
     if (index === 0) {
       return (
         <div
@@ -738,18 +759,26 @@ export function FilterPanel({
     }
 
     return (
+      <div
+        className="flex h-full w-full items-center px-1 text-[13px] text-[#1d1f25]"
+        data-testid="filter-prefix-label"
+      >
+        {parentGroup.conjunction}
+      </div>
+    );
+  }
+
+  function renderGroupSummaryTrigger(group: FilterGroup) {
+    return (
       <button
         type="button"
-        className="focus-container pointer flex h-8 items-center rounded border border-[#ced3db] bg-white px-2 text-[13px] hover:bg-[#eef4ff]"
-        style={{ width: 56 }}
-        onClick={(event) =>
-          openConjunctionMenu(parentGroup.id, event.currentTarget)
-        }
+        className="focus-container flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-left text-[13px] text-[#616670] hover:bg-[#e8edf5]"
+        onClick={(event) => openConjunctionMenu(group.id, event.currentTarget)}
       >
-        <div className="link-quiet pointer flex w-full items-center justify-between text-left text-[#1d1f25]">
-          <div>{parentGroup.conjunction}</div>
+        <div className="truncate">{groupSummary(group)}</div>
+        <span className="flex-none text-[#6d7380]">
           <ChevronDown />
-        </div>
+        </span>
       </button>
     );
   }
@@ -961,9 +990,7 @@ export function FilterPanel({
               }}
             >
               <div className="mb-2 flex items-center justify-between">
-                <div className="truncate text-[13px] text-[#616670]">
-                  {groupSummary(group)}
-                </div>
+                {renderGroupSummaryTrigger(group)}
                 <div className="flex items-center gap-3">
                   <button
                     type="button"

@@ -340,12 +340,12 @@ export function GridViewTableHeader({
           const headerCellBackground =
             dragOverColId === col.id
               ? "#e8f5f1"
-              : isGroupHighlighted
-                ? "#fbfaff"
+              : isFilterHighlighted
+                ? "#ebfbec4D"
                 : isSortHighlighted
                   ? "#fffbf9"
-                : isFilterHighlighted
-                  ? "#ebfbec4D"
+                : isGroupHighlighted
+                  ? "#fbfaff"
                   : undefined;
 
           return (

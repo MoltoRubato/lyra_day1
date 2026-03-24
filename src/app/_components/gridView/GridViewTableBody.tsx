@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { type ReactElement, useRef } from "react";
 import {
   AttachmentCell,
   SearchHighlightedText,
@@ -12,6 +12,7 @@ import {
 } from "~/app/_components/tableUtils";
 import type {
   EditingCell,
+  GridCellLocation,
   SummaryOption,
   VisibleColumn,
   VisibleItem,
@@ -44,6 +45,16 @@ type GridViewTableBodyProps = {
   handleCellClick: (
     row: RowWithCells,
     col: { id: string; type: string },
+  ) => void;
+  activateCell: (
+    row: RowWithCells,
+    col: { id: string; type: string },
+  ) => void;
+  focusCell: (rowId: string, columnId: string) => void;
+  navigateAdjacentCell: (
+    rowId: string,
+    columnId: string,
+    direction: 1 | -1,
   ) => void;
   getCellValue: (row: RowWithCells, columnId: string) => string;
   isSelect: (type: string) => boolean;
@@ -123,6 +134,11 @@ type GridViewTableBodyProps = {
   columnNameById: Record<string, string>;
   collapsedGroupKeySet: Set<string>;
   onToggleGroupCollapsed?: (groupKey: string) => void;
+  selectedCell: GridCellLocation | null;
+  setSelectedCell: (cell: GridCellLocation | null) => void;
+  visibleRowsInViewOrder: RowWithCells[];
+  expandedLongTextCell: GridCellLocation | null;
+  openExpandedLongTextCell: (rowId: string, columnId: string) => void;
 };
 
 // Smaller chunks avoid large single-row spacer glitches in table layout engines.
@@ -197,9 +213,9 @@ function cellHighlightColor(
   highlightedGroupColumnIds: Set<string>,
   highlightedFilterColumnIds: Set<string>,
 ) {
-  if (highlightedGroupColumnIds.has(columnId)) return "#f2f0fe";
-  if (highlightedSortColumnIds.has(columnId)) return "#fff2ea";
   if (highlightedFilterColumnIds.has(columnId)) return "#ebfbec";
+  if (highlightedSortColumnIds.has(columnId)) return "#fff2ea";
+  if (highlightedGroupColumnIds.has(columnId)) return "#f2f0fe";
   return undefined;
 }
 
@@ -209,9 +225,9 @@ function groupRowCellBackground(
   highlightedGroupColumnIds: Set<string>,
   highlightedFilterColumnIds: Set<string>,
 ) {
-  if (highlightedGroupColumnIds.has(columnId)) return "#f5f5fd";
-  if (highlightedSortColumnIds.has(columnId)) return "#fff2ea";
   if (highlightedFilterColumnIds.has(columnId)) return "#ebfbec";
+  if (highlightedSortColumnIds.has(columnId)) return "#fff2ea";
+  if (highlightedGroupColumnIds.has(columnId)) return "#f5f5fd";
   return "#f6f8fc";
 }
 
@@ -238,6 +254,9 @@ export function GridViewTableBody({
   openSelectCell,
   setOpenSelectCell,
   handleCellClick,
+  activateCell,
+  focusCell,
+  navigateAdjacentCell,
   getCellValue,
   isSelect,
   safeUpdateCell,
@@ -273,11 +292,65 @@ export function GridViewTableBody({
   columnNameById,
   collapsedGroupKeySet,
   onToggleGroupCollapsed,
+  selectedCell,
+  setSelectedCell,
+  visibleRowsInViewOrder,
+  expandedLongTextCell,
+  openExpandedLongTextCell,
 }: GridViewTableBodyProps) {
   const hasLoadingGap = loadingGapHeight > 0;
   const colSpan = visCols.length + 1;
   const resolvedGroupLabelColumnId = groupLabelColumnId ?? visCols[0]?.id ?? null;
   const groupRowHeight = Math.max(rowH, 44);
+  const skipBlurCommitCellKeyRef = useRef<string | null>(null);
+
+  function handleEditBlur(cellKey: string) {
+    if (skipBlurCommitCellKeyRef.current === cellKey) {
+      skipBlurCommitCellKeyRef.current = null;
+      return;
+    }
+    commitEdit();
+  }
+
+  function handleTabNavigation(
+    cellKey: string,
+    rowId: string,
+    columnId: string,
+    direction: 1 | -1,
+  ) {
+    skipBlurCommitCellKeyRef.current = cellKey;
+    commitEdit();
+    navigateAdjacentCell(rowId, columnId, direction);
+  }
+
+  function moveSelectionByOffset(
+    rowId: string,
+    columnId: string,
+    rowOffset: number,
+    columnOffset: number,
+  ) {
+    const rowIndex = visibleRowsInViewOrder.findIndex((row) => row.id === rowId);
+    const columnIndex = visCols.findIndex((column) => column.id === columnId);
+    if (rowIndex < 0 || columnIndex < 0) return;
+
+    const nextRowIndex = Math.max(
+      0,
+      Math.min(visibleRowsInViewOrder.length - 1, rowIndex + rowOffset),
+    );
+    const nextColumnIndex = Math.max(
+      0,
+      Math.min(visCols.length - 1, columnIndex + columnOffset),
+    );
+
+    if (nextRowIndex === rowIndex && nextColumnIndex === columnIndex) return;
+
+    const nextRow = visibleRowsInViewOrder[nextRowIndex];
+    const nextColumn = visCols[nextColumnIndex];
+    if (!nextRow || !nextColumn) return;
+
+    setSelectedCell({ rowId: nextRow.id, columnId: nextColumn.id });
+    focusCell(nextRow.id, nextColumn.id);
+  }
 
   function openSummaryMenuForTarget(
     target: HTMLElement,
@@ -537,7 +610,7 @@ export function GridViewTableBody({
           const rowNum = rowNumbers[absIdx] ?? absIdx + 1;
           const rowSelected = selectedSet.has(row.id);
           const editingColumn =
-            editing?.rowId === row.id
+            editing?.rowId === row.id && editing?.columnId
               ? visCols.find(
                   (candidateCol) => candidateCol.id === editing.columnId,
                 )
@@ -655,10 +728,20 @@ export function GridViewTableBody({
 
               {visCols.map((col, colIndex) => {
                 const isEditing =
-                  editing?.rowId === row.id && editing.columnId === col.id;
+                  editing?.rowId === row.id && editing?.columnId === col.id;
+                const isSelectedCell =
+                  selectedCell?.rowId === row.id &&
+                  selectedCell?.columnId === col.id;
+                const isExpandedLongTextEditingCell =
+                  expandedLongTextCell?.rowId === row.id &&
+                  expandedLongTextCell?.columnId === col.id;
                 const isLongTextEditing = isEditing && col.type === "LONG_TEXT";
+                const isInlineEditing =
+                  isEditing && !(isLongTextEditing && isExpandedLongTextEditingCell);
                 const value = getCellValue(row, col.id);
-                const formattedValue = formatCellValue(value, col.type) || "";
+                const liveValue =
+                  isExpandedLongTextEditingCell && isEditing ? editing.value : value;
+                const formattedValue = formatCellValue(liveValue, col.type) || "";
                 const isFrozen = colIndex < freezeCount;
                 const isLastFrozen = isFrozen && colIndex === freezeCount - 1;
                 const cellSearchKey = getGridSearchCellKey(row.id, col.id);
@@ -676,11 +759,43 @@ export function GridViewTableBody({
                   : hasSearchMatch
                     ? "#fff3d3"
                     : accentColor;
+                const cellBackgroundColor =
+                  highlightColor ?? (rowSelected ? "#dfe5ef" : "#ffffff");
+                const cellBoxShadow = [
+                  isLastFrozen ? "1px 0 0 #afb5bf" : null,
+                  isEditing
+                    ? "inset 0 0 0 3px #166ee1"
+                    : isSelectedCell
+                      ? "inset 0 0 0 2px #166ee1"
+                      : null,
+                ]
+                  .filter(Boolean)
+                  .join(", ");
+                const cellZIndex = isFrozen
+                  ? isEditing
+                    ? 30
+                    : isSelectedCell
+                      ? 17
+                      : 11
+                  : isEditing
+                    ? 24
+                    : isSelectedCell
+                      ? 12
+                      : undefined;
+                const showExpandButton =
+                  col.type === "LONG_TEXT" && (isSelectedCell || isEditing);
+                const expandButtonStyle =
+                  isTall || isInlineEditing
+                    ? { top: 10 }
+                    : { top: "50%", transform: "translateY(-50%)" };
                 return (
                   <td
                     key={col.id}
                     data-columnid={col.id}
+                    data-grid-cell-key={cellSearchKey}
                     data-search-cell-key={cellSearchKey}
+                    tabIndex={-1}
+                    aria-selected={isSelectedCell}
                     style={{
                       width: col.width,
                       minWidth: 60,
@@ -689,22 +804,77 @@ export function GridViewTableBody({
                       ...(isFrozen
                         ? {
                             left: frozenOffsets[colIndex] ?? rowNumberWidth,
-                            zIndex: isLongTextEditing ? 30 : 11,
+                            zIndex: cellZIndex,
                           }
                         : {}),
-                      ...(isLongTextEditing && !isFrozen ? { zIndex: 30 } : {}),
-                      ...(isLastFrozen ? { boxShadow: "1px 0 0 #afb5bf" } : {}),
-                      ...(highlightColor ? { backgroundColor: highlightColor } : {}),
+                      ...(isLongTextEditing && !isFrozen && cellZIndex
+                        ? { zIndex: cellZIndex }
+                        : {}),
+                      backgroundColor: cellBackgroundColor,
+                      ...(cellBoxShadow ? { boxShadow: cellBoxShadow } : {}),
                     }}
-                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 ${isFrozen ? "sticky" : ""} ${rowSelected ? "bg-[#dfe5ef]" : "bg-white group-hover:bg-[#f9fafb]"}`}
+                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 focus:outline-none ${isFrozen ? "sticky" : ""} ${!highlightColor && !rowSelected ? "bg-white group-hover:bg-[#f9fafb]" : ""}`}
+                    onFocus={() =>
+                      setSelectedCell({ rowId: row.id, columnId: col.id })
+                    }
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCellClick(row, col);
+                      setSelectedCell({ rowId: row.id, columnId: col.id });
+                      e.currentTarget.focus({ preventScroll: true });
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      handleCellClick(row, col);
+                      setSelectedCell({ rowId: row.id, columnId: col.id });
+                      activateCell(row, col);
                     }}
                     onContextMenu={(e) => openRowContextMenu(e, row.id)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+
+                      if (e.key === "Tab") {
+                        e.preventDefault();
+                        navigateAdjacentCell(
+                          row.id,
+                          col.id,
+                          e.shiftKey ? -1 : 1,
+                        );
+                        return;
+                      }
+
+                      if (e.key === "Enter" || e.key === "F2") {
+                        e.preventDefault();
+                        activateCell(row, col);
+                        return;
+                      }
+
+                      if (e.key === "ArrowLeft") {
+                        e.preventDefault();
+                        moveSelectionByOffset(row.id, col.id, 0, -1);
+                        return;
+                      }
+
+                      if (e.key === "ArrowRight") {
+                        e.preventDefault();
+                        moveSelectionByOffset(row.id, col.id, 0, 1);
+                        return;
+                      }
+
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        moveSelectionByOffset(row.id, col.id, -1, 0);
+                        return;
+                      }
+
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        moveSelectionByOffset(row.id, col.id, 1, 0);
+                      }
+                    }}
                   >
                     <div
-                      className={`flex ${isTall || isLongTextEditing ? "items-start pt-1.5" : "items-center"} ${isLongTextEditing ? "relative z-[2]" : ""}`}
+                      className={`flex ${isTall || isLongTextEditing ? "items-start pt-1.5" : "items-center"} ${isLongTextEditing ? "relative z-[2]" : ""} ${showExpandButton ? "pr-7" : ""}`}
                       style={{ height: rowH }}
                     >
                       {col.type === "CHECKBOX" ? (
@@ -723,6 +893,9 @@ export function GridViewTableBody({
                           options={col.selectOptions ?? []}
                           multi={col.type === "MULTI_SELECT"}
                           searchQuery={searchHighlightQuery}
+                          onNavigateAdjacentCell={(direction) =>
+                            navigateAdjacentCell(row.id, col.id, direction)
+                          }
                           onSelect={(v) =>
                             safeUpdateCell(row.id, col.id, v || null)
                           }
@@ -735,18 +908,28 @@ export function GridViewTableBody({
                             safeUpdateCell(row.id, col.id, url)
                           }
                         />
-                      ) : isEditing ? (
+                      ) : isInlineEditing ? (
                         col.type === "LONG_TEXT" ? (
                           <textarea
                             autoFocus
                             rows={3}
-                            className="relative z-[3] min-h-[56px] w-full resize-y rounded border-2 border-[#166254] bg-white px-2 py-1 text-[13px] text-[#1f2937] shadow-sm outline-none"
+                            className="relative z-[3] min-h-[56px] w-full resize-none border-0 bg-transparent px-0 py-1 text-[13px] text-[#1f2937] outline-none"
                             value={editing.value}
                             onChange={(e) =>
                               setEditing({ ...editing, value: e.target.value })
                             }
-                            onBlur={commitEdit}
+                            onBlur={() => handleEditBlur(cellSearchKey)}
                             onKeyDown={(e) => {
+                              if (e.key === "Tab") {
+                                e.preventDefault();
+                                handleTabNavigation(
+                                  cellSearchKey,
+                                  row.id,
+                                  col.id,
+                                  e.shiftKey ? -1 : 1,
+                                );
+                                return;
+                              }
                               if ((e.ctrlKey || e.metaKey) && e.key === "Enter")
                                 commitEdit();
                               if (e.key === "Escape") setEditing(null);
@@ -755,14 +938,24 @@ export function GridViewTableBody({
                         ) : (
                           <input
                             autoFocus
-                            className="w-full rounded border-2 border-[#166254] bg-white px-2 py-0.5 text-[13px] text-[#1f2937] shadow-sm outline-none"
+                            className="w-full border-0 bg-transparent px-0 py-0.5 text-[13px] text-[#1f2937] outline-none"
                             value={editing.value}
                             type={inputTypeForField(col.type)}
                             onChange={(e) =>
                               setEditing({ ...editing, value: e.target.value })
                             }
-                            onBlur={commitEdit}
+                            onBlur={() => handleEditBlur(cellSearchKey)}
                             onKeyDown={(e) => {
+                              if (e.key === "Tab") {
+                                e.preventDefault();
+                                handleTabNavigation(
+                                  cellSearchKey,
+                                  row.id,
+                                  col.id,
+                                  e.shiftKey ? -1 : 1,
+                                );
+                                return;
+                              }
                               if (e.key === "Enter") commitEdit();
                               if (e.key === "Escape") setEditing(null);
                             }}
@@ -770,7 +963,7 @@ export function GridViewTableBody({
                         )
                       ) : (
                         <span
-                          className={`cursor-pointer text-[13px] transition-colors ${isTall ? "line-clamp-4 break-words whitespace-normal" : "block truncate"} ${value ? "text-[#1f2937] hover:text-[#166254]" : "text-[#d1d5db]"}`}
+                          className={`text-[13px] transition-colors ${isTall ? "line-clamp-4 break-words whitespace-normal" : "block truncate"} ${liveValue ? "text-[#1f2937]" : "text-[#d1d5db]"}`}
                         >
                           <SearchHighlightedText
                             text={formattedValue}
@@ -779,6 +972,40 @@ export function GridViewTableBody({
                         </span>
                       )}
                     </div>
+
+                    {showExpandButton && (
+                      <button
+                        type="button"
+                        aria-label="Expand cell"
+                        className="absolute right-2 z-[4] flex h-5 w-5 items-center justify-center rounded text-[#166ee1] transition-colors hover:bg-[#e8f1fe]"
+                        style={expandButtonStyle}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openExpandedLongTextCell(row.id, col.id);
+                        }}
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M9.75 3.75h2.5v2.5M6.25 12.25h-2.5v-2.5M10.25 5.75l2-2M5.75 10.25l-2 2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    )}
+
+                    {(isSelectedCell || isEditing) && (
+                      <span className="pointer-events-none absolute -right-[6px] -bottom-[6px] z-[5] h-3 w-3 rounded-[3px] border border-[#166ee1] bg-white" />
+                    )}
                   </td>
                 );
               })}
