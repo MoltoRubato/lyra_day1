@@ -2,10 +2,17 @@
 // src/app/base/[baseId]/page.tsx
 import { api } from "~/trpc/react";
 import Link from "next/link";
-import { useCallback, useEffect, useState, use, useRef } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useState,
+  use,
+  useRef,
+} from "react";
 import GridView, {
   type BulkGeneratedRowsHint,
-  type GridSearchNavigationRequest,
+  type GridSearchNavigate,
   type GridSearchStatus,
 } from "~/app/_components/GridView";
 import KanbanView from "~/app/_components/KanbanView";
@@ -49,11 +56,6 @@ function TopBarAssetIcon({
     </span>
   );
 }
-
-const EMPTY_GRID_SEARCH_STATUS: GridSearchStatus = {
-  totalMatches: 0,
-  activeMatchNumber: 0,
-};
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
@@ -397,14 +399,8 @@ export default function BasePage({
   > | null>(null);
   const [gridSearchOpen, setGridSearchOpen] = useState(false);
   const [gridSearchQuery, setGridSearchQuery] = useState("");
-  const [gridSearchNavRequest, setGridSearchNavRequest] =
-    useState<GridSearchNavigationRequest>({
-      token: 0,
-      direction: 1,
-    });
-  const [gridSearchStatus, setGridSearchStatus] = useState<GridSearchStatus>(
-    EMPTY_GRID_SEARCH_STATUS,
-  );
+  const [gridSearchMatchCount, setGridSearchMatchCount] = useState(0);
+  const gridSearchNavigateRef = useRef<GridSearchNavigate | null>(null);
 
   function getViewConfig(viewId: string): ViewConfig {
     return { ...DEFAULT_VIEW_CONFIG, ...(viewConfigs[viewId] ?? {}) };
@@ -475,18 +471,27 @@ export default function BasePage({
   useEffect(() => {
     setGridSearchOpen(false);
     setGridSearchQuery("");
-    setGridSearchNavRequest({ token: 0, direction: 1 });
-    setGridSearchStatus(EMPTY_GRID_SEARCH_STATUS);
+    setGridSearchMatchCount(0);
+    gridSearchNavigateRef.current = null;
   }, [activeView?.id, activeView?.type, currentTableId]);
 
-  const handleGridSearchStatusChange = useCallback((next: GridSearchStatus) => {
-    setGridSearchStatus((prev) =>
-      prev.totalMatches === next.totalMatches &&
-      prev.activeMatchNumber === next.activeMatchNumber
-        ? prev
-        : next,
-    );
-  }, []);
+  const handleGridSearchStatusChange = useCallback(
+    ({ totalMatches }: GridSearchStatus) => {
+      startTransition(() => {
+        setGridSearchMatchCount((prev) =>
+          prev === totalMatches ? prev : totalMatches,
+        );
+      });
+    },
+    [],
+  );
+
+  const handleRegisterGridSearchNavigator = useCallback(
+    (navigate: GridSearchNavigate | null) => {
+      gridSearchNavigateRef.current = navigate;
+    },
+    [],
+  );
 
   const handleOpenGridSearch = useCallback(() => {
     if (!gridSearchEnabled) return;
@@ -496,15 +501,11 @@ export default function BasePage({
   const handleCloseGridSearch = useCallback(() => {
     setGridSearchOpen(false);
     setGridSearchQuery("");
-    setGridSearchNavRequest({ token: 0, direction: 1 });
-    setGridSearchStatus(EMPTY_GRID_SEARCH_STATUS);
+    setGridSearchMatchCount(0);
   }, []);
 
   const handleGridSearchNavigate = useCallback((direction: 1 | -1) => {
-    setGridSearchNavRequest((prev) => ({
-      token: prev.token + 1,
-      direction,
-    }));
+    gridSearchNavigateRef.current?.(direction);
   }, []);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
@@ -776,8 +777,7 @@ export default function BasePage({
               enableGridSearch={gridSearchEnabled}
               gridSearchOpen={gridSearchOpen}
               gridSearchQuery={gridSearchQuery}
-              gridSearchMatchCount={gridSearchStatus.totalMatches}
-              gridSearchActiveMatchNumber={gridSearchStatus.activeMatchNumber}
+              gridSearchMatchCount={gridSearchMatchCount}
               onOpenGridSearch={handleOpenGridSearch}
               onCloseGridSearch={handleCloseGridSearch}
               onGridSearchQueryChange={setGridSearchQuery}
@@ -880,8 +880,8 @@ export default function BasePage({
                     }
                     searchOpen={gridSearchOpen}
                     searchQuery={gridSearchQuery}
-                    searchNavigationRequest={gridSearchNavRequest}
                     onSearchStatusChange={handleGridSearchStatusChange}
+                    onRegisterSearchNavigator={handleRegisterGridSearchNavigator}
                   />
                 ) : (
                   <KanbanView

@@ -49,15 +49,11 @@ export type BulkGeneratedRowsHint = {
   tableId: string;
 } | null;
 
-export type GridSearchNavigationRequest = {
-  token: number;
-  direction: 1 | -1;
-};
-
 export type GridSearchStatus = {
   totalMatches: number;
-  activeMatchNumber: number;
 };
+
+export type GridSearchNavigate = (direction: 1 | -1) => void;
 
 const OVERSCAN = 15;
 const MAX_FULL_LOAD_ROWS = 300_000;
@@ -266,8 +262,8 @@ export default function GridView({
   onAvailableGroupKeysChange,
   searchOpen = false,
   searchQuery = "",
-  searchNavigationRequest,
   onSearchStatusChange,
+  onRegisterSearchNavigator,
 }: {
   tableId: string;
   hiddenFields?: Record<string, boolean>;
@@ -292,8 +288,8 @@ export default function GridView({
   onAvailableGroupKeysChange?: (keys: string[]) => void;
   searchOpen?: boolean;
   searchQuery?: string;
-  searchNavigationRequest?: GridSearchNavigationRequest;
   onSearchStatusChange?: (status: GridSearchStatus) => void;
+  onRegisterSearchNavigator?: (navigate: GridSearchNavigate | null) => void;
 }) {
   const {
     data: table,
@@ -346,11 +342,11 @@ export default function GridView({
   const [loadAllError, setLoadAllError] = useState<string | null>(null);
   const [preloadedRows, setPreloadedRows] = useState<PreloadRow[] | null>(null);
   const [loadAllRetryTick, setLoadAllRetryTick] = useState(0);
-  const [activeSearchCellKey, setActiveSearchCellKey] = useState<string | null>(
-    null,
-  );
+  const [activeSearchMatchIndex, setActiveSearchMatchIndex] = useState(-1);
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const handledSearchNavigationToken = useRef(0);
+  const activeSearchCellKeyRef = useRef<string | null>(null);
+  const previousNormalizedSearchQueryRef = useRef("");
+  const searchTextCacheRef = useRef(new Map<string, string>());
 
   useEffect(() => {
     const el = containerRef.current;
@@ -531,6 +527,21 @@ export default function GridView({
     },
     [columnById],
   );
+  const getNormalizedSearchableCellText = useCallback(
+    (row: RowWithCells, columnId: string, columnType: string) => {
+      const cacheKey = getGridSearchCellKey(row.id, columnId);
+      const cached = searchTextCacheRef.current.get(cacheKey);
+      if (cached !== undefined) return cached;
+
+      const normalized = getSearchableCellText(
+        getGridCellValue(row, columnId),
+        columnType,
+      ).toLocaleLowerCase();
+      searchTextCacheRef.current.set(cacheKey, normalized);
+      return normalized;
+    },
+    [getGridCellValue],
+  );
 
   const noTransform =
     !hasActiveFilters(normalizedFilters) &&
@@ -653,6 +664,9 @@ export default function GridView({
     () => trimmedSearchQuery.toLocaleLowerCase(),
     [trimmedSearchQuery],
   );
+  useEffect(() => {
+    searchTextCacheRef.current.clear();
+  }, [tableId, visibleRowsInViewOrder, visCols]);
   const rowLayoutById = useMemo(() => {
     const layout = new Map<string, { top: number; height: number }>();
     let nextTop = 0;
@@ -677,12 +691,13 @@ export default function GridView({
 
     for (const row of visibleRowsInViewOrder) {
       for (const column of visCols) {
-        const cellText = getSearchableCellText(
-          getGridCellValue(row, column.id),
+        const cellText = getNormalizedSearchableCellText(
+          row,
+          column.id,
           column.type,
         );
 
-        if (!cellText.toLocaleLowerCase().includes(normalizedSearchQuery)) {
+        if (!cellText.includes(normalizedSearchQuery)) {
           continue;
         }
 
@@ -696,7 +711,7 @@ export default function GridView({
 
     return matches;
   }, [
-    getGridCellValue,
+    getNormalizedSearchableCellText,
     normalizedSearchQuery,
     searchOpen,
     visCols,
@@ -706,18 +721,19 @@ export default function GridView({
     () => new Set(searchMatches.map((match) => match.key)),
     [searchMatches],
   );
-  const activeSearchMatchIndex = useMemo(
+  const searchMatchIndexByKey = useMemo(
     () =>
-      activeSearchCellKey
-        ? searchMatches.findIndex((match) => match.key === activeSearchCellKey)
-        : -1,
-    [activeSearchCellKey, searchMatches],
+      new Map(searchMatches.map((match, index) => [match.key, index] as const)),
+    [searchMatches],
   );
   const activeSearchMatch = useMemo(
     () =>
-      activeSearchMatchIndex >= 0 ? searchMatches[activeSearchMatchIndex]! : null,
+      activeSearchMatchIndex >= 0 && activeSearchMatchIndex < searchMatches.length
+        ? searchMatches[activeSearchMatchIndex]!
+        : null,
     [activeSearchMatchIndex, searchMatches],
   );
+  const activeSearchCellKey = activeSearchMatch?.key ?? null;
 
   const rawRowCount = table?.rowCount;
   const totalRows = rawRowCount ?? table?.rows.length ?? 0;
@@ -765,49 +781,66 @@ export default function GridView({
 
   useEffect(() => {
     if (!searchOpen || trimmedSearchQuery.length === 0 || searchMatches.length === 0) {
-      setActiveSearchCellKey((prev) => (prev === null ? prev : null));
+      previousNormalizedSearchQueryRef.current = normalizedSearchQuery;
+      setActiveSearchMatchIndex((prev) => (prev === -1 ? prev : -1));
       return;
     }
 
-    setActiveSearchCellKey((prev) =>
-      prev && searchMatchedCellKeys.has(prev) ? prev : searchMatches[0]!.key,
-    );
-  }, [searchMatchedCellKeys, searchMatches, searchOpen, trimmedSearchQuery]);
+    const queryChanged =
+      previousNormalizedSearchQueryRef.current !== normalizedSearchQuery;
+    previousNormalizedSearchQueryRef.current = normalizedSearchQuery;
+
+    setActiveSearchMatchIndex((prev) => {
+      if (queryChanged) return 0;
+
+      const retainedIndex = activeSearchCellKeyRef.current
+        ? searchMatchIndexByKey.get(activeSearchCellKeyRef.current)
+        : undefined;
+      if (retainedIndex !== undefined) return retainedIndex;
+      if (prev >= 0 && prev < searchMatches.length) return prev;
+      return 0;
+    });
+  }, [
+    normalizedSearchQuery,
+    searchMatchIndexByKey,
+    searchMatches.length,
+    searchOpen,
+    trimmedSearchQuery,
+  ]);
+
+  const navigateSearch = useCallback(
+    (direction: 1 | -1) => {
+      if (!searchOpen || searchMatches.length === 0) return;
+
+      setActiveSearchMatchIndex((prev) => {
+        const baseIndex =
+          prev >= 0 && prev < searchMatches.length
+            ? prev
+            : direction > 0
+              ? -1
+              : 0;
+        return (
+          (baseIndex + direction + searchMatches.length) % searchMatches.length
+        );
+      });
+    },
+    [searchMatches.length, searchOpen],
+  );
 
   useEffect(() => {
-    if (!searchOpen || searchMatches.length === 0 || !searchNavigationRequest) {
-      return;
-    }
-    if (handledSearchNavigationToken.current === searchNavigationRequest.token) {
-      return;
-    }
-
-    handledSearchNavigationToken.current = searchNavigationRequest.token;
-    if (searchNavigationRequest.token === 0) return;
-
-    setActiveSearchCellKey((prev) => {
-      const currentIndex = prev
-        ? searchMatches.findIndex((match) => match.key === prev)
-        : -1;
-      const baseIndex = currentIndex >= 0 ? currentIndex : 0;
-      const nextIndex =
-        (baseIndex + searchNavigationRequest.direction + searchMatches.length) %
-        searchMatches.length;
-      return searchMatches[nextIndex]!.key;
-    });
-  }, [searchMatches, searchNavigationRequest, searchOpen]);
+    onRegisterSearchNavigator?.(navigateSearch);
+    return () => onRegisterSearchNavigator?.(null);
+  }, [navigateSearch, onRegisterSearchNavigator]);
 
   useEffect(() => {
     onSearchStatusChange?.({
       totalMatches: searchMatches.length,
-      activeMatchNumber:
-        activeSearchMatchIndex >= 0 ? activeSearchMatchIndex + 1 : 0,
     });
-  }, [activeSearchMatchIndex, onSearchStatusChange, searchMatches.length]);
+  }, [onSearchStatusChange, searchMatches.length]);
 
   useEffect(() => {
-    handledSearchNavigationToken.current = 0;
-  }, [tableId]);
+    activeSearchCellKeyRef.current = activeSearchCellKey;
+  }, [activeSearchCellKey]);
 
   useEffect(() => {
     if (!activeSearchMatch) return;
@@ -825,16 +858,28 @@ export default function GridView({
         rowLayout.height,
         containerEl.clientHeight - headerHeight - footerHeight,
       );
-      const nextScrollTop = Math.max(
-        0,
-        rowLayout.top -
-          Math.max(0, Math.floor((contentViewportHeight - rowLayout.height) / 2)),
-      );
+      const rowTop = rowLayout.top;
+      const rowBottom = rowTop + rowLayout.height;
+      const viewportTop = containerEl.scrollTop;
+      const viewportBottom = viewportTop + contentViewportHeight;
+      const scrollPadding = Math.max(rowLayout.height, rowH);
+      let nextScrollTop = viewportTop;
+
+      if (rowTop < viewportTop + scrollPadding) {
+        nextScrollTop = Math.max(0, rowTop - scrollPadding);
+      } else if (rowBottom > viewportBottom - scrollPadding) {
+        nextScrollTop = Math.max(
+          0,
+          rowBottom - contentViewportHeight + scrollPadding,
+        );
+      }
 
       if (Math.abs(containerEl.scrollTop - nextScrollTop) > 1) {
         containerEl.scrollTop = nextScrollTop;
         scrollTopRef.current = nextScrollTop;
-        forceRender((count) => count + 1);
+        if (scrollLocked) {
+          forceRender((count) => count + 1);
+        }
       }
     }
 
@@ -866,7 +911,7 @@ export default function GridView({
       cancelled = true;
       cancelAnimationFrame(rafId);
     };
-  }, [activeSearchMatch, rowH, rowLayoutById]);
+  }, [activeSearchMatch, rowH, rowLayoutById, scrollLocked]);
 
   useEffect(() => {
     preloadCycle.current += 1;
@@ -874,8 +919,8 @@ export default function GridView({
     setLoadAllPhase("fetching");
     setLoadAllError(null);
     setPreloadedRows(null);
-    setActiveSearchCellKey(null);
-    handledSearchNavigationToken.current = 0;
+    setActiveSearchMatchIndex(-1);
+    activeSearchCellKeyRef.current = null;
     scrollTopRef.current = 0;
     if (containerRef.current) {
       containerRef.current.scrollTop = 0;

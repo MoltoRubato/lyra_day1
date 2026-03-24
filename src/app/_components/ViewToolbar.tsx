@@ -163,7 +163,6 @@ export default function ViewToolbar({
   gridSearchOpen = false,
   gridSearchQuery = "",
   gridSearchMatchCount = 0,
-  gridSearchActiveMatchNumber = 0,
   onOpenGridSearch,
   onCloseGridSearch,
   onGridSearchQueryChange,
@@ -193,7 +192,6 @@ export default function ViewToolbar({
   gridSearchOpen?: boolean;
   gridSearchQuery?: string;
   gridSearchMatchCount?: number;
-  gridSearchActiveMatchNumber?: number;
   onOpenGridSearch?: () => void;
   onCloseGridSearch?: () => void;
   onGridSearchQueryChange?: (value: string) => void;
@@ -210,7 +208,10 @@ export default function ViewToolbar({
   const [editingDesc, setEditingDesc] = useState(false);
   const [draftName, setDraftName] = useState(activeViewName ?? "");
   const [draftDesc, setDraftDesc] = useState(activeViewDescription ?? "");
+  const [localGridSearchActiveMatchNumber, setLocalGridSearchActiveMatchNumber] =
+    useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const gridSearchSessionKeyRef = useRef("");
 
   useEffect(() => {
     if (!forcedOpenPanel) return;
@@ -341,11 +342,55 @@ export default function ViewToolbar({
     ? viewMenuAnchor.top + viewMenuAnchor.height + 8
     : 48;
   const trimmedGridSearchQuery = gridSearchQuery.trim();
+  const gridSearchSessionKey = gridSearchOpen ? trimmedGridSearchQuery : "";
   const hasGridSearchTerm =
     enableGridSearch && gridSearchOpen && trimmedGridSearchQuery.length > 0;
   const hasGridSearchMatches = hasGridSearchTerm && gridSearchMatchCount > 0;
+
+  useEffect(() => {
+    const searchSessionChanged =
+      gridSearchSessionKeyRef.current !== gridSearchSessionKey;
+    gridSearchSessionKeyRef.current = gridSearchSessionKey;
+
+    if (!hasGridSearchTerm || gridSearchMatchCount === 0) {
+      setLocalGridSearchActiveMatchNumber(0);
+      return;
+    }
+
+    if (searchSessionChanged) {
+      setLocalGridSearchActiveMatchNumber(1);
+      return;
+    }
+
+    setLocalGridSearchActiveMatchNumber((prev) => {
+      if (prev <= 0) return 1;
+      return Math.min(prev, gridSearchMatchCount);
+    });
+  }, [gridSearchMatchCount, gridSearchSessionKey, hasGridSearchTerm]);
+
+  const navigateGridSearch = useCallback(
+    (direction: 1 | -1) => {
+      if (!hasGridSearchMatches) return;
+
+      setLocalGridSearchActiveMatchNumber((prev) => {
+        const baseIndex =
+          prev > 0 ? prev - 1 : direction > 0 ? -1 : 0;
+        return (
+          ((baseIndex + direction + gridSearchMatchCount) %
+            gridSearchMatchCount) +
+          1
+        );
+      });
+
+      onGridSearchNavigate?.(direction);
+    },
+    [gridSearchMatchCount, hasGridSearchMatches, onGridSearchNavigate],
+  );
+  const displayedGridSearchActiveMatchNumber = hasGridSearchMatches
+    ? Math.min(Math.max(localGridSearchActiveMatchNumber, 1), gridSearchMatchCount)
+    : 0;
   const gridSearchSummaryLabel = hasGridSearchMatches
-    ? `${gridSearchActiveMatchNumber} of ${gridSearchMatchCount}`
+    ? `${displayedGridSearchActiveMatchNumber} of ${gridSearchMatchCount}`
     : "No results";
 
   return (
@@ -605,7 +650,7 @@ export default function ViewToolbar({
                   }
                   if (e.key === "Enter" && hasGridSearchMatches) {
                     e.preventDefault();
-                    onGridSearchNavigate?.(e.shiftKey ? -1 : 1);
+                    navigateGridSearch(e.shiftKey ? -1 : 1);
                   }
                 }}
                 className="min-w-0 flex-auto border-0 bg-transparent px-2 text-[13px] text-[#1d1f25] placeholder-[#8a8f99] outline-none"
@@ -622,7 +667,7 @@ export default function ViewToolbar({
                     <div className="flex flex-none items-center py-1">
                       <button
                         type="button"
-                        onClick={() => onGridSearchNavigate?.(-1)}
+                        onClick={() => navigateGridSearch(-1)}
                         className="flex h-full w-5 items-center justify-center rounded text-[#616670] transition-colors hover:bg-[#f2f3f5] hover:text-[#1d1f25]"
                         aria-label="Previous result"
                       >
@@ -644,7 +689,7 @@ export default function ViewToolbar({
                       </button>
                       <button
                         type="button"
-                        onClick={() => onGridSearchNavigate?.(1)}
+                        onClick={() => navigateGridSearch(1)}
                         className="flex h-full w-5 items-center justify-center rounded text-[#616670] transition-colors hover:bg-[#f2f3f5] hover:text-[#1d1f25]"
                         aria-label="Next result"
                       >
