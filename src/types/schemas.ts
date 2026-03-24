@@ -274,6 +274,15 @@ export const CellUpdateInput = z.object({
   columnId: z.string(),
   value: z.string().nullable(),
 });
+export const BulkCellUpdateInput = z.object({
+  updates: z.array(
+    z.object({
+      rowId: z.string(),
+      columnId: z.string(),
+      value: z.string().nullable(),
+    }),
+  ),
+});
 export const RowAddInput = z.object({ tableId: z.string() });
 export const RowDeleteInput = z.object({ rowId: z.string() });
 export const RowInsertAboveInput = z.object({ anchorRowId: z.string() });

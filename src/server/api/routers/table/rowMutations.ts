@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { publicProcedure } from "~/server/api/trpc";
 import {
+  BulkCellUpdateInput,
   BulkDeleteRowsInput,
   CellOutput,
   CellUpdateInput,
@@ -284,5 +285,27 @@ export const rowMutationProcedures = {
       });
       if (!result) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       return result;
+    }),
+
+  bulkUpdateCells: publicProcedure
+    .input(BulkCellUpdateInput)
+    .output(z.object({ count: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await Promise.all(
+        input.updates.map((u) =>
+          ctx.db.cell.upsert({
+            where: {
+              rowId_columnId: { rowId: u.rowId, columnId: u.columnId },
+            },
+            update: { value: u.value },
+            create: {
+              rowId: u.rowId,
+              columnId: u.columnId,
+              value: u.value,
+            },
+          }),
+        ),
+      );
+      return { count: input.updates.length };
     }),
 };

@@ -177,6 +177,11 @@ export function GridViewTable({
   } | null>(null);
   const [cellRange, setCellRange] = useState<CellRange | null>(null);
   const isDraggingCellRange = useRef(false);
+  const isDraggingFillHandle = useRef(false);
+  const [fillTarget, setFillTarget] = useState<{
+    rowId: string;
+    columnId: string;
+  } | null>(null);
   const [expandedLongTextCell, setExpandedLongTextCell] =
     useState<ExpandedLongTextCell | null>(null);
   const expandedLongTextTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -565,7 +570,7 @@ export function GridViewTable({
         setCellRange(null);
         return;
       }
-      if (!isDraggingCellRange.current) {
+      if (!isDraggingCellRange.current && !isDraggingFillHandle.current) {
         setCellRange(null);
       }
 
@@ -1085,6 +1090,69 @@ export function GridViewTable({
     return { rowId: rId, columnId: cId };
   }, [normalizedCellRange, visibleRowsInViewOrder, visCols]);
 
+  // ── Fill handle state ──────────────────────────────────────────────
+  // The "source" is the current selection: either a single selectedCell or the cellRange rectangle.
+  // The fill target extends that source in one direction (horizontal or vertical).
+  const fillSourceBounds = useMemo(() => {
+    if (normalizedCellRange) return normalizedCellRange;
+    if (!selectedCell) return null;
+    const rowIds = visibleRowsInViewOrder.map((r) => r.id);
+    const colIds = visCols.map((c) => c.id);
+    const ri = rowIds.indexOf(selectedCell.rowId);
+    const ci = colIds.indexOf(selectedCell.columnId);
+    if (ri < 0 || ci < 0) return null;
+    return { minRowIdx: ri, maxRowIdx: ri, minColIdx: ci, maxColIdx: ci };
+  }, [normalizedCellRange, selectedCell, visibleRowsInViewOrder, visCols]);
+
+  const fillRangeSet = useMemo(() => {
+    if (!fillTarget || !fillSourceBounds) return null;
+    const rowIds = visibleRowsInViewOrder.map((r) => r.id);
+    const colIds = visCols.map((c) => c.id);
+    const targetRowIdx = rowIds.indexOf(fillTarget.rowId);
+    const targetColIdx = colIds.indexOf(fillTarget.columnId);
+    if (targetRowIdx < 0 || targetColIdx < 0) return null;
+
+    const { minRowIdx, maxRowIdx, minColIdx, maxColIdx } = fillSourceBounds;
+
+    // Determine fill direction: vertical or horizontal
+    // Vertical fill: target is above or below the source bounds
+    // Horizontal fill: target is left or right of the source bounds
+    const isBelow = targetRowIdx > maxRowIdx;
+    const isAbove = targetRowIdx < minRowIdx;
+    const isRight = targetColIdx > maxColIdx;
+    const isLeft = targetColIdx < minColIdx;
+
+    let fillMinRow = minRowIdx, fillMaxRow = maxRowIdx;
+    let fillMinCol = minColIdx, fillMaxCol = maxColIdx;
+
+    if (isBelow || isAbove) {
+      // Vertical fill - keep same columns, extend rows
+      if (isBelow) fillMaxRow = targetRowIdx;
+      else fillMinRow = targetRowIdx;
+    } else if (isRight || isLeft) {
+      // Horizontal fill - keep same rows, extend columns
+      if (isRight) fillMaxCol = targetColIdx;
+      else fillMinCol = targetColIdx;
+    } else {
+      // Target is inside the source - no fill
+      return null;
+    }
+
+    const set = new Set<string>();
+    for (let ri = fillMinRow; ri <= fillMaxRow; ri++) {
+      for (let ci = fillMinCol; ci <= fillMaxCol; ci++) {
+        const rId = rowIds[ri];
+        const cId = colIds[ci];
+        if (rId && cId) {
+          // Exclude cells that are in the source bounds
+          if (ri >= minRowIdx && ri <= maxRowIdx && ci >= minColIdx && ci <= maxColIdx) continue;
+          set.add(`${rId}-${cId}`);
+        }
+      }
+    }
+    return set.size > 0 ? set : null;
+  }, [fillTarget, fillSourceBounds, visibleRowsInViewOrder, visCols]);
+
   function onCellMouseDown(
     e: React.MouseEvent,
     rowId: string,
@@ -1102,6 +1170,10 @@ export function GridViewTable({
   }
 
   function onCellMouseEnter(rowId: string, columnId: string) {
+    if (isDraggingFillHandle.current) {
+      setFillTarget({ rowId, columnId });
+      return;
+    }
     if (!isDraggingCellRange.current) return;
     setCellRange((prev) => {
       if (!prev) return prev;
@@ -1111,8 +1183,148 @@ export function GridViewTable({
     });
   }
 
+  function onFillHandleMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingFillHandle.current = true;
+    setFillTarget(null);
+  }
+
+  const bulkUpdateCells = api.table.bulkUpdateCells.useMutation({
+    onMutate: async ({ updates }) => {
+      await cellMenuCacheHelpers.cancelCache();
+      const snapshot = cellMenuCacheHelpers.snapshotCache();
+      cellMenuCacheHelpers.patchCache((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rows: prev.rows.map((r) => {
+            const rowUpdates = updates.filter((u) => u.rowId === r.id);
+            if (rowUpdates.length === 0) return r;
+            return {
+              ...r,
+              cells: r.cells.map((c) => {
+                const upd = rowUpdates.find((u) => u.columnId === c.columnId);
+                return upd ? { ...c, value: upd.value } : c;
+              }),
+            };
+          }),
+        };
+      });
+      return { snapshot };
+    },
+    onError: (_e, _v, ctx) => cellMenuCacheHelpers.restoreCache(ctx?.snapshot),
+    onSettled: cellMenuCacheHelpers.invalidate,
+  });
+
+  const commitFill = useCallback(() => {
+    if (!fillRangeSet || !fillSourceBounds) return;
+    const rowIds = visibleRowsInViewOrder.map((r) => r.id);
+    const colIds = visCols.map((c) => c.id);
+    const { minRowIdx, maxRowIdx, minColIdx, maxColIdx } = fillSourceBounds;
+
+    // Collect source values organized by row/col offset
+    const sourceRows: { rowId: string; cells: { columnId: string; value: string | null }[] }[] = [];
+    for (let ri = minRowIdx; ri <= maxRowIdx; ri++) {
+      const rId = rowIds[ri];
+      if (!rId) continue;
+      const row = visibleRowsInViewOrder.find((r) => r.id === rId);
+      if (!row) continue;
+      const cells: { columnId: string; value: string | null }[] = [];
+      for (let ci = minColIdx; ci <= maxColIdx; ci++) {
+        const cId = colIds[ci];
+        if (!cId) continue;
+        const cell = row.cells.find((c) => c.columnId === cId);
+        cells.push({ columnId: cId, value: cell?.value ?? null });
+      }
+      sourceRows.push({ rowId: rId, cells });
+    }
+
+    if (sourceRows.length === 0) return;
+
+    const updates: { rowId: string; columnId: string; value: string | null }[] = [];
+    const sourceRowCount = maxRowIdx - minRowIdx + 1;
+    const sourceColCount = maxColIdx - minColIdx + 1;
+
+    // Detect numeric sequences for smart fill
+    function detectNumericSequence(values: (string | null)[]): { start: number; step: number } | null {
+      if (values.length < 2) return null;
+      const nums = values.map((v) => (v != null ? Number(v) : NaN));
+      if (nums.some(isNaN)) return null;
+      const step = (nums[1] ?? 0) - (nums[0] ?? 0);
+      for (let i = 2; i < nums.length; i++) {
+        if (Math.abs(((nums[i] ?? 0) - (nums[i - 1] ?? 0)) - step) > 1e-10) return null;
+      }
+      return { start: nums[nums.length - 1] ?? 0, step };
+    }
+
+    for (const cellKey of fillRangeSet) {
+      const [rId, cId] = cellKey.split("-");
+      if (!rId || !cId) continue;
+      const targetRowIdx = rowIds.indexOf(rId);
+      const targetColIdx = colIds.indexOf(cId);
+      if (targetRowIdx < 0 || targetColIdx < 0) continue;
+
+      // Determine if vertical or horizontal fill
+      const isVerticalFill = targetRowIdx < minRowIdx || targetRowIdx > maxRowIdx;
+
+      if (isVerticalFill) {
+        const colOffset = targetColIdx - minColIdx;
+        const sourceColValues = sourceRows.map((sr) => sr.cells[colOffset]?.value ?? null);
+        const seq = detectNumericSequence(sourceColValues);
+
+        if (seq && sourceRows.length >= 2) {
+          // Continue numeric sequence
+          const stepsFromEnd = targetRowIdx > maxRowIdx
+            ? targetRowIdx - maxRowIdx
+            : minRowIdx - targetRowIdx;
+          const value = String(seq.start + seq.step * stepsFromEnd);
+          updates.push({ rowId: rId, columnId: cId, value });
+        } else {
+          // Repeat pattern cyclically
+          const rowOffset = targetRowIdx > maxRowIdx
+            ? (targetRowIdx - maxRowIdx - 1) % sourceRowCount
+            : (sourceRowCount - 1) - ((minRowIdx - targetRowIdx - 1) % sourceRowCount);
+          const sourceValue = sourceRows[rowOffset]?.cells[colOffset]?.value ?? null;
+          updates.push({ rowId: rId, columnId: cId, value: sourceValue });
+        }
+      } else {
+        // Horizontal fill
+        const rowOffset = targetRowIdx - minRowIdx;
+        const sourceRowData = sourceRows[rowOffset];
+        if (!sourceRowData) continue;
+        const sourceColValues = sourceRowData.cells.map((c) => c.value);
+        const seq = detectNumericSequence(sourceColValues);
+
+        if (seq && sourceColValues.length >= 2) {
+          const stepsFromEnd = targetColIdx > maxColIdx
+            ? targetColIdx - maxColIdx
+            : minColIdx - targetColIdx;
+          const value = String(seq.start + seq.step * stepsFromEnd);
+          updates.push({ rowId: rId, columnId: cId, value });
+        } else {
+          const colOffset = targetColIdx > maxColIdx
+            ? (targetColIdx - maxColIdx - 1) % sourceColCount
+            : (sourceColCount - 1) - ((minColIdx - targetColIdx - 1) % sourceColCount);
+          const sourceValue = sourceRowData.cells[colOffset]?.value ?? null;
+          updates.push({ rowId: rId, columnId: cId, value: sourceValue });
+        }
+      }
+    }
+
+    if (updates.length > 0) {
+      bulkUpdateCells.mutate({ updates });
+    }
+  }, [fillRangeSet, fillSourceBounds, visibleRowsInViewOrder, visCols, bulkUpdateCells]);
+
   useEffect(() => {
     function handleMouseUp() {
+      if (isDraggingFillHandle.current) {
+        isDraggingFillHandle.current = false;
+        commitFill();
+        setFillTarget(null);
+        return;
+      }
       if (!isDraggingCellRange.current) return;
       isDraggingCellRange.current = false;
       setCellRange((prev) => {
@@ -1128,7 +1340,7 @@ export function GridViewTable({
     }
     window.addEventListener("mouseup", handleMouseUp);
     return () => window.removeEventListener("mouseup", handleMouseUp);
-  }, []);
+  }, [commitFill]);
 
   function openColMenu(colId: string, e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
@@ -1441,6 +1653,8 @@ export function GridViewTable({
             cellRangeEndCell={cellRangeEndCell}
             onCellMouseDown={onCellMouseDown}
             onCellMouseEnter={onCellMouseEnter}
+            onFillHandleMouseDown={onFillHandleMouseDown}
+            fillRangeSet={fillRangeSet}
             summaryByCol={summaryByCol}
             hoveredSummaryCol={hoveredSummaryCol}
             setHoveredSummaryCol={setHoveredSummaryCol}

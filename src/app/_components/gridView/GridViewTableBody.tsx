@@ -95,6 +95,8 @@ type GridViewTableBodyProps = {
     columnId: string,
   ) => void;
   onCellMouseEnter: (rowId: string, columnId: string) => void;
+  onFillHandleMouseDown: (e: React.MouseEvent) => void;
+  fillRangeSet: Set<string> | null;
   summaryByCol: Record<string, SummaryOption>;
   hoveredSummaryCol: string | null;
   setHoveredSummaryCol: (
@@ -350,6 +352,8 @@ export function GridViewTableBody({
   cellRangeEndCell,
   onCellMouseDown,
   onCellMouseEnter,
+  onFillHandleMouseDown,
+  fillRangeSet,
   summaryByCol,
   hoveredSummaryCol,
   setHoveredSummaryCol,
@@ -862,6 +866,8 @@ export function GridViewTableBody({
                 const isCellRangeEnd =
                   cellRangeEndCell?.rowId === row.id &&
                   cellRangeEndCell?.columnId === col.id;
+                const isInFillRange =
+                  fillRangeSet !== null && fillRangeSet.has(cellKey);
                 const isExpandedLongTextEditingCell =
                   expandedLongTextCell?.rowId === row.id &&
                   expandedLongTextCell?.columnId === col.id;
@@ -906,11 +912,13 @@ export function GridViewTableBody({
                     : accentColor;
                 const cellBackgroundColor =
                   highlightColor ??
-                  (isInCellRange
-                    ? "#f1f6ff"
-                    : rowSelected
+                  (isInFillRange
+                    ? "#f0f0f0"
+                    : isInCellRange
                       ? "#f1f6ff"
-                      : undefined);
+                      : rowSelected
+                        ? "#f1f6ff"
+                        : undefined);
                 const cellBoxShadow = [
                   isLastFrozen ? "1px 0 0 #afb5bf" : null,
                   isEditing && !isExpandedLongTextEditingCell
@@ -977,7 +985,7 @@ export function GridViewTableBody({
                       backgroundColor: cellBackgroundColor,
                       ...(cellBoxShadow ? { boxShadow: cellBoxShadow } : {}),
                     }}
-                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 focus:outline-none ${isFrozen ? "sticky" : ""} ${!highlightColor && !rowSelected && !isInCellRange ? "bg-white group-hover:bg-[#f8f8f8]" : ""}`}
+                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 focus:outline-none ${isFrozen ? "sticky" : ""} ${!highlightColor && !rowSelected && !isInCellRange && !isInFillRange ? "bg-white group-hover:bg-[#f8f8f8]" : ""}`}
                     onFocus={() => {
                       const key = `${row.id}-${col.id}`;
                       // Don't clear cell range when focusing a cell that's in the range
@@ -1227,8 +1235,9 @@ export function GridViewTableBody({
                     {((isSelectedCell && !isEditing && !cellRangeSet) ||
                       isCellRangeEnd) && (
                       <span
-                        className="pointer-events-none absolute -right-[6px] -bottom-[6px] z-[5] h-3 w-3 rounded-[3px] border border-[#166ee1] bg-white"
+                        className="absolute -right-[6px] -bottom-[6px] z-[5] h-3 w-3 cursor-crosshair rounded-[3px] border border-[#166ee1] bg-white"
                         style={selectionHandleStyle}
+                        onMouseDown={onFillHandleMouseDown}
                       />
                     )}
                   </td>
