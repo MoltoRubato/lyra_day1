@@ -1,6 +1,7 @@
 ﻿"use client";
 // src/app/base/[baseId]/page.tsx
 import { api } from "~/trpc/react";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   startTransition,
@@ -66,6 +67,7 @@ export default function BasePage({
 }) {
   const { baseId } = use(params);
   const utils = api.useUtils();
+  const queryClient = useQueryClient();
 
   const {
     data: base,
@@ -359,10 +361,46 @@ export default function BasePage({
     },
   });
 
-  function handleBulkAddRows() {
+  async function handleBulkAddRows() {
     if (!currentTableId || bulkAdding) return;
     setBulkAdding(true);
     setBulkAddPendingTableId(currentTableId);
+
+    // Wait for any in-flight bulkDeleteRows mutations to finish before inserting,
+    // otherwise the delete (which targets all rows by tableId) will wipe the
+    // newly-inserted rows as well.
+    const pendingDeletes = queryClient
+      .getMutationCache()
+      .getAll()
+      .filter(
+        (m) =>
+          m.state.status === "pending" &&
+          JSON.stringify(m.options.mutationKey ?? []).includes("bulkDeleteRows"),
+      );
+    if (pendingDeletes.length > 0) {
+      const cache = queryClient.getMutationCache();
+      await Promise.allSettled(
+        pendingDeletes.map(
+          (m) =>
+            new Promise<void>((resolve) => {
+              if (m.state.status !== "pending") {
+                resolve();
+                return;
+              }
+              const unsub = cache.subscribe((event) => {
+                if (
+                  event.mutation === m &&
+                  m.state.status !== "pending"
+                ) {
+                  unsub();
+                  resolve();
+                }
+              });
+            }),
+        ),
+      );
+    }
+
     bulkAddRows.mutate({ tableId: currentTableId, count: 100_000 });
   }
 
