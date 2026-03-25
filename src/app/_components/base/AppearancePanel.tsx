@@ -91,7 +91,7 @@ function SectionChevron({ open }: { open: boolean }) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.7"
+      strokeWidth="1.2"
       strokeLinecap="round"
       strokeLinejoin="round"
       className={`transition-transform ${open ? "rotate-90" : ""}`}
@@ -118,8 +118,8 @@ export function AppearancePanel({
   onUpdateGuide: (g: string) => void;
   onToggleStar: () => void;
 }) {
-  const [appearanceOpen, setAppearanceOpen] = useState(true);
-  const [guideOpen, setGuideOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(true);
   const [tab, setTab] = useState<"color" | "icon">("color");
   const [iconSearch, setIconSearch] = useState("");
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -196,7 +196,7 @@ export function AppearancePanel({
                     event.currentTarget.blur();
                   }
                 }}
-                className="h-full w-full rounded-[4px] border-none bg-transparent px-2 text-[17px] font-normal text-[#1d1f25] outline-none transition-colors hover:bg-[#eef1f5] focus:bg-[#f2f4f8]"
+                className="h-full w-full rounded-[4px] border-none bg-transparent px-2 text-[20px] font-normal text-[#1d1f25] outline-none transition-colors hover:bg-[#eef1f5] focus:bg-[#f2f4f8]"
               />
             </div>
           </div>
@@ -217,72 +217,80 @@ export function AppearancePanel({
                 viewBox="0 0 20 20"
                 fill={base.starred ? "currentColor" : "none"}
                 stroke="currentColor"
-                strokeWidth="1.7"
+                strokeWidth="1.2"
                 strokeLinejoin="round"
               >
                 <path d="M10 2.5l2.2 4.6 5.1.5-3.9 3.3 1.2 5-4.6-2.6-4.6 2.6 1.2-5-3.9-3.3 5.1-.5L10 2.5z" />
               </svg>
             </button>
 
-            <button
-              onClick={() => setMoreMenuOpen((open) => !open)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#2d323a] transition-colors hover:bg-[#eceff4]"
-              aria-label="Open base actions"
-              aria-haspopup="menu"
-              aria-expanded={moreMenuOpen}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <circle cx="3" cy="8" r="1.5" />
-                <circle cx="8" cy="8" r="1.5" />
-                <circle cx="13" cy="8" r="1.5" />
-              </svg>
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setMoreMenuOpen((open) => !open)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#2d323a] transition-colors hover:bg-[#eceff4]"
+                aria-label="Open base actions"
+                aria-haspopup="menu"
+                aria-expanded={moreMenuOpen}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <circle cx="3" cy="8" r="1.2" />
+                  <circle cx="8" cy="8" r="1.2" />
+                  <circle cx="13" cy="8" r="1.2" />
+                </svg>
+              </button>
 
-            {moreMenuOpen && (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-[55] cursor-default"
-                  onClick={() => setMoreMenuOpen(false)}
-                  aria-label="Close base actions"
-                />
-                <ul
-                  role="menu"
-                  className="absolute right-0 top-[44px] z-[60] w-[240px] rounded-[10px] border border-[#c9ced7] bg-white p-3 shadow-[0_12px_26px_rgba(16,24,40,0.2)]"
-                >
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[17px] text-[#2a2e35] transition-colors hover:bg-[#eef1f5]"
-                    >
-                      <AirtableAssetIcon asset={320} alt="" size={18} className="shrink-0" />
-                      Duplicate base
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[17px] text-[#2a2e35] transition-colors hover:bg-[#eef1f5]"
-                    >
-                      <AirtableAssetIcon asset={85} alt="" size={18} className="shrink-0" />
-                      Slack notifications
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[17px] text-[#c1204b] transition-colors hover:bg-[#fdeff3]"
-                    >
-                      <AirtableAssetIcon asset={32} alt="" size={18} className="shrink-0" />
-                      Delete base
-                    </button>
-                  </li>
-                </ul>
-              </>
-            )}
+              {moreMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-[55] cursor-default"
+                    onClick={() => setMoreMenuOpen(false)}
+                    aria-label="Close base actions"
+                  />
+                  <ul
+                    role="menu"
+                    className="absolute left-0 top-[36px] z-[60] w-[240px] rounded-[10px] border border-[#c9ced7] bg-white p-3 shadow-[0_12px_26px_rgba(16,24,40,0.2)]"
+                  >
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[13px] text-[#2a2e35] transition-colors hover:bg-[#eef1f5]"
+                      >
+                        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+                          <AirtableAssetIcon asset={320} alt="" size={12} />
+                        </span>
+                        Duplicate base
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[13px] text-[#2a2e35] transition-colors hover:bg-[#eef1f5]"
+                      >
+                        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+                          <AirtableAssetIcon asset={85} alt="" size={13} />
+                        </span>
+                        Slack notifications
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex h-[34px] w-full items-center gap-3 rounded-[6px] px-2 text-left text-[13px] text-[#c1204b] transition-colors hover:bg-[#fdeff3]"
+                      >
+                        <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
+                          <AirtableAssetIcon asset={32} alt="" style={{ width: 12, height: 13 }} />
+                        </span>
+                        Delete base
+                      </button>
+                    </li>
+                  </ul>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -301,7 +309,7 @@ export function AppearancePanel({
           {appearanceOpen && (
             <div className="pt-4">
               <div className="border-b border-[#d7dce3]">
-                <div className="flex h-9 w-[126px] items-end" role="tablist" aria-label="Appearance tabs">
+                <div className="flex h-9 items-end gap-4" role="tablist" aria-label="Appearance tabs">
                   {(["color", "icon"] as const).map((currentTab) => (
                     <button
                       key={currentTab}
@@ -309,7 +317,7 @@ export function AppearancePanel({
                       role="tab"
                       aria-selected={tab === currentTab}
                       onClick={() => setTab(currentTab)}
-                      className={`h-full w-[63px] border-b-2 px-0 pb-1 text-left text-[17px] leading-[20px] transition-colors ${
+                      className={`h-full border-b-2 px-0 pb-1 text-left text-[14.4px] leading-[20px] transition-colors ${
                         tab === currentTab
                           ? "border-[#2d7ff9] font-semibold text-[#1d1f25]"
                           : "border-transparent font-normal text-[#616670] hover:text-[#303440]"
@@ -461,8 +469,11 @@ export function AppearancePanel({
                     }}
                   />
                   <div className="mt-3 space-y-3">
-                    <div className="flex items-center gap-2 text-[13px] text-[#8d93a0]">
-                      <AirtableAssetIcon asset={276} alt="" size={16} className="shrink-0 opacity-80" />
+                    <div className="flex items-center gap-2 text-[11px] text-[#8d93a0]">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 opacity-80">
+                        <rect x="2.5" y="1.625" width="11" height="12.75" rx="1.5" stroke="#8d93a0" strokeWidth="1.2" />
+                        <path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" stroke="#8d93a0" strokeWidth="1" strokeLinecap="round" />
+                      </svg>
                       <span>styling with markdown is supported</span>
                     </div>
                     <div className="flex items-start gap-2">
