@@ -1,6 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import type { PrismaClient } from "@prisma/client";
 import { publicProcedure } from "~/server/api/trpc";
+import {
+  loadAvailableColumnTypes,
+  resolveSupportedColumnType,
+} from "~/server/columnTypeCompat";
+import { isPrimaryFieldSupportedType } from "~/shared/primaryField";
 import {
   BulkCellUpdateInput,
   BulkDeleteRowsInput,
@@ -14,7 +20,6 @@ import {
   RowOutput,
   RowReorderInput,
 } from "~/types/schemas";
-import type { PrismaClient } from "@prisma/client";
 
 async function insertEmptyRowAt(
   db: PrismaClient,
@@ -291,21 +296,114 @@ export const rowMutationProcedures = {
     .input(BulkCellUpdateInput)
     .output(z.object({ count: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      await Promise.all(
-        input.updates.map((u) =>
-          ctx.db.cell.upsert({
-            where: {
-              rowId_columnId: { rowId: u.rowId, columnId: u.columnId },
-            },
-            update: { value: u.value },
-            create: {
-              rowId: u.rowId,
-              columnId: u.columnId,
-              value: u.value,
-            },
-          }),
-        ),
-      );
+      const columnIds = [...new Set(input.columnUpdates.map((update) => update.columnId))];
+      const availableTypes =
+        input.columnUpdates.some((update) => update.type != null)
+          ? await loadAvailableColumnTypes(ctx.db)
+          : null;
+
+      await ctx.db.$transaction(async (tx) => {
+        const existingColumns =
+          columnIds.length > 0
+            ? await tx.column.findMany({
+                where: { id: { in: columnIds } },
+                select: {
+                  id: true,
+                  order: true,
+                  type: true,
+                  selectOptions: {
+                    select: {
+                      label: true,
+                      color: true,
+                    },
+                    orderBy: { order: "asc" },
+                  },
+                },
+              })
+            : [];
+
+        const columnById = new Map(
+          existingColumns.map((column) => [column.id, column]),
+        );
+
+        for (const columnUpdate of input.columnUpdates) {
+          const existingColumn = columnById.get(columnUpdate.columnId);
+          if (!existingColumn) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Column "${columnUpdate.columnId}" not found`,
+            });
+          }
+
+          const nextType = columnUpdate.type
+            ? resolveSupportedColumnType(columnUpdate.type, availableTypes)
+            : existingColumn.type;
+
+          if (
+            columnUpdate.type &&
+            existingColumn.order === 0 &&
+            !isPrimaryFieldSupportedType(nextType)
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Primary field cannot be changed to that type.",
+            });
+          }
+
+          if (columnUpdate.type && existingColumn.type !== nextType) {
+            await tx.column.update({
+              where: { id: existingColumn.id },
+              data: { type: nextType },
+            });
+            existingColumn.type = nextType;
+          }
+
+          if (
+            columnUpdate.ensureOptions.length > 0 &&
+            (existingColumn.type === "SINGLE_SELECT" ||
+              existingColumn.type === "MULTI_SELECT")
+          ) {
+            const existingLabels = new Set(
+              existingColumn.selectOptions.map((option) => option.label),
+            );
+            let nextOrder = existingColumn.selectOptions.length;
+
+            for (const option of columnUpdate.ensureOptions) {
+              if (existingLabels.has(option.label)) continue;
+              await tx.selectOption.create({
+                data: {
+                  columnId: existingColumn.id,
+                  label: option.label,
+                  color: option.color ?? "#166254",
+                  order: nextOrder,
+                },
+              });
+              existingLabels.add(option.label);
+              existingColumn.selectOptions.push({
+                label: option.label,
+                color: option.color ?? "#166254",
+              });
+              nextOrder += 1;
+            }
+          }
+        }
+
+        await Promise.all(
+          input.updates.map((u) =>
+            tx.cell.upsert({
+              where: {
+                rowId_columnId: { rowId: u.rowId, columnId: u.columnId },
+              },
+              update: { value: u.value },
+              create: {
+                rowId: u.rowId,
+                columnId: u.columnId,
+                value: u.value,
+              },
+            }),
+          ),
+        );
+      });
       return { count: input.updates.length };
     }),
 };

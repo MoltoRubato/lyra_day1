@@ -274,6 +274,18 @@ export const CellUpdateInput = z.object({
   columnId: z.string(),
   value: z.string().nullable(),
 });
+const BulkColumnUpdateInput = z.object({
+  columnId: z.string(),
+  type: z.nativeEnum(ColumnType).optional(),
+  ensureOptions: z
+    .array(
+      z.object({
+        label: z.string(),
+        color: z.string().default("#166254"),
+      }),
+    )
+    .default([]),
+});
 export const BulkCellUpdateInput = z.object({
   updates: z.array(
     z.object({
@@ -282,6 +294,7 @@ export const BulkCellUpdateInput = z.object({
       value: z.string().nullable(),
     }),
   ),
+  columnUpdates: z.array(BulkColumnUpdateInput).default([]),
 });
 export const RowAddInput = z.object({ tableId: z.string() });
 export const RowDeleteInput = z.object({ rowId: z.string() });

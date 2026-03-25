@@ -1,4 +1,5 @@
 import {
+  useEffect,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactElement,
   useRef,
@@ -87,6 +88,7 @@ type GridViewTableBodyProps = {
     columnId?: string,
   ) => void;
   cellRangeSet: Set<string> | null;
+  hasMultiCellRangeSelection: boolean;
   cellRangeRowSet?: Set<string> | null;
   cellRangeEndCell: GridCellLocation | null;
   onCellMouseDown: (
@@ -349,6 +351,7 @@ export function GridViewTableBody({
   openRowContextMenu: _openRowContextMenu,
   openCellContextMenu,
   cellRangeSet,
+  hasMultiCellRangeSelection,
   cellRangeEndCell,
   onCellMouseDown,
   onCellMouseEnter,
@@ -383,6 +386,20 @@ export function GridViewTableBody({
   const groupRowHeight = Math.max(rowH, 44);
   const skipBlurCommitCellKeyRef = useRef<string | null>(null);
   const justFocusedCellRef = useRef<string | null>(null);
+  const armedSelectCellRef = useRef<string | null>(null);
+
+  function clearArmedSelectCell(nextCellKey?: string | null) {
+    if (
+      nextCellKey == null ||
+      armedSelectCellRef.current === nextCellKey
+    ) {
+      armedSelectCellRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    clearArmedSelectCell();
+  }, [editing, openSelectCell]);
 
   function handleEditBlur(cellKey: string) {
     if (skipBlurCommitCellKeyRef.current === cellKey) {
@@ -861,13 +878,13 @@ export function GridViewTableBody({
                   selectedCell?.rowId === row.id &&
                   selectedCell?.columnId === col.id;
                 const cellKey = `${row.id}-${col.id}`;
-                const isInCellRange =
-                  cellRangeSet !== null && cellRangeSet.has(cellKey);
+                const isInCellRange = cellRangeSet?.has(cellKey) ?? false;
+                const isRangeHighlightedCell =
+                  hasMultiCellRangeSelection && isInCellRange;
                 const isCellRangeEnd =
                   cellRangeEndCell?.rowId === row.id &&
                   cellRangeEndCell?.columnId === col.id;
-                const isInFillRange =
-                  fillRangeSet !== null && fillRangeSet.has(cellKey);
+                const isInFillRange = fillRangeSet?.has(cellKey) ?? false;
                 const isExpandedLongTextEditingCell =
                   expandedLongTextCell?.rowId === row.id &&
                   expandedLongTextCell?.columnId === col.id;
@@ -912,13 +929,13 @@ export function GridViewTableBody({
                     : accentColor;
                 const cellBackgroundColor =
                   highlightColor ??
-                  (isInFillRange
-                    ? "#f0f0f0"
-                    : isInCellRange
-                      ? "#f1f6ff"
-                      : rowSelected
+                    (isInFillRange
+                      ? "#f0f0f0"
+                      : isRangeHighlightedCell
                         ? "#f1f6ff"
-                        : undefined);
+                        : rowSelected
+                          ? "#f1f6ff"
+                          : undefined);
                 const cellBoxShadow = [
                   isLastFrozen ? "1px 0 0 #afb5bf" : null,
                   isEditing && !isExpandedLongTextEditingCell
@@ -985,9 +1002,12 @@ export function GridViewTableBody({
                       backgroundColor: cellBackgroundColor,
                       ...(cellBoxShadow ? { boxShadow: cellBoxShadow } : {}),
                     }}
-                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 focus:outline-none ${isFrozen ? "sticky" : ""} ${!highlightColor && !rowSelected && !isInCellRange && !isInFillRange ? "bg-white group-hover:bg-[#f8f8f8]" : ""}`}
+                    className={`cell relative box-border overflow-visible border-r border-b border-[#e2e5e9] px-2 py-0 focus:outline-none ${isFrozen ? "sticky" : ""} ${!highlightColor && !rowSelected && !isRangeHighlightedCell && !isInFillRange ? "bg-white group-hover:bg-[#f8f8f8]" : ""}`}
                     onFocus={() => {
                       const key = `${row.id}-${col.id}`;
+                      if (armedSelectCellRef.current !== key) {
+                        clearArmedSelectCell();
+                      }
                       // Don't clear cell range when focusing a cell that's in the range
                       if (cellRangeSet?.has(key)) return;
                       if (
@@ -1001,15 +1021,18 @@ export function GridViewTableBody({
                     onClick={(e) => {
                       e.stopPropagation();
                       const key = `${row.id}-${col.id}`;
-                      const justFocused = justFocusedCellRef.current === key;
                       justFocusedCellRef.current = null;
-                      if (
-                        !justFocused &&
-                        isSelectedCell &&
-                        isSelect(col.type)
-                      ) {
-                        activateCell(row, col);
+                      if (isSelect(col.type)) {
+                        if (armedSelectCellRef.current === key && isSelectedCell) {
+                          clearArmedSelectCell(key);
+                          activateCell(row, col);
+                        } else {
+                          armedSelectCellRef.current = key;
+                          handleCellClick(row, col);
+                          setSelectedCell({ rowId: row.id, columnId: col.id });
+                        }
                       } else {
+                        clearArmedSelectCell();
                         handleCellClick(row, col);
                         setSelectedCell({ rowId: row.id, columnId: col.id });
                       }
@@ -1017,12 +1040,16 @@ export function GridViewTableBody({
                     }}
                     onMouseDown={(e) => {
                       if (e.button === 0) {
+                        if (!isSelect(col.type)) {
+                          clearArmedSelectCell();
+                        }
                         onCellMouseDown(e, row.id, col.id);
                       }
                     }}
                     onMouseEnter={() => onCellMouseEnter(row.id, col.id)}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
+                      clearArmedSelectCell();
                       handleCellClick(row, col);
                       setSelectedCell({ rowId: row.id, columnId: col.id });
                       activateCell(row, col);
@@ -1034,6 +1061,7 @@ export function GridViewTableBody({
                       if (e.target !== e.currentTarget) return;
 
                       if (e.key === "Tab") {
+                        clearArmedSelectCell();
                         e.preventDefault();
                         navigateAdjacentCell(
                           row.id,
@@ -1044,6 +1072,7 @@ export function GridViewTableBody({
                       }
 
                       if (e.key === "Backspace") {
+                        clearArmedSelectCell();
                         e.preventDefault();
                         clearSelectedCellValue(row.id, col.id);
                         return;
@@ -1052,36 +1081,42 @@ export function GridViewTableBody({
                       if (isPlainCharacterKey(e)) {
                         if (!canAppendTypedCharacter(col.type, e.key, isSelect))
                           return;
+                        clearArmedSelectCell();
                         e.preventDefault();
                         beginKeyboardEdit(row, col, e.key);
                         return;
                       }
 
                       if (e.key === "Enter" || e.key === "F2") {
+                        clearArmedSelectCell();
                         e.preventDefault();
                         activateCell(row, col);
                         return;
                       }
 
                       if (e.key === "ArrowLeft") {
+                        clearArmedSelectCell();
                         e.preventDefault();
                         moveSelectionByOffset(row.id, col.id, 0, -1);
                         return;
                       }
 
                       if (e.key === "ArrowRight") {
+                        clearArmedSelectCell();
                         e.preventDefault();
                         moveSelectionByOffset(row.id, col.id, 0, 1);
                         return;
                       }
 
                       if (e.key === "ArrowUp") {
+                        clearArmedSelectCell();
                         e.preventDefault();
                         moveSelectionByOffset(row.id, col.id, -1, 0);
                         return;
                       }
 
                       if (e.key === "ArrowDown") {
+                        clearArmedSelectCell();
                         e.preventDefault();
                         moveSelectionByOffset(row.id, col.id, 1, 0);
                       }

@@ -27,6 +27,7 @@ const OPTION_BG_OVERRIDES: Record<string, string> = {
   "In progress": "#ffeab6",
   Done: "#cff5d1",
 };
+const SELECT_OPTION_PILL_MAX_WIDTH_PX = 150;
 
 function optionBg(label: string, color: string): string {
   return OPTION_BG_OVERRIDES[label] ?? `${color}40`;
@@ -344,10 +345,15 @@ export function SelectCell({
               return (
                 <span
                   key={lbl}
-                  className="shrink-0 truncate rounded-full px-2 py-0 text-[13px] leading-[22px] text-[#1d1f25]"
-                  style={{ background: optionBg(lbl, opt?.color ?? "#166254") }}
+                  className="inline-flex max-w-full min-w-0 shrink items-center overflow-hidden rounded-full px-2 py-0 text-[13px] leading-[22px] text-[#1d1f25]"
+                  style={{
+                    background: optionBg(lbl, opt?.color ?? "#166254"),
+                    maxWidth: SELECT_OPTION_PILL_MAX_WIDTH_PX,
+                  }}
                 >
-                  <SearchHighlightedText text={lbl} query={searchQuery} />
+                  <span className="block truncate">
+                    <SearchHighlightedText text={lbl} query={searchQuery} />
+                  </span>
                 </span>
               );
             })
@@ -439,10 +445,13 @@ export function SelectCell({
                 className="mb-1 flex w-full items-center rounded px-3 py-1 text-left hover:bg-[#e8edf5]"
               >
                 <span
-                  className="rounded-full px-3 py-1 text-[13px] leading-5 text-[#1d1f25]"
-                  style={{ background: optionBg(opt.label, opt.color) }}
+                  className="inline-flex max-w-full min-w-0 items-center overflow-hidden rounded-full px-3 py-1 text-[13px] leading-5 text-[#1d1f25]"
+                  style={{
+                    background: optionBg(opt.label, opt.color),
+                    maxWidth: SELECT_OPTION_PILL_MAX_WIDTH_PX,
+                  }}
                 >
-                  {opt.label}
+                  <span className="block truncate">{opt.label}</span>
                 </span>
               </button>
             ))}

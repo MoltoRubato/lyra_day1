@@ -814,8 +814,8 @@ export function FilterPanel({
       >
         <div className="flex min-w-0">
           <div
-            className="flex items-center px-1"
-            style={{ width: "4.5rem", paddingBottom: "0.5rem" }}
+            className="flex items-start px-1"
+            style={{ width: "4.5rem", paddingTop: "0.25rem" }}
           >
             {renderPrefix(parentGroup, index)}
           </div>
@@ -954,8 +954,8 @@ export function FilterPanel({
       >
         <div className="flex min-w-0">
           <div
-            className="flex items-center px-1"
-            style={{ width: "4.5rem", paddingBottom: "0.5rem" }}
+            className="flex items-start px-1"
+            style={{ width: "4.5rem", paddingTop: "0.25rem" }}
           >
             {renderPrefix(parentGroup, index)}
           </div>

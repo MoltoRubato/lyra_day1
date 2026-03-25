@@ -512,12 +512,22 @@ export default function BasePage({
   function handleRenameTable(tableId: string, name: string) {
     renameTable.mutate({ tableId, name });
   }
+  function handleUpdateRecordLabel(tableId: string, label: string) {
+    setRecordLabels((prev) => ({ ...prev, [tableId]: label }));
+  }
   function handleDeleteTable(tableId: string) {
     if ((activeTableId ?? base?.tables[0]?.id) === tableId)
       setActiveTableId(null);
     deleteTable.mutate({ tableId });
   }
-  function handleCreateTable(name: string, recordLabel?: string) {
+  function handleCreateTable(
+    name: string,
+    recordLabel?: string,
+    callbacks?: {
+      onCreated?: (table: { id: string; name: string }) => void;
+      onError?: () => void;
+    },
+  ) {
     if (recordLabel) pendingRecordLabel.current = { name, label: recordLabel };
     createTable.mutate(
       { baseId, name },
@@ -530,7 +540,9 @@ export default function BasePage({
             pendingRecordLabel.current = null;
             setRecordLabels((prev) => ({ ...prev, [t.id]: pending.label }));
           }
+          callbacks?.onCreated?.({ id: t.id, name: t.name });
         },
+        onError: () => callbacks?.onError?.(),
       },
     );
   }
@@ -743,6 +755,7 @@ export default function BasePage({
               setActiveViewId(null);
             }}
             onRenameTable={handleRenameTable}
+            onUpdateRecordLabel={handleUpdateRecordLabel}
             onDeleteTable={handleDeleteTable}
             onCreateTable={handleCreateTable}
             currentRecordLabel={getRecordLabel(currentTableId) ?? "Record"}
@@ -797,7 +810,7 @@ export default function BasePage({
           )}
 
           {/* ── Body ──────────────────────────────────────────────────────────── */}
-          <div className="relative z-0 flex flex-1 overflow-hidden">
+          <div className="relative flex flex-1 overflow-hidden">
             <ViewSidebar
               open={viewSidebarOpen}
               views={views}

@@ -1,17 +1,12 @@
 "use client";
-import { useMemo, useState } from "react";
+
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AirtableAssetIcon } from "~/app/_components/AirtableAssetIcon";
 import {
   getBaseTableBarBorderColor,
   getBaseTableBarColor,
 } from "~/app/_components/baseAppearanceColors";
-
-function tabBarBg(hex: string): string {
-  return getBaseTableBarColor(hex);
-}
-function tabBarBorder(hex: string): string {
-  return getBaseTableBarBorderColor(hex);
-}
 
 type TableTabsBarProps = {
   baseColor: string;
@@ -19,14 +14,166 @@ type TableTabsBarProps = {
   currentTableId: string | null;
   onSelectTable: (tableId: string) => void;
   onRenameTable: (tableId: string, name: string) => void;
+  onUpdateRecordLabel: (tableId: string, recordLabel: string) => void;
   onDeleteTable: (tableId: string) => void;
-  onCreateTable: (name: string, recordLabel?: string) => void;
+  onCreateTable: (
+    name: string,
+    recordLabel?: string,
+    callbacks?: {
+      onCreated?: (table: { id: string; name: string }) => void;
+      onError?: () => void;
+    },
+  ) => void;
   currentRecordLabel: string;
 };
 
 type AnchorRect = { left: number; top: number; width: number; height: number };
 
-function CenteredTabIcon({
+type TableSetupState = {
+  mode: "create" | "rename";
+  anchor: AnchorRect;
+  tableId: string | null;
+  name: string;
+  recordLabel: string;
+  originalName: string;
+  originalRecordLabel: string;
+  creating: boolean;
+};
+
+type AddSourceItem = {
+  key: string;
+  label: string;
+  badge?: "Team" | "Business";
+  chevron?: boolean;
+  icon:
+    | { kind: "asset"; asset: number; width: number; height: number }
+    | { kind: "image"; src: string; alt: string };
+};
+
+const SYSTEM_FONT_STACK =
+  '-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
+const MENU_WIDTH = 280;
+const TABLE_SETUP_WIDTH = 299;
+const RECORD_LABEL_OPTIONS = ["Record", "Item", "Event", "Row"] as const;
+const MENU_SHADOW =
+  "0 12px 28px rgba(15,23,42,0.18), 0 2px 8px rgba(15,23,42,0.12)";
+const PANEL_SHADOW =
+  "0 16px 36px rgba(15,23,42,0.18), 0 2px 6px rgba(15,23,42,0.1)";
+const ADD_SOURCE_ITEMS: AddSourceItem[] = [
+  {
+    key: "airtable-base",
+    label: "Airtable base",
+    badge: "Team",
+    icon: {
+      kind: "image",
+      src: "/airtable_assets/AirtableLogoPNG.png",
+      alt: "Airtable base",
+    },
+  },
+  {
+    key: "csv-file",
+    label: "CSV file",
+    icon: { kind: "asset", asset: 278, width: 16, height: 16 },
+  },
+  {
+    key: "google-calendar",
+    label: "Google Calendar",
+    badge: "Team",
+    icon: {
+      kind: "image",
+      src: "/airtable_assets/Gcal.png",
+      alt: "Google Calendar",
+    },
+  },
+  {
+    key: "google-sheets",
+    label: "Google Sheets",
+    icon: {
+      kind: "image",
+      src: "/airtable_assets/gsheets.png",
+      alt: "Google Sheets",
+    },
+  },
+  {
+    key: "excel",
+    label: "Microsoft Excel",
+    icon: {
+      kind: "image",
+      src: "/airtable_assets/excel.png",
+      alt: "Microsoft Excel",
+    },
+  },
+  {
+    key: "salesforce",
+    label: "Salesforce",
+    badge: "Business",
+    icon: {
+      kind: "image",
+      src: "/airtable_assets/salesforce.png",
+      alt: "Salesforce",
+    },
+  },
+  {
+    key: "24-more-sources",
+    label: "24 more sources...",
+    chevron: true,
+    icon: { kind: "asset", asset: 389, width: 14, height: 12 },
+  },
+];
+
+function tabBarBg(hex: string) {
+  return getBaseTableBarColor(hex);
+}
+
+function tabBarBorder(hex: string) {
+  return getBaseTableBarBorderColor(hex);
+}
+
+function clampPosition(value: number, width: number) {
+  if (typeof window === "undefined") return value;
+  return Math.max(12, Math.min(value, window.innerWidth - width - 12));
+}
+
+function getAnchorRect(element: HTMLElement | null): AnchorRect | null {
+  if (!element) return null;
+  const rect = element.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function DownArrowIcon() {
+  return (
+    <span className="inline-flex h-4 w-4 items-center justify-center">
+      <AirtableAssetIcon asset={349} alt="" style={{ width: 9, height: 5 }} />
+    </span>
+  );
+}
+
+function RightChevronIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path
+        d="M6 4.5L9.5 8L6 11.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CenteredAssetIcon({
   asset,
   width,
   height,
@@ -42,12 +189,55 @@ function CenteredTabIcon({
   );
 }
 
-function DownArrowIcon() {
+function MenuHeading({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex h-4 w-4 items-center justify-center">
-      <AirtableAssetIcon asset={349} alt="" style={{ width: 9, height: 5 }} />
+    <li
+      role="presentation"
+      className="mx-2 mb-[2px] truncate text-[11px] leading-[16.5px] text-[#616670]"
+      style={{ width: 248, fontFamily: SYSTEM_FONT_STACK }}
+    >
+      {children}
+    </li>
+  );
+}
+
+function MenuDivider() {
+  return <li role="presentation" className="mx-2 my-1 h-px bg-[#e5e8ee]" />;
+}
+
+function Badge({
+  label,
+  beta = false,
+}: {
+  label: string;
+  beta?: boolean;
+}) {
+  if (beta) {
+    return (
+      <span className="ml-2 inline-flex h-6 items-center rounded-full bg-[#f6df9c] px-2.5 text-[11px] text-[#8a5f00]">
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className="ml-2 inline-flex h-6 items-center rounded-full bg-[#d6efff] px-2.5 text-[11px] text-[#126aa3]">
+      <span className="mr-1 inline-flex h-3 w-3 items-center justify-center">
+        <AirtableAssetIcon asset={127} alt="" style={{ width: 9, height: 9 }} tintColor="currentColor" />
+      </span>
+      {label}
     </span>
   );
+}
+
+function lowerRecordLabel(label: string) {
+  const normalized = label.trim() || "Record";
+  return normalized.charAt(0).toLowerCase() + normalized.slice(1);
+}
+
+function pluralRecordLabel(label: string) {
+  const singular = lowerRecordLabel(label);
+  return singular.endsWith("s") ? singular : `${singular}s`;
 }
 
 export function TableTabsBar({
@@ -56,6 +246,7 @@ export function TableTabsBar({
   currentTableId,
   onSelectTable,
   onRenameTable,
+  onUpdateRecordLabel,
   onDeleteTable,
   onCreateTable,
   currentRecordLabel,
@@ -64,27 +255,54 @@ export function TableTabsBar({
     id: string;
     value: string;
   } | null>(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [scratchOpen, setScratchOpen] = useState(false);
   const [tableSearchOpen, setTableSearchOpen] = useState(false);
   const [tableMenuOpen, setTableMenuOpen] = useState(false);
-  const [tableMenuAnchor, setTableMenuAnchor] = useState<AnchorRect | null>(
-    null,
-  );
-  const [tableSearchAnchor, setTableSearchAnchor] = useState<AnchorRect | null>(
-    null,
-  );
-  const [addMenuAnchor, setAddMenuAnchor] = useState<AnchorRect | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [tableSetup, setTableSetup] = useState<TableSetupState | null>(null);
+  const [recordLabelMenuOpen, setRecordLabelMenuOpen] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
-  const [newTableName, setNewTableName] = useState("");
-  const [recordLabel, setRecordLabel] = useState("Record");
+  const [tableMenuAnchor, setTableMenuAnchor] = useState<AnchorRect | null>(null);
+  const [tableSearchAnchor, setTableSearchAnchor] = useState<AnchorRect | null>(null);
+  const [addMenuAnchor, setAddMenuAnchor] = useState<AnchorRect | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const tableNameInputRef = useRef<HTMLInputElement | null>(null);
+  const recordLabelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  const suggestedName = useMemo(() => {
-    return `Table ${tables.length + 1}`;
-  }, [tables.length]);
   const showAddOrImportLabel = tables.length <= 3;
+  const suggestedName = useMemo(() => `Table ${tables.length + 1}`, [tables.length]);
+  const filteredTables = tableSearch.trim()
+    ? tables.filter((table) =>
+        table.name.toLowerCase().includes(tableSearch.toLowerCase()),
+      )
+    : tables;
 
-  function commitTableRename() {
+  const searchLeft = tableSearchAnchor
+    ? clampPosition(tableSearchAnchor.left - 120, 360)
+    : 12;
+  const addMenuLeft = addMenuAnchor
+    ? clampPosition(addMenuAnchor.left, MENU_WIDTH)
+    : 12;
+  const menuLeft = tableMenuAnchor
+    ? clampPosition(tableMenuAnchor.left, MENU_WIDTH)
+    : 12;
+  const tableSetupLeft = tableSetup
+    ? clampPosition(tableSetup.anchor.left, TABLE_SETUP_WIDTH)
+    : 12;
+  const tableSetupTop = tableSetup
+    ? tableSetup.anchor.top + tableSetup.anchor.height + 10
+    : 0;
+
+  useEffect(() => {
+    if (!tableSetup) return;
+    const frame = requestAnimationFrame(() => {
+      tableNameInputRef.current?.focus();
+      tableNameInputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tableSetup]);
+
+  function commitInlineRename() {
     if (!renamingTable?.value.trim()) {
       setRenamingTable(null);
       return;
@@ -93,56 +311,95 @@ export function TableTabsBar({
     setRenamingTable(null);
   }
 
+  function closeTableSetup() {
+    setTableSetup(null);
+    setRecordLabelMenuOpen(false);
+  }
+
+  function openAddMenuFromButton() {
+    const anchor = getAnchorRect(addButtonRef.current);
+    if (!anchor) return;
+    setAddMenuAnchor(anchor);
+    setTableSearchOpen(false);
+    setAddMenuOpen(true);
+  }
+
   function openStartFromScratch() {
+    const anchor = addMenuAnchor ?? getAnchorRect(addButtonRef.current);
+    if (!anchor) return;
     setAddMenuOpen(false);
-    setScratchOpen(true);
-    setNewTableName(suggestedName);
-    setRecordLabel(currentRecordLabel || "Record");
+    setRecordLabelMenuOpen(false);
+    setTableSetup({
+      mode: "create",
+      anchor,
+      tableId: null,
+      name: suggestedName,
+      recordLabel: "Record",
+      originalName: suggestedName,
+      originalRecordLabel: "Record",
+      creating: true,
+    });
+    onCreateTable(suggestedName, "Record", {
+      onCreated: (table) => {
+        setTableSetup((prev) =>
+          prev?.mode === "create"
+            ? {
+                ...prev,
+                tableId: table.id,
+                creating: false,
+                originalName: table.name,
+                originalRecordLabel: "Record",
+              }
+            : prev,
+        );
+      },
+      onError: () => {
+        setTableSetup((prev) =>
+          prev?.mode === "create" ? { ...prev, creating: false } : prev,
+        );
+      },
+    });
   }
 
-  function handleCreateTable() {
-    if (!newTableName.trim()) return;
-    onCreateTable(newTableName.trim(), recordLabel);
-    setScratchOpen(false);
-    setNewTableName("");
+  function openRenameSetup(tableId: string) {
+    const table = tables.find((entry) => entry.id === tableId);
+    const anchor =
+      getAnchorRect(tabButtonRefs.current[tableId] ?? null) ?? tableMenuAnchor;
+    if (!table || !anchor) return;
+    setTableMenuOpen(false);
+    setRecordLabelMenuOpen(false);
+    setTableSetup({
+      mode: "rename",
+      anchor,
+      tableId,
+      name: table.name,
+      recordLabel: currentRecordLabel || "Record",
+      originalName: table.name,
+      originalRecordLabel: currentRecordLabel || "Record",
+      creating: false,
+    });
   }
 
-  const filteredTables = tableSearch.trim()
-    ? tables.filter((t) =>
-        t.name.toLowerCase().includes(tableSearch.toLowerCase()),
-      )
-    : tables;
-
-  const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const minMenuLeft = 68;
-  const clamp = (n: number, min: number, max: number) =>
-    Math.max(min, Math.min(max, n));
-  const searchMenuWidth = 360;
-  const addMenuWidth = 280;
-  const searchLeft = tableSearchAnchor
-    ? clamp(
-        tableSearchAnchor.left - 120,
-        minMenuLeft,
-        viewportW - searchMenuWidth - 12,
-      )
-    : minMenuLeft;
-  const addMenuLeft = addMenuAnchor
-    ? clamp(
-        addMenuAnchor.left + addMenuAnchor.width - addMenuWidth,
-        minMenuLeft,
-        viewportW - addMenuWidth - 12,
-      )
-    : minMenuLeft;
-  const menuWidth = 280;
-  const menuLeft = tableMenuAnchor
-    ? clamp(tableMenuAnchor.left, minMenuLeft, viewportW - menuWidth - 12)
-    : minMenuLeft;
-  const tabDividerColor = tabBarBorder(baseColor);
+  function saveTableSetup() {
+    if (!tableSetup) return;
+    const nextName = tableSetup.name.trim();
+    if (!nextName || !tableSetup.tableId || tableSetup.creating) return;
+    if (nextName !== tableSetup.originalName) {
+      onRenameTable(tableSetup.tableId, nextName);
+    }
+    if (tableSetup.recordLabel !== tableSetup.originalRecordLabel) {
+      onUpdateRecordLabel(tableSetup.tableId, tableSetup.recordLabel);
+    }
+    closeTableSetup();
+  }
 
   return (
     <div
       className="relative box-border flex h-8 min-h-8 flex-shrink-0 items-center overflow-hidden pr-2 pl-0"
-      style={{ background: tabBarBg(baseColor) }}
+      style={{
+        background: tabBarBg(baseColor),
+        fontFamily: SYSTEM_FONT_STACK,
+      }}
     >
       {tables.map((table) => {
         const isActive = currentTableId === table.id;
@@ -155,25 +412,31 @@ export function TableTabsBar({
                 ? "z-10 -mt-px -mb-px rounded-tr border-t border-r border-[#d8d8d8] bg-white"
                 : "border-r"
             }`}
-            style={isActive ? undefined : { borderRightColor: tabDividerColor }}
+            style={isActive ? undefined : { borderRightColor: tabBarBorder(baseColor) }}
           >
             {isRenaming ? (
               <input
                 autoFocus
                 value={renamingTable.value}
                 className="mx-2 my-1 w-28 rounded border border-[#0069ff] bg-white px-2 py-0.5 text-[13px] outline-none"
-                onChange={(e) =>
-                  setRenamingTable({ ...renamingTable, value: e.target.value })
+                onChange={(event) =>
+                  setRenamingTable({
+                    ...renamingTable,
+                    value: event.target.value,
+                  })
                 }
-                onBlur={commitTableRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitTableRename();
-                  if (e.key === "Escape") setRenamingTable(null);
+                onBlur={commitInlineRename}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") commitInlineRename();
+                  if (event.key === "Escape") setRenamingTable(null);
                 }}
               />
             ) : (
               <div className="box-border flex h-8 min-h-8 items-center">
                 <button
+                  ref={(node) => {
+                    tabButtonRefs.current[table.id] = node;
+                  }}
                   onClick={() => onSelectTable(table.id)}
                   onDoubleClick={() =>
                     setRenamingTable({ id: table.id, value: table.name })
@@ -186,243 +449,30 @@ export function TableTabsBar({
                 >
                   {table.name}
                 </button>
-                {isActive && (
+                {isActive ? (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = (
-                        e.currentTarget as HTMLButtonElement
-                      ).getBoundingClientRect();
-                      setTableMenuAnchor({
-                        left: rect.left - 120,
-                        top: rect.top,
-                        width: rect.width,
-                        height: rect.height,
-                      });
-                      setTableMenuOpen((p) => !p);
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setTableMenuAnchor(getAnchorRect(event.currentTarget));
+                      setTableMenuOpen((open) => !open);
                     }}
                     className="mr-2 inline-flex h-4 w-4 items-center justify-center text-[#6b6b6b] hover:text-[#444]"
                     title="Table options"
                   >
                     <DownArrowIcon />
                   </button>
-                )}
+                ) : null}
               </div>
             )}
           </div>
         );
       })}
 
-      {tableMenuOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-20"
-            onClick={() => setTableMenuOpen(false)}
-          />
-          <div
-            className="fixed z-30 w-[280px] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white text-[13px] shadow-xl"
-            style={{
-              left: menuLeft,
-              top:
-                (tableMenuAnchor?.top ?? 0) +
-                (tableMenuAnchor?.height ?? 0) +
-                8,
-            }}
-          >
-            <div className="max-h-[360px] overflow-y-auto">
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <circle cx="8" cy="8" r="6" />
-                  <path d="M8 4v4l2 2" strokeLinecap="round" />
-                </svg>
-                Import data
-                <span className="ml-auto text-[#bbb]">
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path d="M3 2l4 3-4 3" />
-                  </svg>
-                </span>
-              </button>
-              <div className="my-1 border-t border-[#f0f0f0]" />
-              <button
-                onClick={() => {
-                  const activeId = currentTableId ?? "";
-                  const active = tables.find((t) => t.id === activeId);
-                  if (active)
-                    setRenamingTable({ id: active.id, value: active.name });
-                  setTableMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <path
-                    d="M10.5 2.5L13.5 5.5L6 13H3V10L10.5 2.5Z"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                Rename table
-              </button>
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <path d="M2 8s3-4 6-4 6 4 6 4-3 4-6 4-6-4-6-4Z" />
-                  <circle cx="8" cy="8" r="1.8" />
-                  <path d="M3 3l10 10" strokeLinecap="round" />
-                </svg>
-                Hide table
-              </button>
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <path d="M3 4h10M3 8h6M3 12h8" strokeLinecap="round" />
-                  <path d="M11 7v6M9 9h4" strokeLinecap="round" />
-                </svg>
-                Manage fields
-              </button>
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <rect x="2" y="2" width="8" height="8" rx="1" />
-                  <rect x="6" y="6" width="8" height="8" rx="1" />
-                </svg>
-                Duplicate table
-              </button>
-              <div className="my-1 border-t border-[#f0f0f0]" />
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <path d="M3 8h10M8 3v10" strokeLinecap="round" />
-                  <path d="M12 12l2 2" strokeLinecap="round" />
-                </svg>
-                Configure date dependencies
-              </button>
-              <div className="my-1 border-t border-[#f0f0f0]" />
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <circle cx="8" cy="8" r="6" />
-                  <path d="M8 5v6M5 8h6" strokeLinecap="round" />
-                </svg>
-                Edit table description
-              </button>
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <rect x="3" y="7" width="10" height="7" rx="1.5" />
-                  <path d="M5 7V5a3 3 0 016 0v2" />
-                </svg>
-                Edit table permissions
-              </button>
-              <div className="my-1 border-t border-[#f0f0f0]" />
-              <button className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-[#f8f8f8]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
-                </svg>
-                Clear data
-              </button>
-              <button
-                onClick={() => {
-                  if (currentTableId) onDeleteTable(currentTableId);
-                  setTableMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-red-500 hover:bg-[#fef2f2]"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                >
-                  <path
-                    d="M4 5l1 9h6l1-9M3 5h10M6 5V3h4v2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                Delete table
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
       <div className="relative ml-1 flex-shrink-0">
         <button
-          onClick={(e) => {
-            const rect = (
-              e.currentTarget as HTMLButtonElement
-            ).getBoundingClientRect();
-            setTableSearchAnchor({
-              left: rect.left,
-              top: rect.top,
-              width: rect.width,
-              height: rect.height,
-            });
-            setTableSearchOpen((p) => !p);
+          onClick={(event) => {
+            setTableSearchAnchor(getAnchorRect(event.currentTarget));
+            setTableSearchOpen((open) => !open);
           }}
           className="inline-flex h-7 w-7 items-center justify-center rounded text-[#444] transition-colors hover:bg-black/10"
           title="Switch table"
@@ -430,12 +480,9 @@ export function TableTabsBar({
           <DownArrowIcon />
         </button>
 
-        {tableSearchOpen && (
+        {tableSearchOpen ? (
           <>
-            <div
-              className="fixed inset-0 z-20"
-              onClick={() => setTableSearchOpen(false)}
-            />
+            <div className="fixed inset-0 z-20" onClick={() => setTableSearchOpen(false)} />
             <div
               className="fixed z-30 w-[360px] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl"
               style={{
@@ -447,141 +494,61 @@ export function TableTabsBar({
               }}
             >
               <div className="flex items-center gap-2 border-b border-[#f0f0f0] px-4 py-3 text-[#888]">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <circle cx="7" cy="7" r="4.5" />
                   <path d="M11 11l3 3" strokeLinecap="round" />
                 </svg>
                 <input
                   autoFocus
                   value={tableSearch}
-                  onChange={(e) => setTableSearch(e.target.value)}
+                  onChange={(event) => setTableSearch(event.target.value)}
                   placeholder="Find a table"
                   className="flex-1 text-[13px] text-[#333] placeholder-[#bbb] outline-none"
                 />
               </div>
               <div className="max-h-[300px] overflow-y-auto py-2">
-                {filteredTables.map((table) => {
-                  const isActive = currentTableId === table.id;
-                  return (
-                    <button
-                      key={table.id}
-                      onClick={() => {
-                        onSelectTable(table.id);
-                        setTableSearchOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between px-4 py-2 text-left text-[13px] ${
-                        isActive
-                          ? "bg-[#f5f5f5] font-medium text-[#172b4d]"
-                          : "text-[#333] hover:bg-[#f8f8f8]"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        {isActive && (
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            stroke="#111"
-                            strokeWidth="2"
-                          >
-                            <path
-                              d="M2 6l3 3 5-5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                        <span>{table.name}</span>
-                      </span>
-                      {isActive && (
-                        <span className="flex items-center gap-3 text-[#bbb]">
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 16 16"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.4"
-                          >
-                            <path d="M1.5 8s2.5-3.5 6.5-3.5S14.5 8 14.5 8s-2.5 3.5-6.5 3.5S1.5 8 1.5 8z" />
-                            <circle cx="8" cy="8" r="1.5" />
-                            <path d="M3 3l10 10" strokeLinecap="round" />
-                          </svg>
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 14 14"
-                            fill="currentColor"
-                          >
-                            <circle cx="2" cy="7" r="1.2" />
-                            <circle cx="7" cy="7" r="1.2" />
-                            <circle cx="12" cy="7" r="1.2" />
-                          </svg>
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                {filteredTables.map((table) => (
+                  <button
+                    key={table.id}
+                    onClick={() => {
+                      onSelectTable(table.id);
+                      setTableSearchOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between px-4 py-2 text-left text-[13px] ${
+                      currentTableId === table.id
+                        ? "bg-[#f5f5f5] font-medium text-[#172b4d]"
+                        : "text-[#333] hover:bg-[#f8f8f8]"
+                    }`}
+                  >
+                    <span>{table.name}</span>
+                  </button>
+                ))}
               </div>
               <div className="border-t border-[#f0f0f0]">
                 <button
-                  onClick={() => {
-                    setTableSearchOpen(false);
-                    openStartFromScratch();
-                  }}
+                  onClick={openAddMenuFromButton}
                   className="flex w-full items-center justify-between px-4 py-2 text-[13px] text-[#555] hover:bg-[#f8f8f8]"
                 >
                   <span className="flex items-center gap-2">
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                    >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
                       <path d="M7 2v10M2 7h10" />
                     </svg>
                     Add table
                   </span>
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  >
-                    <path d="M3 2l4 3-4 3" />
-                  </svg>
+                  <RightChevronIcon />
                 </button>
               </div>
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
       <div className="relative ml-1 flex-shrink-0">
         <button
-          onClick={(e) => {
-            const rect = (
-              e.currentTarget as HTMLButtonElement
-            ).getBoundingClientRect();
-            setAddMenuAnchor({
-              left: rect.left,
-              top: rect.top,
-              width: rect.width,
-              height: rect.height,
-            });
-            setAddMenuOpen((p) => !p);
+          ref={addButtonRef}
+          onClick={(event) => {
+            setAddMenuAnchor(getAnchorRect(event.currentTarget));
+            setAddMenuOpen((open) => !open);
           }}
           className={
             showAddOrImportLabel
@@ -589,59 +556,114 @@ export function TableTabsBar({
               : "flex h-7 w-7 items-center justify-center rounded text-[#444] transition-colors hover:bg-black/5 hover:text-[#172b4d]"
           }
           title={showAddOrImportLabel ? "Add or import table" : "Add table"}
-          aria-label={
-            showAddOrImportLabel ? "Add or import table" : "Add table"
-          }
+          aria-label={showAddOrImportLabel ? "Add or import table" : "Add table"}
         >
-          <CenteredTabIcon asset={127} width={12} height={12} />
-          {showAddOrImportLabel && <span>Add or import</span>}
+          <CenteredAssetIcon asset={127} width={12} height={12} />
+          {showAddOrImportLabel ? <span>Add or import</span> : null}
         </button>
-
-        {addMenuOpen && (
+        {addMenuOpen ? (
           <>
+            <div className="fixed inset-0 z-[135]" onClick={() => setAddMenuOpen(false)} />
             <div
-              className="fixed inset-0 z-20"
-              onClick={() => setAddMenuOpen(false)}
-            />
-            <div
-              className="fixed z-30 w-[280px] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white text-[13px] shadow-xl"
+              role="dialog"
+              tabIndex={-1}
+              className="fixed z-[145] overflow-hidden rounded-[16px] border border-[#d8dce4] bg-white"
               style={{
                 left: addMenuLeft,
                 top:
-                  (addMenuAnchor?.top ?? 0) + (addMenuAnchor?.height ?? 0) + 8,
+                  (addMenuAnchor?.top ?? 0) +
+                  (addMenuAnchor?.height ?? 0) +
+                  8,
+                width: MENU_WIDTH,
+                minWidth: MENU_WIDTH,
+                boxShadow: MENU_SHADOW,
               }}
             >
-              <div className="px-4 pt-3 text-[13px] text-[#999]">
-                Add a blank table
-              </div>
-              <button
-                onClick={openStartFromScratch}
-                className="w-full px-4 py-3 text-left font-medium hover:bg-[#f8f8f8]"
-              >
-                Start from scratch
-              </button>
-              <div className="my-1 border-t border-[#f0f0f0]" />
-              <div className="px-4 py-2 text-[11px] text-[#999] uppercase">
-                Add from other sources
-              </div>
-              {[
-                "Airtable base",
-                "CSV file",
-                "Google Calendar",
-                "Google Sheets",
-                "Microsoft Excel",
-                "Salesforce",
-              ].map((label) => (
-                <button
-                  key={label}
-                  className="w-full px-4 py-2 text-left text-[#444] hover:bg-[#f8f8f8]"
-                >
-                  {label}
-                </button>
-              ))}
+              <ul role="menu" tabIndex={-1} className="p-2">
+                <MenuHeading>Add a blank table</MenuHeading>
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={openStartFromScratch}
+                    className="flex h-[34px] w-full items-center rounded-[3px] px-2 text-left text-[13px] text-[#1d1f25] hover:bg-black/[0.05]"
+                  >
+                    <span className="truncate flex-1">Start from scratch</span>
+                  </button>
+                </li>
+                <MenuDivider />
+                <MenuHeading>Build with Omni</MenuHeading>
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    className="flex h-[34px] w-full items-center rounded-[3px] px-2 text-left text-[13px] text-[#1d1f25] hover:bg-black/[0.05]"
+                  >
+                    <span className="truncate flex-1">New table</span>
+                  </button>
+                </li>
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    className="flex h-[34px] w-full items-center rounded-[3px] px-2 text-left text-[13px] text-[#1d1f25] hover:bg-black/[0.05]"
+                  >
+                    <span className="flex min-w-0 flex-1 items-center justify-between">
+                      <span className="truncate">New table with web data</span>
+                      <Badge label="Beta" beta />
+                    </span>
+                  </button>
+                </li>
+                <MenuDivider />
+                <MenuHeading>Add from other sources</MenuHeading>
+                {ADD_SOURCE_ITEMS.map((item) => (
+                  <li key={item.key} role="none">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      tabIndex={-1}
+                      className="flex h-[34px] w-full items-center rounded-[3px] px-2 text-left text-[13px] text-[#1d1f25] hover:bg-black/[0.05]"
+                    >
+                      <span className="mr-1.5 inline-flex h-4 w-4 flex-none items-center justify-center text-[#1d1f25]">
+                        {item.icon.kind === "asset" ? (
+                          <AirtableAssetIcon
+                            asset={item.icon.asset}
+                            alt=""
+                            style={{
+                              width: item.icon.width,
+                              height: item.icon.height,
+                            }}
+                          />
+                        ) : (
+                          <Image
+                            src={item.icon.src}
+                            alt={item.icon.alt}
+                            width={16}
+                            height={16}
+                            unoptimized
+                            className="h-4 w-4 object-contain"
+                          />
+                        )}
+                      </span>
+                      <span className="flex min-w-0 flex-1 items-center justify-between">
+                        <span className="truncate">{item.label}</span>
+                        {item.badge ? <Badge label={item.badge} /> : null}
+                        {item.chevron ? (
+                          <span className="ml-auto inline-flex flex-none items-center text-[#8f96a3]">
+                            <RightChevronIcon />
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
       <div className="ml-auto flex-shrink-0">
@@ -651,99 +673,209 @@ export function TableTabsBar({
         </button>
       </div>
 
-      {scratchOpen && (
+      {tableMenuOpen ? (
         <>
+          <div className="fixed inset-0 z-[135]" onClick={() => setTableMenuOpen(false)} />
           <div
-            className="fixed inset-0 z-30 bg-black/20"
-            onClick={() => setScratchOpen(false)}
-          />
-          <div className="fixed top-1/2 left-1/2 z-40 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#e0e0e0] bg-white p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <input
-                value={newTableName}
-                onChange={(e) => setNewTableName(e.target.value)}
-                className="flex-1 rounded border border-[#2d7ff9] px-2 py-1 text-[18px] font-semibold text-[#172b4d] outline-none"
-              />
+            className="fixed z-[145] w-[280px] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl"
+            style={{
+              left: menuLeft,
+              top:
+                (tableMenuAnchor?.top ?? 0) +
+                (tableMenuAnchor?.height ?? 0) +
+                8,
+            }}
+          >
+            <div className="py-1 text-[13px] text-[#1d1f25]">
               <button
-                onClick={() => setScratchOpen(false)}
-                className="ml-2 text-[#bbb] hover:text-[#555]"
+                onClick={() => {
+                  if (currentTableId) openRenameSetup(currentTableId);
+                }}
+                className="flex h-9 w-full items-center px-4 text-left hover:bg-[#f8f8f8]"
               >
-                x
+                Rename table
               </button>
-            </div>
-            <div className="mb-2 text-[13px] text-[#666]">
-              What should each record be called?
-            </div>
-            <div className="relative mb-4">
-              <select
-                value={recordLabel}
-                onChange={(e) => setRecordLabel(e.target.value)}
-                className="w-full appearance-none rounded border border-[#e0e0e0] bg-white px-3 py-2 pr-8 text-[13px] text-[#444]"
+              <button className="flex h-9 w-full items-center px-4 text-left hover:bg-[#f8f8f8]">
+                Hide table
+              </button>
+              <button className="flex h-9 w-full items-center px-4 text-left hover:bg-[#f8f8f8]">
+                Duplicate table
+              </button>
+              <div className="my-1 border-t border-[#f0f0f0]" />
+              <button
+                onClick={() => {
+                  if (currentTableId) onDeleteTable(currentTableId);
+                  setTableMenuOpen(false);
+                }}
+                className="flex h-9 w-full items-center px-4 text-left text-red-500 hover:bg-[#fef2f2]"
               >
-                <option>Record</option>
-                <option>Item</option>
-                <option>Event</option>
-                <option>Row</option>
-              </select>
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                stroke="#999"
-                strokeWidth="1.5"
-                className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2"
-              >
-                <path d="M2.5 4l2.5 2.5L7.5 4" />
-              </svg>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 text-[13px] text-[#888]">
-                <span className="flex items-center gap-1.5">
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  >
-                    <path d="M6 1v10M1 6h10" />
-                  </svg>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                  >
-                    <path d="M2 4h12v8H2z" />
-                    <path d="M2 5l6 4 6-4" />
-                  </svg>
-                  Send records
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setScratchOpen(false)}
-                  className="px-2 py-1 text-[13px] text-[#555]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateTable}
-                  className="rounded bg-[#2d7ff9] px-4 py-1.5 text-[13px] text-white hover:bg-[#2569d4]"
-                >
-                  Save
-                </button>
-              </div>
+                Delete table
+              </button>
             </div>
           </div>
         </>
-      )}
+      ) : null}
+
+      {tableSetup ? (
+        <>
+          <div className="fixed inset-0 z-[145]" onClick={closeTableSetup} />
+          <div
+            className="fixed z-[155] rounded-[10px] border border-[#d8dce4] bg-white p-4"
+            style={{
+              left: tableSetupLeft,
+              top: tableSetupTop,
+              width: TABLE_SETUP_WIDTH,
+              boxShadow: PANEL_SHADOW,
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex justify-center">
+              <input
+                ref={tableNameInputRef}
+                aria-label="Table name editor"
+                type="text"
+                maxLength={255}
+                value={tableSetup.name}
+                onChange={(event) =>
+                  setTableSetup((prev) =>
+                    prev ? { ...prev, name: event.target.value } : prev,
+                  )
+                }
+                className="mb-4 h-[38px] w-full rounded-[12px] border-2 border-[#166ee1] px-2 py-2 text-[18px] leading-[22px] text-[#1d1f25] outline-none"
+              />
+            </div>
+            <div className="mb-2 flex items-center justify-between">
+              <h5 className="text-[14px] font-normal text-[#1d1f25]">
+                What should each record be called?
+              </h5>
+              <a
+                href="https://support.airtable.com/docs/customizing-terminology-used-for-records-in-a-table"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[#6f7782]"
+              >
+                <AirtableAssetIcon
+                  asset={118}
+                  alt=""
+                  style={{ width: 13, height: 13 }}
+                  tintColor="currentColor"
+                />
+              </a>
+            </div>
+            <div className="relative mb-3">
+              <button
+                ref={recordLabelButtonRef}
+                type="button"
+                aria-expanded={recordLabelMenuOpen}
+                onClick={() => setRecordLabelMenuOpen((open) => !open)}
+                className="flex h-[42px] w-full items-center rounded-[12px] bg-[#f2f4f8] px-3 text-left"
+                style={{
+                  boxShadow: recordLabelMenuOpen
+                    ? "inset 0 0 0 2px #166ee1"
+                    : "inset 0 0 0 1px #e2e7f0",
+                }}
+              >
+                <span className="truncate flex-1 text-[15px] text-[#616670]">
+                  {tableSetup.recordLabel}
+                </span>
+                <span className="ml-2 inline-flex h-4 w-4 flex-none items-center justify-center text-[#6f7782]">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path
+                      d="M4.5 6L8 9.5L11.5 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+            </div>
+            <div className="mb-6 flex items-center whitespace-nowrap text-[13px] text-[#616670]">
+              <div className="mr-4 shrink-0">Examples:</div>
+              <div className="flex min-w-0 flex-nowrap items-center gap-4">
+                <div className="inline-flex shrink-0 items-center">
+                  <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center">
+                    <AirtableAssetIcon
+                      asset={127}
+                      alt=""
+                      style={{ width: 12, height: 12 }}
+                      tintColor="#616670"
+                    />
+                  </span>
+                  {`Add ${lowerRecordLabel(tableSetup.recordLabel)}`}
+                </div>
+                <div className="inline-flex shrink-0 items-center">
+                  <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center">
+                    <AirtableAssetIcon
+                      asset={289}
+                      alt=""
+                      style={{ width: 13, height: 10 }}
+                      tintColor="#616670"
+                    />
+                  </span>
+                  {`Send ${pluralRecordLabel(tableSetup.recordLabel)}`}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeTableSetup}
+                className="inline-flex h-7 items-center justify-center px-2 text-[13px] text-[#1d1f25]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveTableSetup}
+                disabled={
+                  tableSetup.creating ||
+                  !tableSetup.tableId ||
+                  !tableSetup.name.trim()
+                }
+                className="inline-flex h-7 items-center justify-center rounded-[12px] bg-[#166ee1] px-4 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.18)] disabled:cursor-default disabled:opacity-70"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+
+          {recordLabelMenuOpen ? (
+            <>
+              <div className="fixed inset-0 z-[155]" onClick={() => setRecordLabelMenuOpen(false)} />
+              <div
+                className="fixed z-[165] overflow-hidden rounded-[12px] border border-[#d8dce4] bg-white py-1"
+                style={{
+                  left: clampPosition(
+                    recordLabelButtonRef.current?.getBoundingClientRect().left ?? tableSetupLeft,
+                    TABLE_SETUP_WIDTH,
+                  ),
+                  top:
+                    (recordLabelButtonRef.current?.getBoundingClientRect().bottom ??
+                      tableSetupTop + 90) + 6,
+                  width: TABLE_SETUP_WIDTH,
+                  boxShadow: MENU_SHADOW,
+                }}
+              >
+                {RECORD_LABEL_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      setTableSetup((prev) =>
+                        prev ? { ...prev, recordLabel: option } : prev,
+                      );
+                      setRecordLabelMenuOpen(false);
+                    }}
+                    className="flex h-[34px] w-full items-center px-3 text-left text-[13px] text-[#1d1f25] hover:bg-black/[0.05]"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

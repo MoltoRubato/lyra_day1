@@ -10,6 +10,7 @@ import type {
   GridCellLocation,
   GridViewTableProps,
   SummaryOption,
+  VisibleColumn,
 } from "~/app/_components/gridView/tableTypes";
 import { FieldTypeIcon } from "~/app/_components/gridView/tableShared";
 import { getActiveFilterFieldIds } from "~/app/_components/tableUtils";
@@ -26,6 +27,112 @@ type ExpandedLongTextCell = GridCellLocation & {
 
 const EXPANDED_LONG_TEXT_WIDTH = 480;
 const EXPANDED_LONG_TEXT_HEIGHT = 482;
+const DEFAULT_FILL_OPTION_COLOR = "#166254";
+const SELECT_FIELD_TYPES = new Set<ColumnType>([
+  "SINGLE_SELECT",
+  "MULTI_SELECT",
+]);
+const TEXT_FILL_TYPES = new Set<ColumnType>([
+  "TEXT",
+  "LONG_TEXT",
+]);
+
+type FillSourceCell = {
+  columnId: string;
+  value: string | null;
+  column: VisibleColumn | null;
+};
+
+type FillColumnUpdate = {
+  columnId: string;
+  type?: ColumnType;
+  ensureOptions: Array<{ label: string; color: string }>;
+};
+
+function isSelectFieldType(type: ColumnType) {
+  return SELECT_FIELD_TYPES.has(type);
+}
+
+function areFillTypesCompatible(sourceType: ColumnType, targetType: ColumnType) {
+  if (sourceType === targetType) return true;
+
+  const sourceIsSelect = isSelectFieldType(sourceType);
+  const targetIsSelect = isSelectFieldType(targetType);
+  const sourceIsText = TEXT_FILL_TYPES.has(sourceType);
+  const targetIsText = TEXT_FILL_TYPES.has(targetType);
+
+  if (sourceIsSelect && targetIsSelect) return true;
+  if (sourceIsText && targetIsSelect) return true;
+  if (sourceIsSelect && targetIsText) return true;
+
+  return false;
+}
+
+function normalizeSelectLabels(value: string | null) {
+  return (value ?? "")
+    .split(",")
+    .map((label) => label.trim())
+    .filter((label) => label.length > 0);
+}
+
+function computeFillTransfer(params: {
+  sourceColumn: VisibleColumn;
+  targetColumn: VisibleColumn;
+  sourceValue: string | null;
+}) {
+  const { sourceColumn, targetColumn, sourceValue } = params;
+  const sourceType = sourceColumn.type as ColumnType;
+  const targetType = targetColumn.type as ColumnType;
+  const trimmedValue = sourceValue?.trim() ?? "";
+
+  if (!areFillTypesCompatible(sourceType, targetType)) {
+    return {
+      value: sourceValue,
+      type: sourceType,
+      ensureOptions: isSelectFieldType(sourceType)
+        ? (sourceColumn.selectOptions ?? []).map((option) => ({
+            label: option.label,
+            color: option.color,
+          }))
+        : [],
+    };
+  }
+
+  if (!isSelectFieldType(targetType)) {
+    return {
+      value: sourceValue,
+      type: undefined,
+      ensureOptions: [] as Array<{ label: string; color: string }>,
+    };
+  }
+
+  if (trimmedValue.length === 0) {
+    return {
+      value: null,
+      type: undefined,
+      ensureOptions: [] as Array<{ label: string; color: string }>,
+    };
+  }
+
+  const sourceLabels =
+    targetType === "MULTI_SELECT" && isSelectFieldType(sourceType)
+      ? normalizeSelectLabels(sourceValue)
+      : [trimmedValue];
+
+  return {
+    value:
+      targetType === "MULTI_SELECT"
+        ? sourceLabels.join(", ")
+        : trimmedValue,
+    type: undefined,
+    ensureOptions: sourceLabels.map((label) => ({
+      label,
+      color:
+        sourceColumn.selectOptions?.find((option) => option.label === label)
+          ?.color ?? DEFAULT_FILL_OPTION_COLOR,
+    })),
+  };
+}
 
 export function GridViewTable({
   containerRef,
@@ -220,6 +327,10 @@ export function GridViewTable({
   const rowIdsInViewOrder = useMemo(
     () => visibleRowsInViewOrder.map((r) => r.id),
     [visibleRowsInViewOrder],
+  );
+  const columnsById = useMemo(
+    () => new Map(allCols.map((column) => [column.id, column])),
+    [allCols],
   );
   const visibleColumnsSignature = useMemo(
     () => visCols.map((col) => `${col.id}:${col.width}`).join("|"),
@@ -1059,6 +1170,13 @@ export function GridViewTable({
     }
     return set;
   }, [normalizedCellRange, visibleRowsInViewOrder, visCols]);
+  const hasMultiCellRangeSelection = useMemo(
+    () =>
+      normalizedCellRange != null &&
+      (normalizedCellRange.minRowIdx !== normalizedCellRange.maxRowIdx ||
+        normalizedCellRange.minColIdx !== normalizedCellRange.maxColIdx),
+    [normalizedCellRange],
+  );
 
   const cellRangeRowIds = useMemo(() => {
     if (!normalizedCellRange) return null;
@@ -1191,16 +1309,59 @@ export function GridViewTable({
   }
 
   const bulkUpdateCells = api.table.bulkUpdateCells.useMutation({
-    onMutate: async ({ updates }) => {
+    onMutate: async ({ updates, columnUpdates }) => {
       await cellMenuCacheHelpers.cancelCache();
       const snapshot = cellMenuCacheHelpers.snapshotCache();
+      const tempSeed = Date.now();
+      const normalizedColumnUpdates = columnUpdates ?? [];
       cellMenuCacheHelpers.patchCache((prev) => {
         if (!prev) return prev;
+        const rowUpdatesById = new Map<string, typeof updates>();
+        for (const update of updates) {
+          const existing = rowUpdatesById.get(update.rowId);
+          if (existing) existing.push(update);
+          else rowUpdatesById.set(update.rowId, [update]);
+        }
+
+        const columnUpdatesById = new Map(
+          normalizedColumnUpdates.map((update) => [update.columnId, update]),
+        );
+
         return {
           ...prev,
+          columns: prev.columns.map((column) => {
+            const columnUpdate = columnUpdatesById.get(column.id);
+            if (!columnUpdate) return column;
+
+            const existingOptions = [...(column.selectOptions ?? [])];
+            const existingLabels = new Set(
+              existingOptions.map((option) => option.label),
+            );
+            let nextOrder = existingOptions.length;
+            const ensureOptions = columnUpdate.ensureOptions ?? [];
+
+            for (const option of ensureOptions) {
+              if (existingLabels.has(option.label)) continue;
+              existingLabels.add(option.label);
+              existingOptions.push({
+                id: `temp-fill-option-${tempSeed}-${column.id}-${nextOrder}`,
+                label: option.label,
+                color: option.color ?? DEFAULT_FILL_OPTION_COLOR,
+                order: nextOrder,
+                columnId: column.id,
+              });
+              nextOrder += 1;
+            }
+
+            return {
+              ...column,
+              type: columnUpdate.type ?? column.type,
+              selectOptions: existingOptions,
+            };
+          }),
           rows: prev.rows.map((r) => {
-            const rowUpdates = updates.filter((u) => u.rowId === r.id);
-            if (rowUpdates.length === 0) return r;
+            const rowUpdates = rowUpdatesById.get(r.id);
+            if (!rowUpdates || rowUpdates.length === 0) return r;
             return {
               ...r,
               cells: r.cells.map((c) => {
@@ -1221,30 +1382,62 @@ export function GridViewTable({
     if (!fillRangeSet || !fillSourceBounds) return;
     const rowIds = visibleRowsInViewOrder.map((r) => r.id);
     const colIds = visCols.map((c) => c.id);
+    const rowsById = new Map(visibleRowsInViewOrder.map((row) => [row.id, row]));
     const { minRowIdx, maxRowIdx, minColIdx, maxColIdx } = fillSourceBounds;
 
     // Collect source values organized by row/col offset
-    const sourceRows: { rowId: string; cells: { columnId: string; value: string | null }[] }[] = [];
+    const sourceRows: { rowId: string; cells: FillSourceCell[] }[] = [];
     for (let ri = minRowIdx; ri <= maxRowIdx; ri++) {
       const rId = rowIds[ri];
       if (!rId) continue;
-      const row = visibleRowsInViewOrder.find((r) => r.id === rId);
+      const row = rowsById.get(rId);
       if (!row) continue;
-      const cells: { columnId: string; value: string | null }[] = [];
+      const cells: FillSourceCell[] = [];
       for (let ci = minColIdx; ci <= maxColIdx; ci++) {
         const cId = colIds[ci];
         if (!cId) continue;
         const cell = row.cells.find((c) => c.columnId === cId);
-        cells.push({ columnId: cId, value: cell?.value ?? null });
+        cells.push({
+          columnId: cId,
+          value: cell?.value ?? null,
+          column: columnsById.get(cId) ?? null,
+        });
       }
       sourceRows.push({ rowId: rId, cells });
     }
 
     if (sourceRows.length === 0) return;
 
-    const updates: { rowId: string; columnId: string; value: string | null }[] = [];
+    const updates: { rowId: string; columnId: string; value: string | null }[] =
+      [];
+    const columnUpdatesById = new Map<
+      string,
+      {
+        columnId: string;
+        type?: ColumnType;
+        ensureOptions: Map<string, { label: string; color: string }>;
+      }
+    >();
     const sourceRowCount = maxRowIdx - minRowIdx + 1;
     const sourceColCount = maxColIdx - minColIdx + 1;
+
+    function addColumnUpdate(
+      columnId: string,
+      type: ColumnType | undefined,
+      ensureOptions: Array<{ label: string; color: string }>,
+    ) {
+      if (!type && ensureOptions.length === 0) return;
+      const existing = columnUpdatesById.get(columnId) ?? {
+        columnId,
+        ensureOptions: new Map<string, { label: string; color: string }>(),
+      };
+      if (type) existing.type = type;
+      for (const option of ensureOptions) {
+        if (existing.ensureOptions.has(option.label)) continue;
+        existing.ensureOptions.set(option.label, option);
+      }
+      columnUpdatesById.set(columnId, existing);
+    }
 
     // Detect numeric sequences for smart fill
     function detectNumericSequence(values: (string | null)[]): { start: number; step: number } | null {
@@ -1264,9 +1457,13 @@ export function GridViewTable({
       const targetRowIdx = rowIds.indexOf(rId);
       const targetColIdx = colIds.indexOf(cId);
       if (targetRowIdx < 0 || targetColIdx < 0) continue;
+      const targetColumn = columnsById.get(cId);
+      if (!targetColumn) continue;
 
       // Determine if vertical or horizontal fill
       const isVerticalFill = targetRowIdx < minRowIdx || targetRowIdx > maxRowIdx;
+      let sourceCell: FillSourceCell | undefined;
+      let nextValue: string | null = null;
 
       if (isVerticalFill) {
         const colOffset = targetColIdx - minColIdx;
@@ -1278,15 +1475,18 @@ export function GridViewTable({
           const stepsFromEnd = targetRowIdx > maxRowIdx
             ? targetRowIdx - maxRowIdx
             : minRowIdx - targetRowIdx;
-          const value = String(seq.start + seq.step * stepsFromEnd);
-          updates.push({ rowId: rId, columnId: cId, value });
+          sourceCell =
+            sourceRows[targetRowIdx > maxRowIdx ? sourceRows.length - 1 : 0]?.cells[
+              colOffset
+            ];
+          nextValue = String(seq.start + seq.step * stepsFromEnd);
         } else {
           // Repeat pattern cyclically
           const rowOffset = targetRowIdx > maxRowIdx
             ? (targetRowIdx - maxRowIdx - 1) % sourceRowCount
             : (sourceRowCount - 1) - ((minRowIdx - targetRowIdx - 1) % sourceRowCount);
-          const sourceValue = sourceRows[rowOffset]?.cells[colOffset]?.value ?? null;
-          updates.push({ rowId: rId, columnId: cId, value: sourceValue });
+          sourceCell = sourceRows[rowOffset]?.cells[colOffset];
+          nextValue = sourceCell?.value ?? null;
         }
       } else {
         // Horizontal fill
@@ -1300,22 +1500,55 @@ export function GridViewTable({
           const stepsFromEnd = targetColIdx > maxColIdx
             ? targetColIdx - maxColIdx
             : minColIdx - targetColIdx;
-          const value = String(seq.start + seq.step * stepsFromEnd);
-          updates.push({ rowId: rId, columnId: cId, value });
+          sourceCell =
+            sourceRowData.cells[
+              targetColIdx > maxColIdx ? sourceColCount - 1 : 0
+            ];
+          nextValue = String(seq.start + seq.step * stepsFromEnd);
         } else {
           const colOffset = targetColIdx > maxColIdx
             ? (targetColIdx - maxColIdx - 1) % sourceColCount
             : (sourceColCount - 1) - ((minColIdx - targetColIdx - 1) % sourceColCount);
-          const sourceValue = sourceRowData.cells[colOffset]?.value ?? null;
-          updates.push({ rowId: rId, columnId: cId, value: sourceValue });
+          sourceCell = sourceRowData.cells[colOffset];
+          nextValue = sourceCell?.value ?? null;
         }
       }
+
+      if (!sourceCell?.column) {
+        updates.push({ rowId: rId, columnId: cId, value: nextValue });
+        continue;
+      }
+
+      const transfer = computeFillTransfer({
+        sourceColumn: sourceCell.column,
+        targetColumn,
+        sourceValue: nextValue,
+      });
+
+      addColumnUpdate(cId, transfer.type, transfer.ensureOptions);
+      updates.push({ rowId: rId, columnId: cId, value: transfer.value });
     }
 
-    if (updates.length > 0) {
-      bulkUpdateCells.mutate({ updates });
+    const columnUpdates: FillColumnUpdate[] = Array.from(
+      columnUpdatesById.values(),
+      (update) => ({
+        columnId: update.columnId,
+        type: update.type,
+        ensureOptions: Array.from(update.ensureOptions.values()),
+      }),
+    );
+
+    if (updates.length > 0 || columnUpdates.length > 0) {
+      bulkUpdateCells.mutate({ updates, columnUpdates });
     }
-  }, [fillRangeSet, fillSourceBounds, visibleRowsInViewOrder, visCols, bulkUpdateCells]);
+  }, [
+    bulkUpdateCells,
+    columnsById,
+    fillRangeSet,
+    fillSourceBounds,
+    visibleRowsInViewOrder,
+    visCols,
+  ]);
 
   useEffect(() => {
     function handleMouseUp() {
@@ -1648,8 +1881,9 @@ export function GridViewTable({
             toggleRowSelection={toggleRowSelection}
             openRowContextMenu={openRowContextMenu}
             openCellContextMenu={openCellContextMenu}
-            cellRangeSet={cellRangeSet}
-            cellRangeRowSet={cellRangeRowSet}
+        cellRangeSet={cellRangeSet}
+        hasMultiCellRangeSelection={hasMultiCellRangeSelection}
+        cellRangeRowSet={cellRangeRowSet}
             cellRangeEndCell={cellRangeEndCell}
             onCellMouseDown={onCellMouseDown}
             onCellMouseEnter={onCellMouseEnter}
@@ -1690,7 +1924,7 @@ export function GridViewTable({
       {expandedLongTextCell && expandedLongTextColumn && expandedLongTextRow && (
         <div
           ref={expandedLongTextContainerRef}
-          className="fixed z-[85] overflow-visible rounded-[14px] border border-[#d8dce4] bg-[#f2f4f8] shadow-[0_1px_3px_rgba(15,23,42,0.16),0_18px_40px_rgba(15,23,42,0.18)]"
+          className="fixed z-[120] overflow-visible rounded-[14px] border border-[#d8dce4] bg-[#f2f4f8] shadow-[0_1px_3px_rgba(15,23,42,0.16),0_18px_40px_rgba(15,23,42,0.18)]"
           style={{
             left: expandedLongTextCell.left,
             top: expandedLongTextCell.top,
