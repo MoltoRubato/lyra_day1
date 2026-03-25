@@ -482,9 +482,9 @@ export function TableTabsBar({
 
         {tableSearchOpen ? (
           <>
-            <div className="fixed inset-0 z-20" onClick={() => setTableSearchOpen(false)} />
+            <div className="fixed inset-0 z-[70]" onClick={() => setTableSearchOpen(false)} />
             <div
-              className="fixed z-30 w-[360px] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl"
+              className="fixed z-[80] w-[360px] overflow-hidden rounded-xl border border-[#e0e0e0] bg-white shadow-xl"
               style={{
                 left: searchLeft,
                 top:
