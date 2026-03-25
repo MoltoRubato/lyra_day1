@@ -1792,7 +1792,7 @@ export function GridViewTable({
         <table
           id="table"
           className="min-h-full border-collapse bg-[#f6f8fc] text-sm"
-          style={{ tableLayout: "fixed" }}
+          style={{ tableLayout: "fixed", marginRight: rowH * 4 }}
         >
           <GridViewTableHeader
             rowH={rowH}

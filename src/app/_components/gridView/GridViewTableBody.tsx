@@ -1341,6 +1341,14 @@ export function GridViewTableBody({
           </td>
         </tr>
 
+        {/* Bottom spacer: always-visible gap below the add-row button */}
+        <tr aria-hidden="true" className="bg-[#f6f8fc]">
+          <td
+            colSpan={colSpan}
+            style={{ padding: 0, border: "none", height: rowH * 4 }}
+          />
+        </tr>
+
         {summaryBottomOffsetPx > 0 && (
           <tr aria-hidden="true" className="bg-[#f6f8fc]">
             <td

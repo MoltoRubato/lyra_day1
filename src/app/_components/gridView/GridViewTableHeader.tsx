@@ -255,8 +255,8 @@ export function GridViewTableHeader({
   );
 
   return (
-    <thead className="sticky top-0 z-20">
-      <tr className="headerRow border-b border-[#e2e5e9] bg-white">
+    <thead className="sticky top-0 z-20" style={{ boxShadow: "0 1px 0 #e2e5e9" }}>
+      <tr className="headerRow bg-white">
         <th
           className="sticky left-0 z-[14] box-border bg-white px-0 py-0 text-left"
           style={{
