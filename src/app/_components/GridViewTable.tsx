@@ -1677,7 +1677,7 @@ export function GridViewTable({
   }
 
   function toggleRowSelection(rowId: string) {
-    setCellRange(null);
+    selectGridCell(null);
     setSelectedRowIds((prev) =>
       prev.includes(rowId)
         ? prev.filter((id) => id !== rowId)
@@ -1686,7 +1686,7 @@ export function GridViewTable({
   }
 
   function toggleAllRowsInView(checked: boolean) {
-    setCellRange(null);
+    selectGridCell(null);
     if (checked) {
       setSelectedRowIds(rowIdsInViewOrder);
       return;
@@ -1701,7 +1701,7 @@ export function GridViewTable({
     setOpenSelectCell(null);
     closeColMenu();
     setSummaryMenu(null);
-    setCellRange(null);
+    selectGridCell(null);
     setSelectedRowIds((prev) => (prev.includes(rowId) ? prev : [rowId]));
     setRowContextMenu({ x: e.clientX, y: e.clientY });
   }
