@@ -238,6 +238,24 @@ function mapBatchRowsToPreloadRows(params: {
   }));
 }
 
+function mergeRowsById<T extends { id: string }>(
+  baseRows: readonly T[],
+  extraRows?: readonly T[] | null,
+) {
+  if (!extraRows?.length) return [...baseRows];
+
+  const seenIds = new Set(baseRows.map((row) => row.id));
+  const mergedRows = [...baseRows];
+
+  for (const row of extraRows) {
+    if (seenIds.has(row.id)) continue;
+    seenIds.add(row.id);
+    mergedRows.push(row);
+  }
+
+  return mergedRows;
+}
+
 export default function GridView({
   tableId,
   hiddenFields = {},
@@ -503,9 +521,10 @@ export default function GridView({
   );
   const combinedRows = useMemo(
     () =>
-      preloadedRows
-        ? [...baseRows, ...(preloadedRows as unknown as RowWithCells[])]
-        : baseRows,
+      mergeRowsById(
+        baseRows,
+        preloadedRows as unknown as RowWithCells[] | null | undefined,
+      ),
     [baseRows, preloadedRows],
   );
   const getGridCellValue = useCallback(
@@ -774,10 +793,8 @@ export default function GridView({
     ],
   );
 
-  const tableLoadedRows = combinedRows.length;
-  const allRowsReady = tableLoadedRows >= totalRows;
-  const scrollLocked = !allRowsReady;
-  const effectiveLoadingGapHeight = allRowsReady ? loadingGapHeight : 0;
+  const scrollLocked = false;
+  const effectiveLoadingGapHeight = loadingGapHeight;
 
   useEffect(() => {
     if (!searchOpen || trimmedSearchQuery.length === 0 || searchMatches.length === 0) {
@@ -933,8 +950,10 @@ export default function GridView({
     if (!table) return;
 
     const total = table.rowCount;
-    const loaded = (table.rows.length ?? 0) + (preloadedRows?.length ?? 0);
-    const rowLimit = Math.min(1_000, total);
+    const loaded = mergeRowsById(
+      table.rows as unknown as PreloadRow[],
+      preloadedRows,
+    ).length;
     const pendingBulkGeneratedRowsHint =
       bulkGeneratedRowsHint?.tableId === tableId &&
       (bulkGeneratedRowsHint?.inserted ?? 0) > 0 &&
@@ -943,15 +962,9 @@ export default function GridView({
           (bulkGeneratedRowsHint?.inserted ?? 0)
         ? bulkGeneratedRowsHint
         : null;
-    const activeBulkGeneratedRowsHint =
-      pendingBulkGeneratedRowsHint && table.rows.length === rowLimit
-        ? pendingBulkGeneratedRowsHint
-        : null;
+    const activeBulkGeneratedRowsHint = pendingBulkGeneratedRowsHint;
 
-    if (
-      bulkAddInFlight ||
-      (pendingBulkGeneratedRowsHint && !activeBulkGeneratedRowsHint)
-    ) {
+    if (bulkAddInFlight) {
       setLoadAllLoading(true);
       setLoadAllPhase("fetching");
       setLoadAllError(null);
@@ -982,10 +995,10 @@ export default function GridView({
     setLoadAllError(null);
 
     void (async () => {
-      const existingRows = [
-        ...(table.rows as unknown as PreloadRow[]),
-        ...(preloadedRows ?? []),
-      ];
+      const existingRows = mergeRowsById(
+        table.rows as unknown as PreloadRow[],
+        preloadedRows,
+      );
       const tryBuildBulkGeneratedRows = async () => {
         if (!activeBulkGeneratedRowsHint) return null;
 

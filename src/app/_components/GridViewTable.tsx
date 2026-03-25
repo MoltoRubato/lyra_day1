@@ -203,10 +203,10 @@ export function GridViewTable({
   addRow,
   tableId,
   chunkLoading,
-  loadAllPhase,
-  scrollLocked,
-  loadAllError,
-  onRetryLoadAll,
+  loadAllPhase: _loadAllPhase,
+  scrollLocked: _scrollLocked,
+  loadAllError: _loadAllError,
+  onRetryLoadAll: _onRetryLoadAll,
   trueTotal: _trueTotal,
   totalRows,
   bulkDeleteRows,
@@ -1776,9 +1776,9 @@ export function GridViewTable({
       <div
         ref={containerRef}
         data-testid="grid-scroll-container"
-        className={`h-full w-full bg-[#f6f8fc] select-none ${scrollLocked ? "overflow-hidden" : "overflow-auto"}`}
+        className="h-full w-full overflow-auto bg-[#f6f8fc] select-none"
         style={{ overflowAnchor: "none" }}
-        onScroll={scrollLocked ? undefined : handleScroll}
+        onScroll={handleScroll}
         onClick={() => {
           setHeaderPanel(null);
           setOpenSelectCell(null);
@@ -2303,38 +2303,6 @@ export function GridViewTable({
         </>
       )}
 
-      {scrollLocked && (
-        <div
-          data-testid="grid-loading-overlay"
-          className="absolute inset-0 z-[40] flex items-center justify-center bg-white/70 px-4 backdrop-blur-[1px]"
-        >
-          <div className="w-full max-w-xs rounded-xl border border-[#d1d5db] bg-white px-5 py-5 text-center shadow-lg">
-            {loadAllError ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
-                {loadAllError}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3 text-[13px] text-[#4b5563]">
-                <span
-                  data-testid="grid-loading-spinner"
-                  className="inline-block h-7 w-7 animate-spin rounded-full border-2 border-[#f97316] border-t-transparent"
-                />
-                {loadAllPhase === "finalizing"
-                  ? "Finalizing rows..."
-                  : "Loading rows..."}
-              </div>
-            )}
-            {loadAllError && (
-              <button
-                onClick={onRetryLoadAll}
-                className="mt-3 rounded-md border border-[#d1d5db] px-3 py-1.5 text-[13px] font-medium text-[#111827] hover:bg-[#f9fafb]"
-              >
-                Retry Full Load
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
