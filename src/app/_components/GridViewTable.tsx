@@ -796,7 +796,13 @@ export function GridViewTable({
       );
 
       requestAnimationFrame(() => {
-        expandedLongTextTextareaRef.current?.focus({ preventScroll: true });
+        const el = expandedLongTextTextareaRef.current;
+        if (el) {
+          el.focus({ preventScroll: true });
+          const len = el.value.length;
+          el.selectionStart = len;
+          el.selectionEnd = len;
+        }
       });
     },
     [

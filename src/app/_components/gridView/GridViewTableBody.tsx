@@ -1179,7 +1179,14 @@ export function GridViewTableBody({
                       ) : isInlineEditing ? (
                         col.type === "LONG_TEXT" ? (
                           <textarea
-                            autoFocus
+                            ref={(el) => {
+                              if (el) {
+                                el.focus();
+                                const len = el.value.length;
+                                el.selectionStart = len;
+                                el.selectionEnd = len;
+                              }
+                            }}
                             rows={3}
                             className="contentEditableTextbox relative z-[3] h-full w-full resize-none overflow-y-auto border-0 bg-transparent text-[13px] text-[#1f2937] outline-none"
                             style={{ padding: "7px 27px 5px 7px" }}
