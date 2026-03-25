@@ -1394,13 +1394,16 @@ export function GridViewTableBody({
         )}
 
         <tr aria-hidden="true" className="bg-[#f6f8fc]">
-          <td colSpan={colSpan} style={{ padding: 0, height: "100%" }} />
+          <td colSpan={colSpan} style={{ padding: 0, border: "none", height: "100%" }} />
         </tr>
       </tbody>
 
       <tfoot
         className="sticky z-[20] bg-white"
-        style={{ bottom: summaryBottomOffsetPx }}
+        style={{
+          bottom: summaryBottomOffsetPx,
+          boxShadow: "0 2px 0 white",
+        }}
       >
         <tr className="bg-white" style={{ height: summaryRowHeightPx }}>
           <td
