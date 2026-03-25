@@ -77,16 +77,17 @@ export function AddViewModal({ open, name, setName, onClose, onSubmit, left }: A
   if (!open) return null;
   return (
     <>
-      <div className="fixed inset-0 z-30 bg-black/10" onClick={onClose} />
+      <div className="fixed inset-0 z-30" onClick={onClose} />
       <div
-        className="fixed z-40 top-[140px] w-[560px] bg-white border border-[#e0e0e0] rounded-xl shadow-2xl p-5"
+        className="fixed z-40 top-[140px] w-[400px] bg-white border border-[#e0e0e0] rounded-xl shadow-2xl p-4"
         style={{ left }}
       >
         <input
           autoFocus
           value={name}
           placeholder="View name..."
-          className="w-full bg-white border-2 border-[#2d7ff9] rounded px-3 py-2.5 text-[14px] outline-none"
+          className="w-full bg-white rounded p-1 text-[18px] font-semibold outline-none"
+          style={{ border: "2px solid #2d7ff9", boxShadow: "0 0 0 2px rgba(45,127,249,0.15)" }}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") onSubmit();
@@ -95,44 +96,28 @@ export function AddViewModal({ open, name, setName, onClose, onSubmit, left }: A
         />
 
         <div className="mt-4 text-[15px] font-semibold text-[#111827]">Who can edit</div>
-        <div className="mt-2 flex items-center gap-4 text-[13px] text-[#1f2937]">
-          <label className="flex items-center gap-2 cursor-pointer">
+        <div className="mt-2 flex items-center justify-between text-[13px] text-[#1f2937]">
+          <label className="flex items-center gap-1.5 cursor-pointer">
             <span className="w-4 h-4 rounded-full border border-[#bcd6ff] flex items-center justify-center">
               <span className="w-2 h-2 rounded-full bg-[#2d7ff9]" />
             </span>
-            <span className="flex items-center gap-1.5">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <circle cx="6" cy="5" r="2.2" />
-                <circle cx="11.5" cy="6" r="1.8" />
-                <path d="M2 13c0-2.2 2-3.5 4-3.5s4 1.3 4 3.5" />
-              </svg>
-              Collaborative
-            </span>
+            <AirtableAssetIcon asset={14} alt="" style={{ width: 15.5, height: 11.2 }} />
+            Collaborative
           </label>
-          <label className="flex items-center gap-2 text-[#9aa0a6]">
+          <label className="flex items-center gap-1.5 text-[#9aa0a6]">
             <span className="w-4 h-4 rounded-full border border-[#d7dbe0]" />
-            <span className="flex items-center gap-1.5">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <circle cx="8" cy="5" r="2.4" />
-                <path d="M3 13c.2-2.4 2.5-3.6 5-3.6s4.8 1.2 5 3.6" />
-              </svg>
-              Personal
-              <span className="ml-1 text-[10px] text-[#2d7ff9] border border-[#2d7ff9] rounded-full w-4 h-4 flex items-center justify-center">★</span>
-            </span>
+            <AirtableAssetIcon asset={19} alt="" style={{ width: 13.12, height: 12.5 }} />
+            Personal
+            <span className="ml-0.5 text-[10px] text-[#2d7ff9] border border-[#2d7ff9] rounded-full w-4 h-4 flex items-center justify-center">★</span>
           </label>
-          <label className="flex items-center gap-2 text-[#9aa0a6]">
+          <label className="flex items-center gap-1.5 text-[#9aa0a6]">
             <span className="w-4 h-4 rounded-full border border-[#d7dbe0]" />
-            <span className="flex items-center gap-1.5">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <rect x="3.5" y="7" width="9" height="6" rx="1.5" />
-                <path d="M5.5 7V5a2.5 2.5 0 015 0v2" />
-              </svg>
-              Locked
-              <span className="ml-1 text-[10px] text-[#2d7ff9] border border-[#2d7ff9] rounded-full w-4 h-4 flex items-center justify-center">★</span>
-            </span>
+            <AirtableAssetIcon asset={181} alt="" style={{ width: 12, height: 13.5 }} />
+            Locked
+            <span className="ml-0.5 text-[10px] text-[#2d7ff9] border border-[#2d7ff9] rounded-full w-4 h-4 flex items-center justify-center">★</span>
           </label>
         </div>
-        <div className="mt-2 text-[13px] text-[#6b7280]">All collaborators can edit the configuration</div>
+        <div className="text-[13px] opacity-75" style={{ color: "rgb(29, 31, 37)", marginTop: 8, lineHeight: "18px" }}>All collaborators can edit the configuration</div>
 
         <div className="mt-6 flex items-center justify-end gap-3">
           <button onClick={onClose} className="text-[13px] text-[#555] px-2 py-1.5">

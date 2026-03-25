@@ -141,9 +141,9 @@ export function ViewSidebar({
   const minMenuLeft = 68;
   const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
   const createMenuLeft = createMenuAnchor
-    ? clamp(createMenuAnchor.left + 200, minMenuLeft, viewportW - 260)
+    ? clamp(sidebarWidth, minMenuLeft, viewportW - 260)
     : 260;
-  const createMenuTop = createMenuAnchor ? createMenuAnchor.top + createMenuAnchor.height + 6 : 120;
+  const createMenuTop = createMenuAnchor ? createMenuAnchor.top : 120;
   const menuWidth = 240;
   const viewMenuLeft = viewMenuOpen
     ? clamp(viewMenuOpen.left, minMenuLeft, viewportW - menuWidth - 12)
@@ -427,7 +427,7 @@ export function ViewSidebar({
         setName={setNewViewName}
         onClose={() => setAddingView(false)}
         onSubmit={handleAddView}
-        left={sidebarWidth + 12}
+        left={sidebarWidth + 50}
       />
       {open && (
         <div
