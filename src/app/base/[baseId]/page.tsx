@@ -409,6 +409,7 @@ export default function BasePage({
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const tempViewToRealId = useRef<Record<string, string>>({});
   const [viewSidebarOpen, setViewSidebar] = useState(true);
+  const [sidebarHoverOpen, setSidebarHoverOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [viewDescriptions, setViewDescriptions] = useState<
     Record<string, string>
@@ -819,7 +820,10 @@ export default function BasePage({
                 activeView.type === "GRID" ? handleBulkAddRows : undefined
               }
               bulkAdding={bulkAdding}
-              onToggleSidebar={() => setViewSidebar((p) => !p)}
+              onToggleSidebar={() => { setSidebarHoverOpen(false); setViewSidebar((p) => !p); }}
+              sidebarOpen={viewSidebarOpen}
+              onSidebarHoverStart={() => { if (!viewSidebarOpen) setSidebarHoverOpen(true); }}
+              onSidebarHoverEnd={() => setSidebarHoverOpen(false)}
               forcedOpenPanel={forcedToolbarPanel}
               onForcedOpenHandled={() => setForcedToolbarPanel(null)}
               collapsedGroupKeys={collapsedGroupKeysByView[activeView.id] ?? []}
@@ -849,7 +853,7 @@ export default function BasePage({
           {/* ── Body ──────────────────────────────────────────────────────────── */}
           <div className="relative flex flex-1 overflow-hidden">
             <ViewSidebar
-              open={viewSidebarOpen}
+              open={viewSidebarOpen || sidebarHoverOpen}
               views={views}
               activeViewId={activeView?.id ?? null}
               getViewConfig={getViewConfig}

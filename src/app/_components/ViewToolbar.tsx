@@ -152,6 +152,9 @@ export default function ViewToolbar({
   onBulkAddRows,
   bulkAdding = false,
   onToggleSidebar,
+  sidebarOpen,
+  onSidebarHoverStart,
+  onSidebarHoverEnd,
   frozenColumnCount: _frozenColumnCount = 0,
   forcedOpenPanel,
   onForcedOpenHandled,
@@ -181,6 +184,9 @@ export default function ViewToolbar({
   onBulkAddRows?: () => void;
   bulkAdding?: boolean;
   onToggleSidebar?: () => void;
+  sidebarOpen?: boolean;
+  onSidebarHoverStart?: () => void;
+  onSidebarHoverEnd?: () => void;
   frozenColumnCount?: number;
   forcedOpenPanel?: Exclude<OpenPanel, null> | null;
   onForcedOpenHandled?: () => void;
@@ -398,6 +404,8 @@ export default function ViewToolbar({
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
+          onMouseEnter={onSidebarHoverStart}
+          onMouseLeave={onSidebarHoverEnd}
           className="mr-1 flex-shrink-0 rounded p-1.5 text-[#616670] transition-colors hover:bg-[#f0f0ef]"
           title="Toggle view sidebar"
         >
