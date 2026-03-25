@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import type { ColumnType, PrismaClient } from "@prisma/client";
-import { faker } from "@faker-js/faker";
 import { z } from "zod";
 import { publicProcedure } from "~/server/api/trpc";
+import { makeGeneratedCellValue } from "~/shared/generatedCellValues";
 import {
   PreloadValueBatchOutput,
   RowOutput,
@@ -12,13 +12,9 @@ import {
 type PreloadValueBatch = z.infer<typeof PreloadValueBatchOutput>;
 type GeneratedColumnMeta = {
   id: string;
+  name: string;
   type: ColumnType;
   selectOptionLabels: string[];
-  hash: number;
-  isSummary: boolean;
-  isNameLike: boolean;
-  isAssigneeLike: boolean;
-  isCompanyLike: boolean;
 };
 type TableRowWithCells = {
   id: string;
@@ -37,196 +33,10 @@ type TableRowWithCells = {
 };
 
 const GENERATED_ROW_ID_RE = /^r[a-z0-9]{6}[0-9a-f]+$/i;
-const GENERATED_POOL_SIZE = 96;
-const GENERATED_STATUS_LABELS = ["Todo", "In progress", "Done"];
-
-function stableHash(input: string) {
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash * 31 + input.charCodeAt(i)) | 0;
-  }
-  return hash >>> 0;
-}
-
-function pickValue(values: readonly string[], hash: number) {
-  return values[hash % values.length]!;
-}
-
-function buildGeneratedPools() {
-  const taskTitles = Array.from({ length: GENERATED_POOL_SIZE }, () =>
-    faker.word.words({ count: { min: 2, max: 4 } }),
-  );
-  const people = Array.from({ length: GENERATED_POOL_SIZE }, () =>
-    faker.person.fullName(),
-  );
-  const companies = Array.from({ length: GENERATED_POOL_SIZE }, () =>
-    faker.company.name(),
-  );
-  const emailDomains = Array.from(
-    { length: Math.max(24, Math.floor(GENERATED_POOL_SIZE / 2)) },
-    () => faker.internet.domainName().toLowerCase(),
-  );
-  const hosts = Array.from(
-    { length: Math.max(24, Math.floor(GENERATED_POOL_SIZE / 2)) },
-    () => faker.internet.domainName().toLowerCase(),
-  );
-  const noteSnippets = Array.from({ length: GENERATED_POOL_SIZE }, () =>
-    faker.word.words({ count: { min: 4, max: 8 } }),
-  );
-  const summarySnippets = Array.from(
-    { length: Math.max(48, Math.floor(GENERATED_POOL_SIZE / 2)) },
-    () => faker.word.words({ count: { min: 8, max: 12 } }),
-  );
-  const emailAddresses = Array.from(
-    { length: GENERATED_POOL_SIZE },
-    (_, index) => {
-      const personSlug = people[index]!.toLowerCase()
-        .replaceAll(/[^a-z0-9 ]/g, "")
-        .trim()
-        .replaceAll(/\s+/g, ".");
-      return `${personSlug || `person${index + 1}`}${index % 100}@${emailDomains[index % emailDomains.length]!}`;
-    },
-  );
-  const websiteUrls = Array.from(
-    { length: GENERATED_POOL_SIZE },
-    (_, index) => {
-      const titleSlug = taskTitles[index]!.toLowerCase()
-        .replaceAll(/[^a-z0-9 ]/g, "")
-        .trim()
-        .replaceAll(/\s+/g, "-");
-      return `https://${hosts[index % hosts.length]!}/${titleSlug || `task-${index + 1}`}`;
-    },
-  );
-  const phoneNumbers = Array.from(
-    { length: GENERATED_POOL_SIZE },
-    (_, index) => {
-      return `+1 ${200 + (index % 700)}-${String(100 + ((index * 13) % 900)).padStart(3, "0")}-${String(1000 + ((index * 97) % 9000)).padStart(4, "0")}`;
-    },
-  );
-  const attachmentUrls = Array.from(
-    { length: GENERATED_POOL_SIZE },
-    (_, index) => {
-      const companySlug = companies[index]!.toLowerCase()
-        .replaceAll(/[^a-z0-9 ]/g, "")
-        .trim()
-        .replaceAll(/\s+/g, "-");
-      return `https://files.example.com/${companySlug || `company-${index + 1}`}/brief-${(index % 500) + 1}.pdf`;
-    },
-  );
-  const durationLabels = Array.from(
-    { length: GENERATED_POOL_SIZE },
-    (_, index) => {
-      return `${15 * (1 + (index % 24))}m`;
-    },
-  );
-
-  return {
-    taskTitles,
-    noteSnippets,
-    people,
-    companies,
-    emailDomains,
-    hosts,
-    summarySnippets,
-    emailAddresses,
-    websiteUrls,
-    phoneNumbers,
-    attachmentUrls,
-    durationLabels,
-    plainLabels: GENERATED_STATUS_LABELS,
-  } as const;
-}
-
-const generatedPools = buildGeneratedPools();
 const GENERATED_CELL_STUB_DATE = new Date(0);
 
 function shouldGenerateCellsForRow(rowId: string) {
   return GENERATED_ROW_ID_RE.test(rowId);
-}
-
-function makeGeneratedCellValue(params: {
-  columnType: ColumnType;
-  isSummary: boolean;
-  isNameLike: boolean;
-  isAssigneeLike: boolean;
-  isCompanyLike: boolean;
-  primaryHash: number;
-  secondaryHash: number;
-  selectOptionLabels: string[];
-}) {
-  const {
-    columnType,
-    isSummary,
-    isNameLike,
-    isAssigneeLike,
-    isCompanyLike,
-    primaryHash,
-    secondaryHash,
-    selectOptionLabels,
-  } = params;
-
-  switch (columnType) {
-    case "CHECKBOX":
-      return primaryHash % 2 === 0 ? "true" : "false";
-    case "NUMBER":
-      return String(10 + (primaryHash % 4990));
-    case "CURRENCY":
-      return ((500 + (primaryHash % 125000)) / 100).toFixed(2);
-    case "PERCENT":
-      return String(primaryHash % 100);
-    case "RATING":
-      return String(1 + (primaryHash % 5));
-    case "DATE": {
-      const date = new Date(
-        Date.UTC(2026, 0, 1) + (primaryHash % 365) * 86_400_000,
-      );
-      return date.toISOString().slice(0, 10);
-    }
-    case "EMAIL":
-      return pickValue(generatedPools.emailAddresses, primaryHash);
-    case "URL":
-      return pickValue(generatedPools.websiteUrls, primaryHash);
-    case "PHONE":
-      return pickValue(generatedPools.phoneNumbers, primaryHash);
-    case "DURATION":
-      return pickValue(generatedPools.durationLabels, primaryHash);
-    case "USER":
-      return pickValue(generatedPools.people, primaryHash);
-    case "ATTACHMENT":
-      return pickValue(generatedPools.attachmentUrls, primaryHash);
-    case "SINGLE_SELECT":
-      if (selectOptionLabels.length > 0) {
-        return pickValue(selectOptionLabels, primaryHash);
-      }
-      return pickValue(generatedPools.plainLabels, primaryHash);
-    case "MULTI_SELECT":
-      if (selectOptionLabels.length >= 2) {
-        return `${pickValue(selectOptionLabels, primaryHash)},${pickValue(selectOptionLabels, secondaryHash)}`;
-      }
-      if (selectOptionLabels.length === 1) return selectOptionLabels[0]!;
-      return `${pickValue(generatedPools.plainLabels, primaryHash)},${pickValue(generatedPools.plainLabels, secondaryHash)}`;
-    case "LONG_TEXT":
-      if (isSummary) {
-        return pickValue(generatedPools.summarySnippets, primaryHash);
-      }
-      return pickValue(generatedPools.noteSnippets, primaryHash);
-    default:
-      if (isNameLike) return pickValue(generatedPools.taskTitles, primaryHash);
-      if (isAssigneeLike) {
-        return pickValue(generatedPools.people, primaryHash);
-      }
-      if (isCompanyLike) {
-        return pickValue(generatedPools.companies, primaryHash);
-      }
-      return pickValue(generatedPools.noteSnippets, primaryHash);
-  }
-}
-
-function makeSeeds(rowOrder: number, columnHash: number) {
-  const primary = (rowOrder * 1_315_423_911 + columnHash * 2_654_435_761) >>> 0;
-  const secondary =
-    (rowOrder * 2_246_822_519 + columnHash * 3_266_489_917) >>> 0;
-  return { primary, secondary };
 }
 
 async function loadColumnMeta(params: {
@@ -249,17 +59,9 @@ async function loadColumnMeta(params: {
 
   return columns.map<GeneratedColumnMeta>((column) => ({
     id: column.id,
+    name: column.name,
     type: column.type,
     selectOptionLabels: column.selectOptions.map((option) => option.label),
-    hash: stableHash(column.id),
-    isSummary: column.name.toLowerCase().includes("summary"),
-    isNameLike: column.name.toLowerCase().includes("name"),
-    isAssigneeLike:
-      column.name.toLowerCase().includes("assignee") ||
-      column.name.toLowerCase().includes("owner"),
-    isCompanyLike:
-      column.name.toLowerCase().includes("company") ||
-      column.name.toLowerCase().includes("account"),
   }));
 }
 
@@ -281,19 +83,15 @@ function hydrateGeneratedTableRows(
       const existing = byColumnId.get(column.id);
       if (existing) return existing;
 
-      const seeds = makeSeeds(row.order, column.hash);
       return {
         id: `gc:${row.id}:${column.id}`,
         rowId: row.id,
         columnId: column.id,
         value: makeGeneratedCellValue({
           columnType: column.type,
-          isSummary: column.isSummary,
-          isNameLike: column.isNameLike,
-          isAssigneeLike: column.isAssigneeLike,
-          isCompanyLike: column.isCompanyLike,
-          primaryHash: seeds.primary,
-          secondaryHash: seeds.secondary,
+          columnName: column.name,
+          rowId: row.id,
+          columnId: column.id,
           selectOptionLabels: column.selectOptionLabels,
         }),
         createdAt: GENERATED_CELL_STUB_DATE,
@@ -397,17 +195,9 @@ export const tableQueryProcedures = {
 
       const columnMeta = table.columns.map<GeneratedColumnMeta>((column) => ({
         id: column.id,
+        name: column.name,
         type: column.type,
         selectOptionLabels: column.selectOptions.map((option) => option.label),
-        hash: stableHash(column.id),
-        isSummary: column.name.toLowerCase().includes("summary"),
-        isNameLike: column.name.toLowerCase().includes("name"),
-        isAssigneeLike:
-          column.name.toLowerCase().includes("assignee") ||
-          column.name.toLowerCase().includes("owner"),
-        isCompanyLike:
-          column.name.toLowerCase().includes("company") ||
-          column.name.toLowerCase().includes("account"),
       }));
 
       let rows = hydrateGeneratedTableRows(

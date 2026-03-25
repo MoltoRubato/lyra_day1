@@ -32,6 +32,7 @@ import type { BulkDeleteRowsPayload } from "~/app/_components/gridView/tableType
 import { useGridViewCacheHelpers } from "~/app/_components/gridView/useGridViewCacheHelpers";
 import { useGridViewColumnMutations } from "~/app/_components/gridView/useGridViewColumnMutations";
 import { useGridViewRowMutations } from "~/app/_components/gridView/useGridViewRowMutations";
+import { makeGeneratedCellValue } from "~/shared/generatedCellValues";
 import { api } from "~/trpc/react";
 
 type EditingCell = { rowId: string; columnId: string; value: string };
@@ -66,140 +67,9 @@ const MAX_EMPTY_BATCH_RETRIES = 90;
 const MAX_HINT_FETCH_ROWS = 100_000;
 const BULK_GENERATED_ROW_ID_RE = /^r[a-z0-9]{6}[0-9a-f]+$/i;
 const EMPTY_PRELOAD_CELLS: PreloadRow["cells"] = [];
-const FALLBACK_STATUS_LABELS = ["Todo", "In progress", "Done"];
-const FALLBACK_TASK_TITLES = [
-  "Plan onboarding refresh",
-  "Review launch checklist",
-  "Draft customer briefing",
-  "Audit integration flow",
-  "Coordinate sprint goals",
-  "Finalize design polish",
-];
-const FALLBACK_PEOPLE = [
-  "Harvey Graham",
-  "Ed Wisoky",
-  "Jasmine Quitzon",
-  "Ari Singh",
-  "Mina Park",
-  "Lucas Chen",
-];
-const FALLBACK_COMPANIES = [
-  "Northwind Labs",
-  "Summit Systems",
-  "Pioneer Works",
-  "Lumen Partners",
-  "Atlas Dynamics",
-  "Acorn Studio",
-];
-const FALLBACK_NOTES = [
-  "pace jovially iterate croon yet",
-  "brace bowler around absolve",
-  "cheerfully citizen concerning overview",
-  "ack ah yowza apropos",
-  "peony considering once",
-  "boo notwithstanding bah valiantly",
-];
-const FALLBACK_EMAIL_DOMAINS = [
-  "example.com",
-  "northwind.dev",
-  "summit.ai",
-  "acorn.io",
-];
-const FALLBACK_HOSTS = [
-  "workspace.example.com",
-  "portal.northwind.dev",
-  "status.summit.ai",
-  "app.acorn.io",
-];
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function stableHash(input: string) {
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash * 31 + input.charCodeAt(i)) | 0;
-  }
-  return hash >>> 0;
-}
-
-function pickValue(values: readonly string[], hash: number) {
-  return values[hash % values.length]!;
-}
-
-function makeFallbackCellValue(params: {
-  columnType: string;
-  columnName: string;
-  rowOrder: number;
-  columnId: string;
-  selectOptionLabels: string[];
-}) {
-  const { columnType, columnName, rowOrder, columnId, selectOptionLabels } =
-    params;
-  const primaryHash = stableHash(`${rowOrder}:${columnId}:primary`);
-  const secondaryHash = stableHash(`${rowOrder}:${columnId}:secondary`);
-  const lowerName = columnName.toLowerCase();
-
-  switch (columnType) {
-    case "CHECKBOX":
-      return primaryHash % 2 === 0 ? "true" : "false";
-    case "NUMBER":
-      return String(10 + (primaryHash % 5000));
-    case "CURRENCY":
-      return ((500 + (primaryHash % 125000)) / 100).toFixed(2);
-    case "PERCENT":
-      return String(primaryHash % 100);
-    case "RATING":
-      return String(1 + (primaryHash % 5));
-    case "DATE": {
-      const date = new Date(
-        Date.UTC(2026, 0, 1) + (primaryHash % 365) * 86_400_000,
-      );
-      return date.toISOString().slice(0, 10);
-    }
-    case "EMAIL": {
-      const person = pickValue(FALLBACK_PEOPLE, primaryHash)
-        .toLowerCase()
-        .replaceAll(" ", ".");
-      return `${person}${secondaryHash % 100}@${pickValue(FALLBACK_EMAIL_DOMAINS, secondaryHash)}`;
-    }
-    case "URL":
-      return `https://${pickValue(FALLBACK_HOSTS, primaryHash)}/item-${(secondaryHash % 9000) + 1000}`;
-    case "PHONE":
-      return `+1 ${200 + (primaryHash % 700)}-${String(100 + (secondaryHash % 900)).padStart(3, "0")}-${String(1000 + (primaryHash % 9000)).padStart(4, "0")}`;
-    case "DURATION":
-      return `${15 * (1 + (primaryHash % 24))}m`;
-    case "USER":
-      return pickValue(FALLBACK_PEOPLE, primaryHash);
-    case "ATTACHMENT":
-      return `https://files.example.com/${pickValue(FALLBACK_COMPANIES, primaryHash).toLowerCase().replaceAll(" ", "-")}/brief-${(secondaryHash % 500) + 1}.pdf`;
-    case "SINGLE_SELECT":
-      if (selectOptionLabels.length > 0)
-        return pickValue(selectOptionLabels, primaryHash);
-      return pickValue(FALLBACK_STATUS_LABELS, primaryHash);
-    case "MULTI_SELECT":
-      if (selectOptionLabels.length >= 2) {
-        return `${pickValue(selectOptionLabels, primaryHash)},${pickValue(selectOptionLabels, secondaryHash)}`;
-      }
-      if (selectOptionLabels.length === 1) return selectOptionLabels[0]!;
-      return `${pickValue(FALLBACK_STATUS_LABELS, primaryHash)},${pickValue(FALLBACK_STATUS_LABELS, secondaryHash)}`;
-    case "LONG_TEXT":
-      if (lowerName.includes("summary")) {
-        return `${pickValue(FALLBACK_NOTES, primaryHash)} ${pickValue(FALLBACK_NOTES, secondaryHash)}`;
-      }
-      return pickValue(FALLBACK_NOTES, primaryHash);
-    default:
-      if (lowerName.includes("name"))
-        return pickValue(FALLBACK_TASK_TITLES, primaryHash);
-      if (lowerName.includes("assignee") || lowerName.includes("owner")) {
-        return pickValue(FALLBACK_PEOPLE, primaryHash);
-      }
-      if (lowerName.includes("company") || lowerName.includes("account")) {
-        return pickValue(FALLBACK_COMPANIES, primaryHash);
-      }
-      return pickValue(FALLBACK_NOTES, primaryHash);
-  }
 }
 
 function isBulkGeneratedRowId(rowId: string) {
@@ -535,10 +405,10 @@ export default function GridView({
       const column = columnById.get(columnId);
       if (!column || !isBulkGeneratedRowId(row.id)) return "";
 
-      return makeFallbackCellValue({
+      return makeGeneratedCellValue({
         columnType: column.type,
         columnName: column.name,
-        rowOrder: row.order,
+        rowId: row.id,
         columnId,
         selectOptionLabels:
           column.selectOptions?.map((option) => option.label) ?? [],

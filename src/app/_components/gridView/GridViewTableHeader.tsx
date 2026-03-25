@@ -542,7 +542,7 @@ export function GridViewTableHeader({
           );
         })}
 
-        <th className="relative box-border w-24 bg-white px-2 py-0 text-left">
+        <th className="relative box-border bg-white px-2 py-0 text-left" style={{ width: 94, minWidth: 94 }}>
           <button
             onClick={(e) => {
               e.stopPropagation();

@@ -152,7 +152,7 @@ export default function ViewToolbar({
   onBulkAddRows,
   bulkAdding = false,
   onToggleSidebar,
-  sidebarOpen,
+  sidebarOpen: _sidebarOpen,
   onSidebarHoverStart,
   onSidebarHoverEnd,
   frozenColumnCount: _frozenColumnCount = 0,
