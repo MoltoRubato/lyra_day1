@@ -836,7 +836,7 @@ export function GridViewTableBody({
                       aria-label={`Select row ${rowNum}`}
                       aria-checked={rowSelected}
                       onClick={() => toggleRowSelection(row.id)}
-                      className={`absolute top-1/2 left-0 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
+                      className={`absolute top-1/2 left-0 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[3px] border transition-colors ${
                         rowSelected
                           ? "border-transparent bg-[#1c76d2] text-white opacity-100 shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
                           : "border-[#d6d8dd] bg-white text-transparent opacity-0 shadow-[0_1px_2px_rgba(15,23,42,0.16)] group-hover:opacity-100"

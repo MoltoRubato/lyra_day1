@@ -283,8 +283,8 @@ export function GridViewTableHeader({
                       : false
                 }
                 onClick={() => toggleAllRowsInView(!allInViewSelected)}
-                className={`absolute top-1/2 left-0 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[6px] border transition-colors ${
-                  allInViewSelected || someInViewSelected
+                className={`absolute top-1/2 left-0 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-[3px] border transition-colors ${
+                  allInViewSelected
                     ? "border-transparent bg-[#1c76d2] text-white shadow-[0_1px_2px_rgba(15,23,42,0.24)]"
                     : "border-[#d6d8dd] bg-white text-transparent shadow-[0_1px_2px_rgba(15,23,42,0.16)] hover:border-[#c7ccd5]"
                 }`}
@@ -303,21 +303,6 @@ export function GridViewTableHeader({
                       strokeWidth="2.2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : someInViewSelected ? (
-                  <svg
-                    width="9"
-                    height="9"
-                    viewBox="0 0 16 16"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 8h8"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
                     />
                   </svg>
                 ) : null}
