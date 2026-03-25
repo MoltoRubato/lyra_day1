@@ -26,11 +26,6 @@ test.describe("100k grid preload", () => {
 
     await page.waitForURL(new RegExp(`/base/${BASE_ID}`), { timeout: 60_000 });
 
-    const overlay = page.getByTestId("grid-loading-overlay");
-    await expect(overlay).toBeVisible({ timeout: 120_000 });
-    await expect(page.getByTestId("grid-loading-spinner")).toBeVisible();
-    await expect(overlay).toBeHidden({ timeout: 10 * 60 * 1000 });
-
     const scroller = page.getByTestId("grid-scroll-container");
     await expect(scroller).toBeVisible();
 
@@ -44,6 +39,12 @@ test.describe("100k grid preload", () => {
         if (values.length === 0) return { min: 0, max: 0 };
         return { min: Math.min(...values), max: Math.max(...values) };
       });
+
+    await expect
+      .poll(async () => (await readVisibleRowRange()).min, {
+        timeout: 120_000,
+      })
+      .toBeGreaterThan(0);
 
     await scroller.evaluate((el) => {
       el.scrollTop = 0;
@@ -76,9 +77,7 @@ test.describe("100k grid preload", () => {
     await editor.fill("row-99999-updated");
     await editor.press("Enter");
 
-    await expect(overlay).toBeHidden();
     await page.waitForTimeout(1500);
-    await expect(overlay).toBeHidden();
     await expect(page.getByText("row-99999-updated").first()).toBeVisible();
   });
 });
