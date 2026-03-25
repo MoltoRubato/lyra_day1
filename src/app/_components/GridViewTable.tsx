@@ -2021,7 +2021,7 @@ export function GridViewTable({
       )}
 
       <div
-        className="pointer-events-none absolute z-[60] overflow-visible"
+        className="pointer-events-none absolute z-[10] overflow-visible"
         style={{
           top: 0,
           bottom: dividerBottomInset,

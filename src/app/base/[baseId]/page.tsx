@@ -138,7 +138,7 @@ export default function BasePage({
       return { snapshot };
     },
     onError: (_e, _v, ctx) => restoreBase(ctx?.snapshot),
-    onSettled: invalidateBase,
+    onSuccess: invalidateBase,
   });
 
   const createTable = api.table.create.useMutation({
