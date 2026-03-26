@@ -34,6 +34,11 @@ export function useGridViewCacheHelpers(tableId: string) {
       if (current && current.rows.length >= current.rowCount) {
         return;
       }
+      // Skip invalidation if there are in-flight temp rows to avoid
+      // a refetch that would wipe out optimistic state
+      if (current && current.rows.some((r) => r.id.startsWith("temp-"))) {
+        return;
+      }
       void utils.table.getById.invalidate({ id: tableId });
     },
     [utils, tableId],

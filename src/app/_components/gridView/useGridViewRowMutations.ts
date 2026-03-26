@@ -161,6 +161,7 @@ export function useGridViewRowMutations({
   });
 
   const bulkDeleteRows = api.table.bulkDeleteRows.useMutation({
+    mutationKey: ["table.bulkDeleteRows", tableId],
     onMutate: async (value) => {
       await cancelCache();
       const snapshot = snapshotCache();

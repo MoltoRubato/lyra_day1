@@ -209,6 +209,7 @@ export function GridViewTable({
   onRetryLoadAll: _onRetryLoadAll,
   trueTotal: _trueTotal,
   totalRows,
+  showTrailingAddRow,
   bulkDeleteRows,
   reorderRows,
   canReorderRows,
@@ -250,6 +251,7 @@ export function GridViewTable({
   >(null);
 
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const selectedRowIdsRef = useRef<string[]>([]);
   const [dragRowId, setDragRowId] = useState<string | null>(null);
   const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
   const [rowContextMenu, setRowContextMenu] = useState<{
@@ -328,6 +330,7 @@ export function GridViewTable({
     () => visibleRowsInViewOrder.map((r) => r.id),
     [visibleRowsInViewOrder],
   );
+  const rowIdsInViewOrderRef = useRef<string[]>([]);
   const columnsById = useMemo(
     () => new Map(allCols.map((column) => [column.id, column])),
     [allCols],
@@ -407,6 +410,19 @@ export function GridViewTable({
     () => new Map(visCols.map((column) => [column.id, column] as const)),
     [visCols],
   );
+  selectedRowIdsRef.current = selectedRowIds;
+  rowIdsInViewOrderRef.current = rowIdsInViewOrder;
+
+  const setSelectedRowIdsSynced = useCallback(
+    (value: string[] | ((prev: string[]) => string[])) => {
+      setSelectedRowIds((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        selectedRowIdsRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
 
   // Cell context menu row mutations (need access to selectGridCell)
   const cellMenuCacheHelpers = useGridViewCacheHelpers(tableId);
@@ -460,13 +476,32 @@ export function GridViewTable({
       const { tempId } = ctx;
       cellMenuCacheHelpers.patchCache((prev) => {
         if (!prev) return prev;
+
+        const hasTempRow = prev.rows.some((r) => r.id === tempId);
+        const hasRealRow = prev.rows.some((r) => r.id === realRow.id);
+
+        if (hasTempRow) {
+          return {
+            ...prev,
+            rows: prev.rows.map((r) => (r.id === tempId ? realRow : r)),
+          };
+        }
+
+        if (hasRealRow) {
+          return {
+            ...prev,
+            rows: prev.rows.map((r) =>
+              r.id === realRow.id ? realRow : r,
+            ),
+          };
+        }
+
         return {
           ...prev,
-          rows: prev.rows.map((r) =>
-            r.id === tempId
-              ? { ...realRow, cells: r.cells.map((c) => ({ ...c, rowId: realRow.id })) }
-              : r,
+          rows: [...prev.rows, realRow].sort(
+            (a, b) => a.order - b.order,
           ),
+          rowCount: prev.rowCount + 1,
         };
       });
       setEditing((prev) =>
@@ -526,13 +561,32 @@ export function GridViewTable({
       const { tempId } = ctx;
       cellMenuCacheHelpers.patchCache((prev) => {
         if (!prev) return prev;
+
+        const hasTempRow = prev.rows.some((r) => r.id === tempId);
+        const hasRealRow = prev.rows.some((r) => r.id === realRow.id);
+
+        if (hasTempRow) {
+          return {
+            ...prev,
+            rows: prev.rows.map((r) => (r.id === tempId ? realRow : r)),
+          };
+        }
+
+        if (hasRealRow) {
+          return {
+            ...prev,
+            rows: prev.rows.map((r) =>
+              r.id === realRow.id ? realRow : r,
+            ),
+          };
+        }
+
         return {
           ...prev,
-          rows: prev.rows.map((r) =>
-            r.id === tempId
-              ? { ...realRow, cells: r.cells.map((c) => ({ ...c, rowId: realRow.id })) }
-              : r,
+          rows: [...prev.rows, realRow].sort(
+            (a, b) => a.order - b.order,
           ),
+          rowCount: prev.rowCount + 1,
         };
       });
       setEditing((prev) =>
@@ -865,12 +919,12 @@ export function GridViewTable({
 
   useEffect(() => {
     if (!visibleRowsInViewOrder.length) {
-      setSelectedRowIds([]);
+      setSelectedRowIdsSynced([]);
       return;
     }
     const valid = new Set(visibleRowsInViewOrder.map((r) => r.id));
-    setSelectedRowIds((prev) => prev.filter((id) => valid.has(id)));
-  }, [visibleRowsInViewOrder]);
+    setSelectedRowIdsSynced((prev) => prev.filter((id) => valid.has(id)));
+  }, [setSelectedRowIdsSynced, visibleRowsInViewOrder]);
 
   useEffect(() => {
     if (!changingPrimaryField) return;
@@ -1684,7 +1738,7 @@ export function GridViewTable({
 
   function toggleRowSelection(rowId: string) {
     selectGridCell(null);
-    setSelectedRowIds((prev) =>
+    setSelectedRowIdsSynced((prev) =>
       prev.includes(rowId)
         ? prev.filter((id) => id !== rowId)
         : [...prev, rowId],
@@ -1694,10 +1748,10 @@ export function GridViewTable({
   function toggleAllRowsInView(checked: boolean) {
     selectGridCell(null);
     if (checked) {
-      setSelectedRowIds(rowIdsInViewOrder);
+      setSelectedRowIdsSynced(rowIdsInViewOrderRef.current);
       return;
     }
-    setSelectedRowIds([]);
+    setSelectedRowIdsSynced([]);
   }
 
   function openRowContextMenu(e: React.MouseEvent, rowId: string) {
@@ -1708,7 +1762,7 @@ export function GridViewTable({
     closeColMenu();
     setSummaryMenu(null);
     selectGridCell(null);
-    setSelectedRowIds((prev) => (prev.includes(rowId) ? prev : [rowId]));
+    setSelectedRowIdsSynced((prev) => (prev.includes(rowId) ? prev : [rowId]));
     setRowContextMenu({ x: e.clientX, y: e.clientY });
   }
 
@@ -1726,11 +1780,16 @@ export function GridViewTable({
 
     const cellKey = columnId ? `${rowId}-${columnId}` : null;
     const isInRange = cellKey ? cellRangeSet?.has(cellKey) : false;
+    const selectedRowIdsSnapshot = selectedRowIdsRef.current;
+    const selectedRowIdSet = new Set(selectedRowIdsSnapshot);
 
     if (cellRange && isInRange && cellRangeRowIds) {
       setCellContextMenu(null);
       setRowContextMenu({ x: e.clientX, y: e.clientY });
-    } else if (selectedRowIds.length > 1 && selectedSet.has(rowId)) {
+    } else if (
+      selectedRowIdsSnapshot.length > 1 &&
+      selectedRowIdSet.has(rowId)
+    ) {
       setCellContextMenu(null);
       setRowContextMenu({ x: e.clientX, y: e.clientY });
     } else {
@@ -1759,6 +1818,37 @@ export function GridViewTable({
     rowIdsInViewOrder.length > 0 &&
     selectedInViewCount === rowIdsInViewOrder.length;
   const someInViewSelected = selectedInViewCount > 0 && !allInViewSelected;
+  const deleteAllRowsInView = useCallback(() => {
+    if (cellRangeRowIds) {
+      bulkDeleteRows.mutate({ rowIds: [...cellRangeRowIds] });
+      setCellRange(null);
+      return;
+    }
+
+    const ids = [...selectedRowIdsRef.current];
+    if (ids.length === 0) return;
+
+    const rowIdsSnapshot = rowIdsInViewOrderRef.current;
+    const selectedIdSet = new Set(ids);
+    const allRowsInViewSelectedNow =
+      rowIdsSnapshot.length > 0 &&
+      ids.length === rowIdsSnapshot.length &&
+      rowIdsSnapshot.every((id) => selectedIdSet.has(id));
+
+    if (allRowsInViewSelectedNow) {
+      bulkDeleteRows.mutate({ tableId, deleteAll: true });
+    } else {
+      bulkDeleteRows.mutate({ rowIds: ids });
+    }
+
+    setSelectedRowIdsSynced([]);
+  }, [
+    bulkDeleteRows,
+    cellRangeRowIds,
+    setCellRange,
+    setSelectedRowIdsSynced,
+    tableId,
+  ]);
 
   const summaryRowHeightPx = 21.5;
   const summaryBarHeightPx = 34;
@@ -1878,6 +1968,7 @@ export function GridViewTable({
             addRow={addRow}
             tableId={tableId}
             chunkLoading={chunkLoading}
+            showTrailingAddRow={showTrailingAddRow}
             allRowsForSummary={allRowsForSummary}
             labelLower={labelLower}
             pluralLabel={pluralLabel}
@@ -2118,11 +2209,8 @@ export function GridViewTable({
         rowContextMenu={rowContextMenu}
         hasSelectedRows={hasSelectedRows}
         selectedRowIds={selectedRowIds}
-        tableId={tableId}
-        allRowsSelected={allInViewSelected}
         pluralLabel={pluralLabel}
-        bulkDeleteRows={bulkDeleteRows}
-        setSelectedRowIds={setSelectedRowIds}
+        onDeleteSelectedRows={deleteAllRowsInView}
         setRowContextMenu={setRowContextMenu}
         editingField={editingField}
         setEditingField={setEditingField}
@@ -2143,7 +2231,6 @@ export function GridViewTable({
         duplicateRow={duplicateRow}
         deleteRow={_deleteRow}
         contextRowIds={cellRangeRowIds}
-        setCellRange={setCellRange}
       />
 
       {changingPrimaryField && primaryColumn && (

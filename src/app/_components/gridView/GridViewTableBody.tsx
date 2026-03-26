@@ -70,6 +70,7 @@ type GridViewTableBodyProps = {
   addRow: { mutate: (v: { tableId: string }) => void };
   tableId: string;
   chunkLoading: boolean;
+  showTrailingAddRow: boolean;
   allRowsForSummary: RowWithCells[];
   labelLower: string;
   pluralLabel: (n: number) => string;
@@ -337,6 +338,7 @@ export function GridViewTableBody({
   addRow,
   tableId,
   chunkLoading,
+  showTrailingAddRow,
   allRowsForSummary,
   labelLower,
   pluralLabel,
@@ -1310,75 +1312,79 @@ export function GridViewTableBody({
 
         {renderSpacerRows(bottomPad, colSpan, "bottom-pad")}
 
-        <tr
-          className="group relative cursor-pointer bg-white hover:bg-[#f8f8f8]"
-          style={{ height: rowH }}
-          onClick={() => addRow.mutate({ tableId })}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              addRow.mutate({ tableId });
-            }
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label={`Add ${labelLower}`}
-        >
-          <td
-            className="sticky left-0 z-[13] box-border border-t border-b border-[#e2e5e9] bg-white px-0 py-0 group-hover:bg-[#f8f8f8]"
-            style={{
-              width: rowNumberWidth,
-              minWidth: rowNumberWidth,
-              maxWidth: rowNumberWidth,
-            }}
-          >
-            <div
-              className="flex h-full w-full items-center justify-center bg-transparent px-0 py-2 text-[13px] text-[#9ca3af] transition-colors group-hover:text-[#1f2937]"
-              title={`Add ${labelLower}`}
+        {showTrailingAddRow && (
+          <>
+            <tr
+              className="group relative cursor-pointer bg-white hover:bg-[#f8f8f8]"
+              style={{ height: rowH }}
+              onClick={() => addRow.mutate({ tableId })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  addRow.mutate({ tableId });
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Add ${labelLower}`}
             >
-              <span className="pointer-events-none flex h-full w-full items-center">
-                <span className="flex h-full w-[20px] shrink-0" />
-                <span className="relative h-full w-[44px]">
-                  <span className="absolute inset-y-0 left-0 flex w-4 items-center justify-center">
-                    <svg
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      className="h-3 w-3"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path d="M6 2v8M2 6h8" strokeLinecap="round" />
-                    </svg>
+              <td
+                className="sticky left-0 z-[13] box-border border-t border-b border-[#e2e5e9] bg-white px-0 py-0 group-hover:bg-[#f8f8f8]"
+                style={{
+                  width: rowNumberWidth,
+                  minWidth: rowNumberWidth,
+                  maxWidth: rowNumberWidth,
+                }}
+              >
+                <div
+                  className="flex h-full w-full items-center justify-center bg-transparent px-0 py-2 text-[13px] text-[#9ca3af] transition-colors group-hover:text-[#1f2937]"
+                  title={`Add ${labelLower}`}
+                >
+                  <span className="pointer-events-none flex h-full w-full items-center">
+                    <span className="flex h-full w-[20px] shrink-0" />
+                    <span className="relative h-full w-[44px]">
+                      <span className="absolute inset-y-0 left-0 flex w-4 items-center justify-center">
+                        <svg
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          className="h-3 w-3"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        >
+                          <path d="M6 2v8M2 6h8" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                    </span>
                   </span>
-                </span>
-              </span>
-            </div>
-          </td>
-          <td
-            colSpan={Math.max(1, colSpan - 1)}
-            className="border-t border-r border-b border-[#e2e5e9] bg-white px-0 py-0 group-hover:bg-[#f8f8f8]"
-          >
-            <div className="flex h-full w-full items-center justify-end">
-              <span className="flex items-center gap-1.5 px-4 text-[10px] text-[#ccc]">
-                {chunkLoading && (
-                  <span className="flex items-center gap-1 text-[#f97316]">
-                    <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
-                    Loading {loadedCount.toLocaleString()} /{" "}
-                    {(table?.rowCount ?? 0).toLocaleString()}...
+                </div>
+              </td>
+              <td
+                colSpan={Math.max(1, colSpan - 1)}
+                className="border-t border-r border-b border-[#e2e5e9] bg-white px-0 py-0 group-hover:bg-[#f8f8f8]"
+              >
+                <div className="flex h-full w-full items-center justify-end">
+                  <span className="flex items-center gap-1.5 px-4 text-[10px] text-[#ccc]">
+                    {chunkLoading && (
+                      <span className="flex items-center gap-1 text-[#f97316]">
+                        <span className="inline-block h-2 w-2 animate-spin rounded-full border border-[#f97316] border-t-transparent" />
+                        Loading {loadedCount.toLocaleString()} /{" "}
+                        {(table?.rowCount ?? 0).toLocaleString()}...
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-            </div>
-          </td>
-        </tr>
+                </div>
+              </td>
+            </tr>
 
-        {/* Bottom spacer: always-visible gap below the add-row button */}
-        <tr aria-hidden="true" className="bg-[#f6f8fc]">
-          <td
-            colSpan={colSpan}
-            style={{ padding: 0, border: "none", height: rowH * 4 }}
-          />
-        </tr>
+            {/* Bottom spacer: gap below the add-row button (only visible at the very end) */}
+            <tr aria-hidden="true" className="bg-[#f6f8fc]">
+              <td
+                colSpan={colSpan}
+                style={{ padding: 0, border: "none", height: rowH * 4 }}
+              />
+            </tr>
+          </>
+        )}
 
         {summaryBottomOffsetPx > 0 && (
           <tr aria-hidden="true" className="bg-[#f6f8fc]">

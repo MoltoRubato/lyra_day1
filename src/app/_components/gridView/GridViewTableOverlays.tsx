@@ -6,7 +6,6 @@ import {
   SUMMARY_OPTIONS,
 } from "~/app/_components/gridView/tableShared";
 import type {
-  BulkDeleteRowsPayload,
   FieldEditorState,
   SummaryOption,
 } from "~/app/_components/gridView/tableTypes";
@@ -53,13 +52,8 @@ type GridViewTableOverlaysProps = {
   rowContextMenu: { x: number; y: number } | null;
   hasSelectedRows: boolean;
   selectedRowIds: string[];
-  tableId: string;
-  allRowsSelected: boolean;
   pluralLabel: (n: number) => string;
-  bulkDeleteRows: {
-    mutate: (v: BulkDeleteRowsPayload) => void;
-  };
-  setSelectedRowIds: (v: string[] | ((prev: string[]) => string[])) => void;
+  onDeleteSelectedRows: () => void;
   setRowContextMenu: (v: { x: number; y: number } | null) => void;
   editingField: FieldEditorState | null;
   setEditingField: (v: FieldEditorState | null) => void;
@@ -84,7 +78,6 @@ type GridViewTableOverlaysProps = {
   duplicateRow: { mutate: (v: { rowId: string }) => void };
   deleteRow: { mutate: (v: { rowId: string }) => void };
   contextRowIds: string[] | null;
-  setCellRange: (v: null) => void;
 };
 
 export function GridViewTableOverlays({
@@ -95,11 +88,8 @@ export function GridViewTableOverlays({
   rowContextMenu,
   hasSelectedRows,
   selectedRowIds,
-  tableId,
-  allRowsSelected,
   pluralLabel,
-  bulkDeleteRows,
-  setSelectedRowIds,
+  onDeleteSelectedRows,
   setRowContextMenu,
   editingField,
   setEditingField,
@@ -120,7 +110,6 @@ export function GridViewTableOverlays({
   duplicateRow,
   deleteRow,
   contextRowIds,
-  setCellRange,
 }: GridViewTableOverlaysProps) {
   return (
     <>
@@ -261,18 +250,7 @@ export function GridViewTableOverlays({
                 userSelect: "none",
               }}
               onClick={() => {
-                if (contextRowIds) {
-                  // Cell range delete
-                  bulkDeleteRows.mutate({ rowIds: [...contextRowIds] });
-                  setCellRange(null);
-                } else if (allRowsSelected) {
-                  bulkDeleteRows.mutate({ tableId, deleteAll: true });
-                } else {
-                  const ids = [...selectedRowIds];
-                  if (ids.length === 0) return;
-                  bulkDeleteRows.mutate({ rowIds: ids });
-                }
-                if (!contextRowIds) setSelectedRowIds([]);
+                onDeleteSelectedRows();
                 setRowContextMenu(null);
               }}
             >

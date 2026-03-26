@@ -26,33 +26,35 @@ async function insertEmptyRowAt(
   tableId: string,
   insertOrder: number,
 ) {
-  await db.row.updateMany({
-    where: { tableId, order: { gte: insertOrder } },
-    data: { order: { increment: 1 } },
-  });
-  const row = await db.row.create({
-    data: { tableId, order: insertOrder },
-    include: { cells: true },
-  });
-  const columns = await db.column.findMany({
-    where: { tableId },
-    select: { id: true },
-  });
-  if (columns.length > 0) {
-    await db.cell.createMany({
-      data: columns.map((col) => ({
-        rowId: row.id,
-        columnId: col.id,
-        value: null,
-      })),
+  return db.$transaction(async (tx) => {
+    await tx.row.updateMany({
+      where: { tableId, order: { gte: insertOrder } },
+      data: { order: { increment: 1 } },
     });
-  }
-  const result = await db.row.findUnique({
-    where: { id: row.id },
-    include: { cells: true },
+    const row = await tx.row.create({
+      data: { tableId, order: insertOrder },
+      include: { cells: true },
+    });
+    const columns = await tx.column.findMany({
+      where: { tableId },
+      select: { id: true },
+    });
+    if (columns.length > 0) {
+      await tx.cell.createMany({
+        data: columns.map((col) => ({
+          rowId: row.id,
+          columnId: col.id,
+          value: null,
+        })),
+      });
+    }
+    const result = await tx.row.findUnique({
+      where: { id: row.id },
+      include: { cells: true },
+    });
+    if (!result) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    return result;
   });
-  if (!result) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-  return result;
 }
 
 export const rowMutationProcedures = {

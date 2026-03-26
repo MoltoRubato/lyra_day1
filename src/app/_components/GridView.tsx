@@ -60,10 +60,8 @@ const OVERSCAN = 15;
 const MAX_FULL_LOAD_ROWS = 300_000;
 const MIN_PRELOAD_BATCH_ROWS = 2_000;
 const MAX_PRELOAD_BATCH_ROWS = 25_000;
-const MAX_PRELOAD_STEPS = 2_000;
 const MAX_BATCH_FETCH_RETRIES = 4;
 const RETRY_BACKOFF_MS = 400;
-const MAX_EMPTY_BATCH_RETRIES = 90;
 const MAX_HINT_FETCH_ROWS = 100_000;
 const BULK_GENERATED_ROW_ID_RE = /^r[a-z0-9]{6}[0-9a-f]+$/i;
 const EMPTY_PRELOAD_CELLS: PreloadRow["cells"] = [];
@@ -240,7 +238,15 @@ export default function GridView({
     const el = containerRef.current;
     if (!el) return;
     setViewportH(el.clientHeight);
-    const ro = new ResizeObserver(([e]) => setViewportH(e!.contentRect.height));
+    const ro = new ResizeObserver(([e]) => {
+      setViewportH(e!.contentRect.height);
+      // Sync scrollTop — the browser may have clamped it after resize
+      // but no scroll event fires, leaving scrollTopRef stale.
+      if (el) {
+        const max = Math.max(0, el.scrollHeight - el.clientHeight);
+        scrollTopRef.current = Math.max(0, Math.min(el.scrollTop, max));
+      }
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -626,24 +632,29 @@ export default function GridView({
 
   const rawRowCount = table?.rowCount;
   const totalRows = rawRowCount ?? table?.rows.length ?? 0;
-  const visibleTotal = noTransform ? totalRows : flatItems.length;
   const loadedCount = flatItems.length;
+  const trueTotal = noTransform ? totalRows : flatItems.length;
+  const virtualVisibleTotal = noTransform ? loadedCount : flatItems.length;
 
-  const scrollTop = scrollTopRef.current;
+  const maxVirtualScrollTop = Math.max(
+    0,
+    virtualVisibleTotal * rowH - viewportH,
+  );
+  const scrollTop = Math.max(
+    0,
+    Math.min(scrollTopRef.current, maxVirtualScrollTop),
+  );
   const viewportStart = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN);
   const viewportEnd = Math.min(
-    visibleTotal,
+    virtualVisibleTotal,
     Math.ceil((scrollTop + viewportH) / rowH) + OVERSCAN,
   );
   const sliceStart = Math.min(viewportStart, loadedCount);
   const sliceEnd = Math.min(viewportEnd, loadedCount);
   const topPad = viewportStart * rowH;
-  const loadingGapRows =
-    noTransform && totalRows > loadedCount
-      ? Math.max(0, viewportEnd - Math.max(sliceEnd, viewportStart))
-      : 0;
+  const loadingGapRows = noTransform && trueTotal > loadedCount ? 1 : 0;
   const loadingGapHeight = loadingGapRows * rowH;
-  const bottomPad = Math.max(0, (visibleTotal - viewportEnd) * rowH);
+  const bottomPad = Math.max(0, (virtualVisibleTotal - viewportEnd) * rowH);
   const visItems = flatItems.slice(sliceStart, sliceEnd);
   const toggleGroupCollapsed = useCallback(
     (groupKey: string) => {
@@ -950,83 +961,66 @@ export default function GridView({
       }
 
       const seenIds = new Set(existingRows.map((row) => row.id));
-      let lastOrder =
+      if (seenIds.size >= total) return;
+
+      const lastOrder =
         existingRows.length > 0
           ? existingRows[existingRows.length - 1]!.order
           : -1;
-      const newRows: PreloadRow[] = [];
-      let steps = 0;
-      let emptyBatchRetries = 0;
+      const remaining = total - seenIds.size;
+      let rows: PreloadRow[] = [];
+      let requestTake = Math.min(batchSize, remaining);
+      let lastBatchError: unknown = null;
 
-      while (seenIds.size < total) {
-        steps += 1;
-        if (steps > MAX_PRELOAD_STEPS) {
-          throw new Error("Stopped preload to avoid an infinite fetch loop.");
-        }
-        const remaining = total - seenIds.size;
-        let rows: PreloadRow[] = [];
-        let requestTake = Math.min(batchSize, remaining);
-        let lastBatchError: unknown = null;
-
-        for (
-          let attempt = 0;
-          attempt <= MAX_BATCH_FETCH_RETRIES;
-          attempt += 1
-        ) {
-          try {
-            const batch = await loadRowsAfterOrder.mutateAsync({
-              tableId,
-              afterOrder: lastOrder,
-              take: requestTake,
-            });
-            rows = mapBatchRowsToPreloadRows({ batch, tableId });
-            lastBatchError = null;
-            break;
-          } catch (err) {
-            lastBatchError = err;
-            if (attempt >= MAX_BATCH_FETCH_RETRIES) break;
-            requestTake = Math.max(
-              MIN_PRELOAD_BATCH_ROWS,
-              Math.floor(requestTake / 2),
-            );
-            await sleep(RETRY_BACKOFF_MS * (attempt + 1));
-          }
-        }
-
-        if (lastBatchError) {
-          if (lastBatchError instanceof Error) {
-            throw lastBatchError;
-          }
-          if (typeof lastBatchError === "string") {
-            throw new Error(lastBatchError);
-          }
-          throw new Error("Batch preload failed with an unknown error.");
-        }
-
-        if (preloadCycle.current !== cycleId) return;
-        if (rows.length === 0) {
-          emptyBatchRetries += 1;
-          if (emptyBatchRetries > MAX_EMPTY_BATCH_RETRIES) {
-            throw new Error(
-              "No additional rows were returned before preload completed.",
-            );
-          }
-          await sleep(Math.min(2_000, RETRY_BACKOFF_MS * emptyBatchRetries));
-          continue;
-        }
-        emptyBatchRetries = 0;
-
-        lastOrder = rows[rows.length - 1]!.order;
-        for (const row of rows) {
-          if (seenIds.has(row.id)) continue;
-          seenIds.add(row.id);
-          newRows.push(row);
+      for (
+        let attempt = 0;
+        attempt <= MAX_BATCH_FETCH_RETRIES;
+        attempt += 1
+      ) {
+        try {
+          const batch = await loadRowsAfterOrder.mutateAsync({
+            tableId,
+            afterOrder: lastOrder,
+            take: requestTake,
+          });
+          rows = mapBatchRowsToPreloadRows({ batch, tableId });
+          lastBatchError = null;
+          break;
+        } catch (err) {
+          lastBatchError = err;
+          if (attempt >= MAX_BATCH_FETCH_RETRIES) break;
+          requestTake = Math.max(
+            MIN_PRELOAD_BATCH_ROWS,
+            Math.floor(requestTake / 2),
+          );
+          await sleep(RETRY_BACKOFF_MS * (attempt + 1));
         }
       }
 
+      if (lastBatchError) {
+        if (lastBatchError instanceof Error) {
+          throw lastBatchError;
+        }
+        if (typeof lastBatchError === "string") {
+          throw new Error(lastBatchError);
+        }
+        throw new Error("Batch preload failed with an unknown error.");
+      }
+
       if (preloadCycle.current !== cycleId) return;
+      if (rows.length === 0) {
+        throw new Error(
+          "No additional rows were returned before preload completed.",
+        );
+      }
+
+      const freshRows = rows.filter((row) => !seenIds.has(row.id));
+      if (freshRows.length === 0) {
+        throw new Error("Fetched rows were already present in the preload set.");
+      }
+
       setLoadAllPhase("finalizing");
-      setPreloadedRows((prev) => (prev ? [...prev, ...newRows] : newRows));
+      setPreloadedRows((prev) => (prev ? [...prev, ...freshRows] : freshRows));
     })()
       .catch((err: unknown) => {
         if (preloadCycle.current !== cycleId) return;
@@ -1051,7 +1045,6 @@ export default function GridView({
     bulkAddInFlight,
     bulkGeneratedRowsHint,
     loadAllRetryTick,
-    loadRowsAfterOrder.mutateAsync,
   ]);
 
   if (isLoading) {
@@ -1360,8 +1353,9 @@ export default function GridView({
       scrollLocked={scrollLocked}
       loadAllError={loadAllError}
       onRetryLoadAll={() => setLoadAllRetryTick((n) => n + 1)}
-      trueTotal={visibleTotal}
+      trueTotal={trueTotal}
       totalRows={totalRows}
+      showTrailingAddRow={loadedCount >= trueTotal}
       bulkDeleteRows={bulkDeleteRowsWithPreloaded}
       reorderRows={reorderRows}
       canReorderRows={noTransform}

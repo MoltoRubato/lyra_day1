@@ -1,0 +1,17 @@
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+ ⚠ Cross origin request detected from 127.0.0.1 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+❌ tRPC failed on base.getById: Base "cmn3wmojz00017kuo3orvn4eb" not found
+❌ tRPC failed on base.getById: Base "cmn3wmojz00017kuo3orvn4eb" not found
+❌ tRPC failed on base.getById: Base "cmn3wmojz00017kuo3orvn4eb" not found
+❌ tRPC failed on base.getById: Base "cmn3wmojz00017kuo3orvn4eb" not found
+❌ tRPC failed on base.getById: Base "cmn3wmojz00017kuo3orvn4eb" not found
+❌ tRPC failed on table.loadRowsAfterOrder: Unexpected end of JSON input
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+❌ tRPC failed on table.loadRowsAfterOrder: Unexpected end of JSON input
+^C

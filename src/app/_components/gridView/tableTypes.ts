@@ -183,6 +183,7 @@ export type GridViewTableProps = {
   onRetryLoadAll: () => void;
   trueTotal: number;
   totalRows: number;
+  showTrailingAddRow: boolean;
   bulkDeleteRows: {
     mutate: (v: BulkDeleteRowsPayload) => void;
   };

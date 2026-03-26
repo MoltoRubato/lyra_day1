@@ -363,8 +363,9 @@ export default function BasePage({
 
   async function handleBulkAddRows() {
     if (!currentTableId || bulkAdding) return;
+    const targetTableId = currentTableId;
     setBulkAdding(true);
-    setBulkAddPendingTableId(currentTableId);
+    setBulkAddPendingTableId(targetTableId);
 
     // Wait for any in-flight bulkDeleteRows mutations to finish before inserting,
     // otherwise the delete (which targets all rows by tableId) will wipe the
@@ -372,11 +373,15 @@ export default function BasePage({
     const pendingDeletes = queryClient
       .getMutationCache()
       .getAll()
-      .filter(
-        (m) =>
+      .filter((m) => {
+        const key = m.options.mutationKey;
+        return (
           m.state.status === "pending" &&
-          JSON.stringify(m.options.mutationKey ?? []).includes("bulkDeleteRows"),
-      );
+          Array.isArray(key) &&
+          key[0] === "table.bulkDeleteRows" &&
+          key[1] === targetTableId
+        );
+      });
     if (pendingDeletes.length > 0) {
       const cache = queryClient.getMutationCache();
       await Promise.allSettled(
@@ -401,7 +406,7 @@ export default function BasePage({
       );
     }
 
-    bulkAddRows.mutate({ tableId: currentTableId, count: 100_000 });
+    bulkAddRows.mutate({ tableId: targetTableId, count: 100_000 });
   }
 
   // ── UI state ───────────────────────────────────────────────────────────────
